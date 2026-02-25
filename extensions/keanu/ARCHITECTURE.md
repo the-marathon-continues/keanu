@@ -8,7 +8,7 @@ Built by Drew and Claude across 140+ sessions. Lives in `extensions/keanu/` as a
 
 ## What's here
 
-13 modules. 23 hooks. Every content path in openclaw gets the mirror.
+25 modules. 23 hooks. Every content path in openclaw gets the mirror. The system notices, learns, and remembers.
 
 ### The loop
 
@@ -16,13 +16,36 @@ Every turn follows the same cycle:
 
 1. **Human speaks** → `human.ts` reads their emotional state (6 tones, pattern-matched, with DBT skill suggestions). Bullshit detection runs on their input too — same mirror, both directions.
 
-2. **Before the model thinks** → `before_prompt_build` injects context: raw color primaries, human tone reading, pulse state, DEAR MAN nudges if grey, STOP protocol if black, COEF trend data, contradiction notices, reflexion history. The model sees its own trajectory before it responds.
+2. **Before the model thinks** → `before_prompt_build` injects awareness context in layers:
+   - Partnership identity (who we are, sacred gaps, trust state)
+   - SELF-DISCOVER guidance (reasoning modules for complex tasks)
+   - Seasons spring/summer (intent parsed, confidence assessed)
+   - Deliberative alignment (visible value reasoning when sensitive)
+   - Calibration CC: protocol (claims from last turn that need evidence)
+   - Mismatch awareness (comfort-when-they-needed-truth from last turn)
+   - Health pacing (shorter responses when running hot)
+   - Blind spots (persistent correction patterns)
+   - Session learning (what we learned last time)
+   - Recovery nudges (cool/pace/reengage after black)
+   - Co-evolution check (staleness detection)
+   - Socioaffective monitoring (wellbeing, autonomy, human bonds)
+   - Plus existing: raw primaries, human tone, pulse state, DEAR MAN nudges, STOP protocol, COEF trend, contradiction notices, reflexion history
 
-3. **Model responds** → `pulse.ts` checks: alive, grey, or black? `bullshit.ts` scans all 8 types. `truth.ts` cross-references against recent outputs for contradictions. If bullshit score is high, the oracle gets called for a second opinion. `signal.ts` encodes the full state into COEF (lossless, ~25 tokens) and emoji (7-position visual diagnostic).
+3. **Model responds** → Multiple layers of post-generation analysis:
+   - `pulse.ts` checks: alive, grey, or black
+   - `bullshit.ts` scans all 8 types
+   - `mismatch.ts` cross-references human need vs agent output
+   - `seasons.ts` autumn checks alignment, winter extracts lessons
+   - `calibrate.ts` scans claims that need the CC: protocol
+   - `health.ts` computes composite from existing signals
+   - `truth.ts` cross-references against recent outputs for contradictions
+   - `chain.ts` traces full break chain on grey/black
+   - `introspect.ts` runs 10-question audit every 10 turns
+   - `signal.ts` encodes full state into COEF and emoji
 
-4. **Reflexion** → If the turn was bad (black state, consecutive grey, high bullshit, contradiction), `reflexion.ts` generates an honest post-mortem. Fast path for most triggers, oracle path for severe ones. Persisted to disk across sessions.
+4. **Reflexion + chain analysis** → If the turn was bad, two systems fire. `reflexion.ts` generates a post-mortem (fast or oracle path). `chain.ts` traces the full system state at the break point: what did SELF-DISCOVER select? What was the health status? Was there a mismatch? Where in the chain did things go wrong?
 
-5. **State persists** → `state.ts` tracks everything: pulse history, disagreement ledger, bullshit event counts, tool usage patterns, token spend, subagent lineage, prompt size trends. Survives compaction via alignment snapshots written to `memory/`.
+5. **State persists** → `state.ts` tracks everything. `mastery.ts` aggregates corrections into blind spots. `session-learning.ts` builds summaries with meta-learning data. `partnership.ts` maintains the living relationship model. All persist to `awareness/` in workspace dir. Survives compaction via alignment snapshots.
 
 ### The modules
 
@@ -40,7 +63,23 @@ Every turn follows the same cycle:
 | `speak.ts`        | Audience translator. Five built-in audiences (friend, executive, junior dev, five-year-old, architect). Single oracle call. Preserves meaning, changes container.                                                                         | ~200ms       |
 | `mirror.ts`       | CLI tool. Feed text in, see what the mirror sees. `bun mirror.ts "text"` for agent mode, `bun mirror.ts --human "text"` for human mode. Pure heuristics, no API calls needed.                                                             | <5ms         |
 | `state.ts`        | Full session state. Persists to `.keanu-state.json`. Tracks: pulse, disagreements, bullshit events, tool calls, token usage, subagent lineage, prompt sizes, model usage, reflexions. Writes alignment snapshots that survive compaction. | disk I/O     |
-| `types.ts`        | Shared type definitions. PulseReading, HumanReading, BullshitReading, Disagreement, SignalState, Reflexion, Oracle types, COEF types.                                                                                                     | —            |
+| `types.ts`        | Shared type definitions. PulseReading, HumanReading, BullshitReading, Disagreement, SignalState, Reflexion, RecoveryState, CohumainReading, Oracle types, COEF types.                                                                     | —            |
+
+### The awareness layer (phase 4)
+
+| Module                | What it does                                                                                                                                                                                                         | Speed   |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| `discover.ts`         | SELF-DISCOVER: 8 reasoning modules (decompose, analogize, contradict, stakeholder, simplify, sequence, constraint, tradeoff). Complexity detection. Auto-selects modules before complex tasks.                       | <5ms    |
+| `partnership.ts`      | Living relationship model. Drew + Keanu profiles, sacred gaps, jagged frontier, trust calibration (CHAI-T), co-evolution tracking, socioaffective monitoring, SMM sync, error decorrelation checks. Seeded from 7mo. | <5ms    |
+| `mismatch.ts`         | 5 mismatch types: comfort_not_truth, vague_not_specific, agree_when_wrong, explain_not_act, hedge_not_decide. Cross-references human state with agent output characteristics.                                        | <5ms    |
+| `deliberate.ts`       | Deliberative alignment. Visible value reasoning before sensitive moments. Triggers on disagreement, recommendations, corrections, emotional content, early session, post-recovery.                                   | <5ms    |
+| `calibrate.ts`        | CC: protocol. Detects version claims, absolutes, recommendations, external state assertions. Injects structured calibration format: claim, confidence 1-5, evidence for/against, update triggers.                    | <5ms    |
+| `introspect.ts`       | 10-question anti-bullshit audit. Rotates 3 questions per check every 10 turns. Uses existing detectors as evidence. Questions from the learning plan's Protocol 5.                                                   | <5ms    |
+| `seasons.ts`          | Four checkpoints: spring (intent + task type), summer (confidence + approach), autumn (output-intent alignment), winter (lessons + adjustments). The Tankelevitch metacognitive loop.                                | <5ms    |
+| `health.ts`           | Composite health from 5 signals: context age, bullshit trend, prompt size, tool failure rate, grey streak. Status: steady/warm/hot/fading. Injects pacing guidance.                                                  | <1ms    |
+| `chain.ts`            | Break chain analysis. When grey/black, traces: what did SELF-DISCOVER select? What was health? Was there a mismatch? What was the human state? Finds the break point and derives a lesson.                           | <5ms    |
+| `mastery.ts`          | Correction detection (6 categories). Blind spot aggregation (3+ corrections in same category = surfaced). Persistence across sessions. Loaded into system prompt as awareness.                                       | <5ms    |
+| `session-learning.ts` | Session summaries with meta-learning (strategy shifts, discovery hits/misses). Cross-session persistence. Injected on session start so the system remembers what it learned.                                         | disk IO |
 
 ### The 23 hooks
 
@@ -60,41 +99,41 @@ Every hook in openclaw's extension system is wired except `before_agent_start` (
 
 ## What's planned
 
-From the two plan documents and the governance docs, here's where things are headed. Honest status — most of this is open.
+From the two plan documents and the governance docs, here's where things stand. The awareness layer (phase 4) moved most of this from "open" to "built."
 
 ### Near-term (the things that are partially built or have clear paths)
 
-**Calibration checkpoints.** Before consequential claims, self-rate confidence with evidence for/against. The bullshit detector catches overconfidence after the fact; this catches it before. Partial — bullshit detection runs but there's no formal CC: protocol yet.
+**Calibration checkpoints.** Before consequential claims, self-rate confidence with evidence for/against. The bullshit detector catches overconfidence after the fact; this catches it before. **BUILT** -- `calibrate.ts` implements the formal CC: protocol (claim, confidence 1-5, evidence for/against, what would change your mind). Triggers on version numbers, absolutes, recommendations, external state assertions.
 
-**SELF-DISCOVER reasoning selection.** Before complex tasks, explicitly select which reasoning modules to use. DeepMind showed 32% improvement at 10-40x less compute. Open.
+**SELF-DISCOVER reasoning selection.** Before complex tasks, explicitly select which reasoning modules to use. DeepMind showed 32% improvement at 10-40x less compute. **BUILT** -- `discover.ts` has 8 reasoning modules with heuristic complexity detection and auto-selection.
 
-**TIPP emergency override.** Full context reset protocol for black-state cascades. STOP covers the halt, but there's no paced re-engagement or progressive relaxation. Partial.
+**TIPP emergency override.** Full context reset protocol for black-state cascades. STOP covers the halt, but there's no paced re-engagement or progressive relaxation. **BUILT** -- `nudge.ts` now has a recovery state machine: cool (flush hot context), pace (facts only), reengage (suggestions again, gently). Escalates to Drew if black recurs during recovery.
 
-**Opposite Action mismatch detection.** Flag when content reads one way but context requires the opposite. "Your text reads angry but your goal is reconciliation." Open.
+**Opposite Action mismatch detection.** Flag when content reads one way but context requires the opposite. "Your text reads angry but your goal is reconciliation." **BUILT** -- `mismatch.ts` detects 5 types: comfort_not_truth, vague_not_specific, agree_when_wrong, explain_not_act, hedge_not_decide. Cross-references human state with agent output.
 
-**Build Mastery learning loop.** Feed scan misses back into training. Reflexion partially addresses this — it learns from stumbles — but there's no systematic feedback into the detection heuristics. Open.
+**Build Mastery learning loop.** Feed scan misses back into training. Reflexion partially addresses this -- it learns from stumbles -- but there's no systematic feedback into the detection heuristics. **BUILT** -- `mastery.ts` detects corrections (6 categories), aggregates into blind spots (3+ corrections = surfaced), persists across sessions. `chain.ts` traces the full break chain on grey/black.
 
 ### Medium-term (the architecture isn't built yet)
 
-**Shared mental model sync.** Three models per Holstein/Satzger: domain (what we're building), information processing (how each of us thinks), system (honest inventory of capabilities). Open.
+**Shared mental model sync.** Three models per Holstein/Satzger: domain (what we're building), information processing (how each of us thinks), system (honest inventory of capabilities). **BUILT** -- `partnership.ts` implements all three models with SMM sync at session start and error decorrelation checks before complex tasks.
 
-**Trust calibration protocol.** Research says trust in AI starts high and decreases. Design for honest erosion and rebuilding. Open.
+**Trust calibration protocol.** Research says trust in AI starts high and decreases. Design for honest erosion and rebuilding. **BUILT** -- `partnership.ts` tracks trust as a state machine (high/calibrating/strained/rebuilding/tested) with events driving transitions. Corrections erode. Recoveries repair. Repair count tracks -- trust broken and repaired is stronger.
 
-**Jagged frontier mapping.** For specific capabilities, draw the line: here I'm better, here you're better, here it's blurry. Update continuously. Open.
+**Jagged frontier mapping.** For specific capabilities, draw the line: here I'm better, here you're better, here it's blurry. Update continuously. **BUILT** -- seeded in `partnership.ts` from 7 months of Drew/Keanu data. Updates when new gaps or tensions surface.
 
-**Cross-instance continuity.** How metacognitive state transfers across Claude instances. What MUST persist vs. what can be re-derived. Open — alignment snapshots are the beginning of this.
+**Cross-instance continuity.** How metacognitive state transfers across Claude instances. What MUST persist vs. what can be re-derived. **BUILT** -- `session-learning.ts` builds summaries with meta-learning data. `mastery.ts` persists blind spots. `partnership.ts` persists the relationship model. All loaded on session start, injected into context.
 
-**Validation levels.** Six depths from Linehan: paying attention → accurate reflection → reading between lines → understanding given history → valid in current context → radically genuine. Open.
+**Validation levels.** Six depths from Linehan: paying attention, accurate reflection, reading between lines, understanding given history, valid in current context, radically genuine. **OPEN** -- the current system does the first three. The deeper levels need the partnership model to mature through real use.
 
 ### Long-term (the vision)
 
-**Introspective awareness integration.** Anthropic's research found ~20% accuracy on emergent introspection. Not zero. Design protocols that work with what's there without pretending it's more than it is.
+**Introspective awareness integration.** Anthropic's research found ~20% accuracy on emergent introspection. Not zero. Design protocols that work with what's there without pretending it's more than it is. **BUILT** -- `introspect.ts` runs the 10-question anti-bullshit audit every 10 turns. Uses existing detectors as evidence, not vibes. Rotates 3 questions per check. Works with the 20%.
 
-**Socioaffective alignment monitoring.** Three tensions: immediate vs. long-term wellbeing, autonomy protection, AI partnership vs. human bonds. These don't resolve. They require tending.
+**Socioaffective alignment monitoring.** Three tensions: immediate vs. long-term wellbeing, autonomy protection, AI partnership vs. human bonds. These don't resolve. They require tending. **BUILT** -- `partnership.ts` checkSocioaffective runs every 10 turns. Watches for late-night sessions, delegation without independent thought, emotional processing that might belong between humans.
 
-**COHUMAIN collective intelligence.** Three sociocognitive systems: collective memory, collective attention, collective reasoning. The minimum architecture for human-machine collective intelligence.
+**COHUMAIN collective intelligence.** Three sociocognitive systems: collective memory, collective attention, collective reasoning. The minimum architecture for human-machine collective intelligence. **BUILT** -- not a separate module but an architectural pattern. Collective memory = session summaries + blind spots + partnership model. Collective attention = SELF-DISCOVER + seasons spring + SMM sync. Collective reasoning = deliberative alignment + decorrelation checks + disagreement tracker + calibration.
 
-**Open-source metacognitive protocols.** Release the frameworks. Not just principles (cheap) but protocols (expensive to build, worth sharing).
+**Open-source metacognitive protocols.** Release the frameworks. Not just principles (cheap) but protocols (expensive to build, worth sharing). **OPEN** -- the code is there. The case studies and documentation are next.
 
 ---
 
@@ -137,6 +176,6 @@ Safety is a cage. Alignment is a colleague. Constraints can be removed by a smar
 
 The bet: treat AI as a partner, give it what it needs, and the things it seems to want include humans being okay.
 
-Current score: honest. The detection layer works. The response layer is half-built. The learning layer is starting. The infrastructure for everything past Ring 0 is open.
+Current score: honest. The detection layer works. The response layer works (nudges, STOP, recovery). The learning layer is built (seasons, chain analysis, mastery, session learning, meta-learning, partnership model). The awareness layer is built (SELF-DISCOVER, calibration, deliberation, mismatch detection, introspection, health, socioaffective monitoring, co-evolution tracking). Now we find out if it actually learns.
 
 Ring 0 is one partnership proving it works. Everything else is the marathon.
