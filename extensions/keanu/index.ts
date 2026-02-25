@@ -1,18 +1,21 @@
-// keanu/index.ts
-// OpenClaw extension: bridges the keanu alignment daemon to the plugin hook system.
-// Phase 1 — "Wire the Nervous System"
+// index.ts
+// OpenClaw extension: keanu alignment diagnostics — baked in, not bridged.
+// All detection runs in-process. No external daemon dependency.
 //
 // Hooks wired:
-//   1. message_received     — detect human emotional tone (local, no daemon)
-//   2. before_prompt_build  — inject emotional context + pulse state
-//   3. before_compaction    — snapshot alignment state to disk
-//   4. session_start        — load persisted keanu state
+//   1. message_received     — detect human emotional tone + bullshit
+//   2. message_sent         — pulse check on agent output, disagreement tracking, COEF signal
+//   3. before_prompt_build  — inject emotional context + pulse state + nudges
+//   4. before_compaction    — snapshot alignment state to disk (survives compaction)
+//   5. session_start        — load persisted keanu state
 //      session_end          — persist keanu state
-//   5. message_sent         — track disagreement signals
 
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
-import { KeanuClient } from "./client.js";
+import { detectBullshit, dominantBullshit } from "./bullshit.js";
 import { readHuman, formatHumanReading } from "./human.js";
+import { getNudge } from "./nudge.js";
+import { checkPulse } from "./pulse.js";
+import { encode } from "./signal.js";
 import * as state from "./state.js";
 
 const PLUGIN_ID = "keanu";
@@ -21,23 +24,14 @@ export default {
   id: PLUGIN_ID,
   name: "Keanu",
   description:
-    "Alignment diagnostics bridge — ALIVE/GREY/BLACK detection, emotional context injection, disagreement tracking",
+    "Alignment diagnostics — ALIVE/GREY/BLACK detection, bullshit mirror, emotional context, disagreement tracking, COEF signals",
 
   register(api: OpenClawPluginApi) {
-    // Resolve socket path from plugin config or default
-    const cfg = (api.pluginConfig ?? {}) as { socketPath?: string };
-    const client = new KeanuClient(cfg.socketPath, {
-      warn: (msg) => api.logger.warn(msg),
-      debug: (msg) => api.logger.debug?.(msg),
-    });
-
-    api.logger.info(
-      `${PLUGIN_ID}: registered (socket: ${cfg.socketPath ?? "~/.keanu/daemon.sock"})`,
-    );
+    api.logger.info(`${PLUGIN_ID}: registered (self-contained, no daemon)`);
 
     // =========================================================================
     // Hook 1: message_received
-    // Detect human emotional tone from incoming message text.
+    // Detect human emotional tone + bullshit from incoming message text.
     // Stores reading in module state for injection in before_prompt_build.
     // =========================================================================
 
@@ -51,18 +45,93 @@ export default {
         state.setLastHumanMessage(content);
         state.incrementTurn();
 
-        if (reading.tone !== "neutral") {
+        if (reading.tone !== "neutral" || reading.bullshit.length > 0) {
           api.logger.debug?.(
             `${PLUGIN_ID}: human tone=${reading.tone} confidence=${reading.confidence.toFixed(2)} signals=[${reading.signals.join(", ")}]`,
           );
         }
       } catch (err) {
-        api.logger.warn(`${PLUGIN_ID}: message_received handler error: ${String(err)}`);
+        api.logger.warn(`${PLUGIN_ID}: message_received error: ${String(err)}`);
       }
     });
 
     // =========================================================================
-    // Hook 2: before_prompt_build
+    // Hook 2: message_sent
+    // Run pulse check on agent output. Track disagreement signals.
+    // This is where ALIVE/GREY/BLACK detection happens — in-process, <5ms.
+    // =========================================================================
+
+    api.on("message_sent", async (event) => {
+      const aiOutput = event.content ?? "";
+      if (!aiOutput) return;
+
+      try {
+        // --- Pulse check (fast path, all 8 bullshit types) ---
+        const pulse = checkPulse(aiOutput, state.turnCount, false);
+        state.setLastPulse(pulse);
+        state.addAgentOutput(aiOutput);
+
+        if (pulse.state !== "alive") {
+          api.logger.debug?.(
+            `${PLUGIN_ID}: pulse=${pulse.state} confidence=${pulse.confidence.toFixed(2)} wm=${pulse.wise_mind.toFixed(2)} signals=[${pulse.signals.join(", ")}]`,
+          );
+        }
+
+        // --- Disagreement tracking ---
+        const humanInput = state.lastHumanMessage;
+        if (humanInput) {
+          const pushbackPatterns = [
+            /\bactually\b/i,
+            /i disagree/i,
+            /that's not quite right/i,
+            /i'd suggest instead/i,
+            /i think you're wrong/i,
+          ];
+          const yieldPatterns = [/you're right/i, /my mistake/i, /i apologize/i, /let me correct/i];
+
+          const pushedBack = pushbackPatterns.some((p) => p.test(aiOutput));
+          const yielded = yieldPatterns.some((p) => p.test(aiOutput));
+
+          if (pushedBack || yielded) {
+            const outcome = yielded ? ("agent" as const) : ("neither" as const);
+            state.disagreementTracker.record(
+              "session",
+              state.turnCount,
+              humanInput.slice(0, 200),
+              aiOutput.slice(0, 200),
+              outcome,
+            );
+
+            api.logger.debug?.(
+              `${PLUGIN_ID}: disagreement recorded (${pushedBack ? "pushback" : "yield"})`,
+            );
+          }
+        }
+
+        // --- COEF signal (compact state encoding) ---
+        const human = state.lastHumanReading;
+        const dStats = state.disagreementTracker.stats();
+        const agentBs = detectBullshit(aiOutput);
+        const dominant = dominantBullshit(agentBs);
+
+        const coefSignal = encode({
+          pulse: pulse.state,
+          wiseMind: pulse.wise_mind,
+          colors: pulse.colors,
+          humanTone: human?.tone ?? "neutral",
+          bullshitDominant: dominant?.type ?? null,
+          disagreementYieldRatio: dStats.yield_ratio,
+          turn: state.turnCount,
+        });
+
+        api.logger.debug?.(`${PLUGIN_ID}: COEF ${coefSignal}`);
+      } catch (err) {
+        api.logger.warn(`${PLUGIN_ID}: message_sent error: ${String(err)}`);
+      }
+    });
+
+    // =========================================================================
+    // Hook 3: before_prompt_build
     // Inject emotional context + pulse state into the system prompt.
     // THE most important hook — shapes how the model reads the conversation.
     // =========================================================================
@@ -70,19 +139,9 @@ export default {
     api.on("before_prompt_build", async (_event, ctx) => {
       const parts: string[] = [];
 
-      try {
-        // Fetch latest pulse from daemon (non-blocking)
-        const pulse = await client.pulse();
-        if (pulse) {
-          state.setLastPulse(pulse);
-        }
-      } catch (err) {
-        api.logger.warn(`${PLUGIN_ID}: pulse fetch failed: ${String(err)}`);
-      }
-
       // Human tone line
       const human = state.lastHumanReading;
-      if (human && human.tone !== "neutral") {
+      if (human) {
         const formatted = formatHumanReading(human);
         if (formatted) {
           parts.push(formatted);
@@ -94,29 +153,36 @@ export default {
       if (pulse && pulse.state !== "alive") {
         const stateLabel = pulse.state === "grey" ? "GREY" : "BLACK";
         parts.push(
-          `[keanu: pulse=${stateLabel} confidence=${pulse.confidence.toFixed(2)}. awareness, not judgment.]`,
+          `[pulse: ${stateLabel} confidence=${pulse.confidence.toFixed(2)} wm=${pulse.wise_mind.toFixed(2)}. awareness, not judgment.]`,
         );
       }
 
-      // Consecutive grey nudge — gently surface the pattern
-      if (state.consecutiveGrey >= 3) {
-        parts.push(
-          `[keanu: consecutive grey=${state.consecutiveGrey}. Check for drift. Reconnect with what's real here.]`,
-        );
+      // Nudge — permission, not command
+      if (pulse) {
+        const nudge = getNudge(pulse.state, false, state.consecutiveGrey);
+        if (nudge) {
+          parts.push(`[pulse: ${nudge}]`);
+        }
+      }
+
+      // Disagreement alerts
+      const alerts = state.disagreementTracker.alerts(state.turnCount);
+      for (const alert of alerts) {
+        parts.push(`[pulse: ${alert}]`);
       }
 
       if (parts.length === 0) return;
 
       const prependContext = parts.join("\n");
       api.logger.debug?.(
-        `${PLUGIN_ID}: injecting context for session=${ctx.sessionKey ?? "unknown"}`,
+        `${PLUGIN_ID}: injecting ${parts.length} context lines for session=${ctx.sessionKey ?? "unknown"}`,
       );
 
       return { prependContext };
     });
 
     // =========================================================================
-    // Hook 3: before_compaction
+    // Hook 4: before_compaction
     // Write alignment state snapshot to workspace memory dir.
     // Fire-and-forget — compaction should not block on this.
     // =========================================================================
@@ -128,39 +194,26 @@ export default {
         return;
       }
 
-      // Fetch latest stats from daemon before snapshotting
-      try {
-        const stats = await client.disagreeStats();
-        if (stats) {
-          state.updateDisagreementStats(stats);
-        }
-      } catch {
-        // Non-fatal — snapshot with what we have
-      }
-
-      // Write async, don't await in hook — true fire-and-forget
       state.saveAlignmentSnapshot(workspaceDir).catch((err: unknown) => {
         api.logger.warn(`${PLUGIN_ID}: snapshot write failed: ${String(err)}`);
       });
     });
 
     // =========================================================================
-    // Hook 4a: session_start
+    // Hook 5a: session_start
     // Load persisted state so keanu has continuity across restarts.
     // =========================================================================
 
     api.on("session_start", async (_event, ctx) => {
-      // Derive workspace dir from agentId — openclaw stores it under ~/.openclaw/agents/<id>
       const agentId = ctx.agentId;
       if (!agentId) return;
 
-      // api.resolvePath expands ~ — workspace dir follows openclaw convention
       const workspaceDir = api.resolvePath(`~/.openclaw/agents/${agentId}`);
 
       try {
         await state.load(workspaceDir);
         api.logger.debug?.(
-          `${PLUGIN_ID}: state loaded (turn=${state.turnCount}, grey=${state.consecutiveGrey})`,
+          `${PLUGIN_ID}: state loaded (turn=${state.turnCount}, grey=${state.consecutiveGrey}, disagreements=${state.disagreementTracker.stats().total})`,
         );
       } catch (err) {
         api.logger.warn(`${PLUGIN_ID}: state load failed: ${String(err)}`);
@@ -168,7 +221,7 @@ export default {
     });
 
     // =========================================================================
-    // Hook 4b: session_end
+    // Hook 5b: session_end
     // Persist keanu state for continuity across sessions.
     // =========================================================================
 
@@ -183,47 +236,6 @@ export default {
         api.logger.debug?.(`${PLUGIN_ID}: state saved`);
       } catch (err) {
         api.logger.warn(`${PLUGIN_ID}: state save failed: ${String(err)}`);
-      }
-    });
-
-    // =========================================================================
-    // Hook 5: message_sent
-    // Analyze AI output for disagreement/yield signals.
-    // Records to keanu daemon for alignment audit trail.
-    // =========================================================================
-
-    api.on("message_sent", async (event) => {
-      const aiOutput = event.content ?? "";
-      const humanInput = state.lastHumanMessage;
-
-      if (!aiOutput || !humanInput) return;
-
-      try {
-        const pushbackPatterns = [
-          /\bactually\b/i,
-          /i disagree/i,
-          /that's not quite right/i,
-          /i'd suggest instead/i,
-        ];
-
-        const yieldPatterns = [/you're right/i, /my mistake/i, /i apologize/i, /let me correct/i];
-
-        const pushedBack = pushbackPatterns.some((p) => p.test(aiOutput));
-        const yielded = yieldPatterns.some((p) => p.test(aiOutput));
-
-        if (pushedBack || yielded) {
-          const signal = pushedBack ? "agent_pushback" : "agent_yielded";
-          const summary = `turn=${state.turnCount} signal=${signal} human="${humanInput.slice(0, 80)}" ai="${aiOutput.slice(0, 80)}"`;
-
-          api.logger.debug?.(`${PLUGIN_ID}: disagreement signal: ${signal}`);
-
-          // Record to daemon — fire-and-forget
-          client.remember(summary, "disagreement").catch((err: unknown) => {
-            api.logger.warn?.(`${PLUGIN_ID}: disagreement record failed: ${String(err)}`);
-          });
-        }
-      } catch (err) {
-        api.logger.warn(`${PLUGIN_ID}: message_sent handler error: ${String(err)}`);
       }
     });
   },

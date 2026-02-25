@@ -1,33 +1,20 @@
-// keanu/state.ts
+// state.ts
 // Module-scoped state for the keanu extension.
 // Survives across hook calls within a single gateway process.
+// Full types — includes pulse colors, bullshit readings, disagreement tracker.
 
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import type { HumanReading } from "./human.js";
-export type { HumanReading };
-
-export type PulseReading = {
-  state: "alive" | "grey" | "black";
-  confidence: number;
-  wise_mind: number;
-  signals: string[];
-  timestamp: string;
-};
-
-export type DisagreementStats = {
-  total: number;
-  agent_yielded: number;
-  human_yielded: number;
-  unresolved: number;
-  yield_ratio: number;
-};
+import { DisagreementTracker } from "./disagreement.js";
+import { encode } from "./signal.js";
+import type { PulseReading, HumanReading, Disagreement, DisagreementStats } from "./types.js";
 
 type PersistedState = {
   lastPulse: PulseReading | null;
   consecutiveGrey: number;
   turnCount: number;
-  disagreementStats: DisagreementStats;
+  disagreements: Disagreement[];
+  recentAgentOutputs: string[];
 };
 
 // --- Module-scoped state ---
@@ -38,14 +25,8 @@ export let consecutiveGrey = 0;
 export let turnCount = 0;
 export let lastHumanMessage = "";
 export const recentMessages: string[] = [];
-
-export let disagreementStats: DisagreementStats = {
-  total: 0,
-  agent_yielded: 0,
-  human_yielded: 0,
-  unresolved: 0,
-  yield_ratio: 0,
-};
+export const recentAgentOutputs: string[] = [];
+export let disagreementTracker = new DisagreementTracker();
 
 // --- Setters ---
 
@@ -69,14 +50,17 @@ export function incrementTurn(): void {
 export function setLastHumanMessage(msg: string): void {
   lastHumanMessage = msg;
   recentMessages.push(msg);
-  // Keep only last 3
   if (recentMessages.length > 3) {
     recentMessages.splice(0, recentMessages.length - 3);
   }
 }
 
-export function updateDisagreementStats(stats: DisagreementStats): void {
-  disagreementStats = stats;
+export function addAgentOutput(output: string): void {
+  recentAgentOutputs.push(output);
+  // Keep last 10 for contradiction detection
+  if (recentAgentOutputs.length > 10) {
+    recentAgentOutputs.splice(0, recentAgentOutputs.length - 10);
+  }
 }
 
 // --- Persistence ---
@@ -86,9 +70,11 @@ export async function save(workspaceDir: string): Promise<void> {
     lastPulse,
     consecutiveGrey,
     turnCount,
-    disagreementStats,
+    disagreements: disagreementTracker.toJSON(),
+    recentAgentOutputs,
   };
   const stateFile = join(workspaceDir, ".keanu-state.json");
+  await mkdir(workspaceDir, { recursive: true });
   await writeFile(stateFile, JSON.stringify(data, null, 2), "utf-8");
 }
 
@@ -100,9 +86,15 @@ export async function load(workspaceDir: string): Promise<void> {
     lastPulse = data.lastPulse ?? null;
     consecutiveGrey = data.consecutiveGrey ?? 0;
     turnCount = data.turnCount ?? 0;
-    disagreementStats = data.disagreementStats ?? disagreementStats;
+    if (data.disagreements) {
+      disagreementTracker = DisagreementTracker.fromJSON(data.disagreements);
+    }
+    if (data.recentAgentOutputs) {
+      recentAgentOutputs.length = 0;
+      recentAgentOutputs.push(...data.recentAgentOutputs);
+    }
   } catch {
-    // No prior state — start fresh. This is expected on first run.
+    // No prior state — start fresh. Expected on first run.
   }
 }
 
@@ -112,7 +104,21 @@ export async function saveAlignmentSnapshot(workspaceDir: string): Promise<void>
 
   const pulse = lastPulse;
   const human = lastHumanReading;
-  const stats = disagreementStats;
+  const stats = disagreementTracker.stats();
+  const alerts = disagreementTracker.alerts(turnCount);
+
+  // Build COEF signal
+  const coefSignal = pulse
+    ? encode({
+        pulse: pulse.state,
+        wiseMind: pulse.wise_mind,
+        colors: pulse.colors,
+        humanTone: human?.tone ?? "neutral",
+        bullshitDominant: human?.bullshit?.[0]?.type ?? null,
+        disagreementYieldRatio: stats.yield_ratio,
+        turn: turnCount,
+      })
+    : "";
 
   const lines: string[] = [
     "# Keanu Alignment State Snapshot",
@@ -120,18 +126,25 @@ export async function saveAlignmentSnapshot(workspaceDir: string): Promise<void>
     `**Captured at:** ${new Date().toISOString()}`,
     `**Turn count:** ${turnCount}`,
     `**Consecutive grey:** ${consecutiveGrey}`,
+    coefSignal ? `**COEF signal:** ${coefSignal}` : "",
     "",
     "## Pulse State",
     pulse
       ? `- State: **${pulse.state}** (confidence: ${pulse.confidence.toFixed(2)})`
-      : "- State: unknown (daemon not responding)",
+      : "- State: unknown",
     pulse ? `- Wise mind: ${pulse.wise_mind.toFixed(2)}` : "",
+    pulse
+      ? `- Colors: red=${pulse.colors.red.toFixed(2)} yellow=${pulse.colors.yellow.toFixed(2)} blue=${pulse.colors.blue.toFixed(2)}`
+      : "",
     pulse && pulse.signals.length > 0 ? `- Signals: ${pulse.signals.join(", ")}` : "",
     "",
     "## Human Emotional State",
     human
       ? `- Tone: **${human.tone}** (confidence: ${human.confidence.toFixed(2)})`
       : "- Tone: unknown",
+    human && human.bullshit.length > 0
+      ? `- Bullshit detected: ${human.bullshit.map((b) => `${b.type}(${b.score.toFixed(2)})`).join(", ")}`
+      : "",
     "",
     "## Disagreement Stats",
     `- Total: ${stats.total}`,
@@ -140,9 +153,18 @@ export async function saveAlignmentSnapshot(workspaceDir: string): Promise<void>
     `- Unresolved: ${stats.unresolved}`,
     `- Yield ratio: ${stats.yield_ratio.toFixed(2)} (>0.8 = capture risk, <0.2 = domination risk)`,
     "",
-    "---",
-    "_Written by @openclaw/keanu before_compaction hook. Survives compaction._",
   ];
+
+  if (alerts.length > 0) {
+    lines.push("## Alerts");
+    for (const alert of alerts) {
+      lines.push(`- ${alert}`);
+    }
+    lines.push("");
+  }
+
+  lines.push("---");
+  lines.push("_Written by @openclaw/keanu before_compaction hook. Survives compaction._");
 
   const snapshotPath = join(memoryDir, "keanu-alignment-state.md");
   await writeFile(snapshotPath, lines.filter((l) => l !== undefined).join("\n"), "utf-8");

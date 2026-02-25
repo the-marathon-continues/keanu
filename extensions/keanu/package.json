@@ -1,8 +1,23 @@
 {
   "name": "@openclaw/keanu",
   "version": "2026.2.24",
-  "description": "Keanu alignment diagnostics bridge — ALIVE-GREY-BLACK detection, emotional context injection, disagreement tracking",
+  "description": "Keanu alignment diagnostics — ALIVE/GREY/BLACK detection, 8-type bullshit mirror, emotional context, disagreement tracking, COEF signals. Self-contained, no daemon.",
   "type": "module",
+  "exports": {
+    ".": "./index.ts",
+    "./pulse": "./pulse.ts",
+    "./bullshit": "./bullshit.ts",
+    "./human": "./human.ts",
+    "./signal": "./signal.ts",
+    "./speak": "./speak.ts",
+    "./oracle": "./oracle.ts",
+    "./truth": "./truth.ts",
+    "./disagreement": "./disagreement.ts",
+    "./types": "./types.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0"
+  },
   "devDependencies": {
     "openclaw": "workspace:*"
   },

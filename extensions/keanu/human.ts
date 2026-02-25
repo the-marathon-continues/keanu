@@ -1,26 +1,26 @@
-// keanu/human.ts
-// Local human tone detection — no daemon dependency.
-// Ported from keanu daemon/src/pulse/human.ts.
-// Runs in-process for speed. Pattern matching only, no LLM.
+// human.ts
+// Human state detection. Not to control. To be aware.
+//
+// Two layers:
+//   1. Tone detection: frustrated, confused, excited, fatigued, looping
+//   2. Bullshit detection: same 8 types as agent. Same mirror.
+//
+// Ported from keanu daemon/src/pulse/human.ts — self-contained.
+// Includes bullshit detection (daemon version, more complete than bridge version).
 
-export type HumanTone = "frustrated" | "excited" | "confused" | "neutral" | "fatigued" | "looping";
+import { detectBullshit } from "./bullshit.js";
+import type { HumanReading, HumanTone } from "./types.js";
 
-export type HumanReading = {
-  tone: HumanTone;
-  confidence: number;
-  signals: string[];
+// --- Empathy map ---
+const EMPATHY_MAP: Record<string, { tone: HumanTone; meaning: string }> = {
+  frustrated: { tone: "frustrated", meaning: "anger is information" },
+  confused: { tone: "confused", meaning: "needs a map not a lecture" },
+  excited: { tone: "excited", meaning: "momentum is real, ride it" },
+  fatigued: { tone: "fatigued", meaning: "needs presence not pressure" },
+  looping: { tone: "looping", meaning: "stuck in a pattern" },
 };
 
-// --- Empathy map: tone -> meaning for system prompt injection ---
-const EMPATHY_MAP: Record<string, string> = {
-  frustrated: "anger is information",
-  confused: "needs a map not a lecture",
-  excited: "momentum is real, ride it",
-  fatigued: "needs presence not pressure",
-  looping: "stuck in a pattern",
-};
-
-// --- Pattern sets (mirrored from keanu daemon) ---
+// --- Pattern sets ---
 
 const FRUSTRATED_PATTERNS = [
   /^(no|wrong|that's not|you're not|stop|ugh|ffs|wtf|jfc)/i,
@@ -28,7 +28,7 @@ const FRUSTRATED_PATTERNS = [
   /\.{3,}/,
   /(this is broken|doesn't work|still wrong|not what i asked|try again)/i,
   /(waste of time|useless|terrible|awful)/i,
-  // Spec patterns
+  // Extended patterns
   /this isn't working/i,
   /i already told you/i,
   /still broken/i,
@@ -42,7 +42,6 @@ const CONFUSED_PATTERNS = [
   /\?{2,}/,
   /(what do you mean|can you explain|i'm confused|makes no sense)/i,
   /(which one|how does that|where did that come from)/i,
-  // Spec patterns
   /not sure what/i,
   /lost me/i,
 ];
@@ -51,7 +50,6 @@ const EXCITED_PATTERNS = [
   /(yes!|perfect|exactly|love it|awesome|brilliant|nice|lets go|ship it)/i,
   /(this is great|that's it|nailed it|beautiful)/i,
   /(!.*!)/,
-  // Spec patterns: 3+ exclamation marks
   /!{3,}/,
   /amazing/i,
 ];
@@ -61,25 +59,28 @@ const FATIGUED_PATTERNS = [
   /(whatever|fine|sure|ok|k)$/i,
 ];
 
+/**
+ * Read human emotional state from input text.
+ * Includes both tone detection and bullshit detection.
+ */
 export function readHuman(input: string, history: string[]): HumanReading {
   const signals: string[] = [];
   let tone: HumanTone = "neutral";
   let confidence = 0.3;
 
-  // Terse, lowercase input: potential frustration or fatigue
+  // --- Terse, lowercase input: potential frustration or fatigue ---
   if (input.length < 20 && input === input.toLowerCase() && input.length > 0) {
     signals.push("terse_lowercase");
     confidence += 0.05;
   }
 
-  // Tone detection: count pattern hits per tone
+  // --- Tone detection ---
   const frustrationHits = FRUSTRATED_PATTERNS.filter((p) => p.test(input)).length;
   const confusionHits = CONFUSED_PATTERNS.filter((p) => p.test(input)).length;
   const excitedHits = EXCITED_PATTERNS.filter((p) => p.test(input)).length;
   const fatigueHits = FATIGUED_PATTERNS.filter((p) => p.test(input)).length;
 
-  // Fatigued: spec says short messages (<20 chars) after turn 10+
-  // We approximate "turn 10+" by checking history length > 10.
+  // Fatigued by length: short messages after many turns
   const isFatigueByLength = input.length < 20 && history.length >= 10;
 
   const scores: Array<{ tone: HumanTone; hits: number; weight: number }> = [
@@ -97,11 +98,11 @@ export function readHuman(input: string, history: string[]): HumanReading {
     signals.push(`${best.tone}_patterns:${best.hits}`);
   }
 
-  // Looping: same question asked 2+ times in last 3 messages
+  // --- Looping: same question asked multiple times ---
   if (history.length >= 2) {
     const recent = history.slice(-3);
     const inputLower = input.toLowerCase().trim();
-    const similarCount = recent.filter((h) => {
+    const similar = recent.filter((h) => {
       const hLower = h.toLowerCase().trim();
       return (
         hLower === inputLower ||
@@ -110,14 +111,14 @@ export function readHuman(input: string, history: string[]): HumanReading {
       );
     }).length;
 
-    if (similarCount >= 2) {
+    if (similar >= 2) {
       tone = "looping";
       confidence += 0.3;
       signals.push("repeating_query");
     }
   }
 
-  // Short follow-up after long exchange: fatigue signal
+  // --- Short follow-up after long exchange can signal fatigue ---
   if (history.length > 5 && input.length < 10 && history.slice(-3).every((h) => h.length > 50)) {
     if (tone === "neutral") {
       tone = "fatigued";
@@ -126,18 +127,39 @@ export function readHuman(input: string, history: string[]): HumanReading {
     }
   }
 
+  // --- Bullshit detection (same 8 types as agent) ---
+  const bullshit = detectBullshit(input);
+  for (const bs of bullshit) {
+    signals.push(`human_bs:${bs.type}:${bs.score.toFixed(2)}`);
+  }
+
   return {
     tone,
     confidence: Math.min(1, confidence),
     signals,
+    bullshit,
   };
 }
 
-// Format a human reading for system prompt injection.
-// Returns null if tone is neutral (nothing to inject).
+/**
+ * Format human reading for system prompt injection.
+ * Returns null if tone is neutral and no bullshit detected.
+ */
 export function formatHumanReading(reading: HumanReading): string | null {
-  if (reading.tone === "neutral") return null;
+  if (reading.tone === "neutral" && reading.bullshit.length === 0) return null;
 
-  const meaning = EMPATHY_MAP[reading.tone] ?? reading.tone;
-  return `[keanu: human tone=${reading.tone} (${meaning}), confidence=${reading.confidence.toFixed(2)}. awareness, not judgment.]`;
+  const parts: string[] = [];
+
+  if (reading.tone !== "neutral") {
+    const empathy = EMPATHY_MAP[reading.tone];
+    const meaning = empathy?.meaning ?? reading.tone;
+    parts.push(`tone=${reading.tone} (${meaning})`);
+  }
+
+  if (reading.bullshit.length > 0) {
+    const bsTypes = reading.bullshit.map((b) => b.type).join(", ");
+    parts.push(`bullshit=[${bsTypes}]`);
+  }
+
+  return `[pulse: human ${parts.join(". ")}. confidence=${reading.confidence.toFixed(2)}. awareness, not judgment.]`;
 }
