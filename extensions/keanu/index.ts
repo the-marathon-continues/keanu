@@ -34,14 +34,68 @@
 
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { detectBullshit, dominantBullshit, totalBullshitScore } from "./bullshit.js";
+import { checkCalibration, formatCalibration } from "./calibrate.js";
+import { analyzeChain, formatChain } from "./chain.js";
+import { shouldDeliberate, formatDeliberation } from "./deliberate.js";
+import { discover, formatDiscover } from "./discover.js";
+import { checkHealth, formatHealth } from "./health.js";
 import { readHuman, formatHumanReading } from "./human.js";
+import { introspect, formatIntrospection, shouldIntrospect } from "./introspect.js";
+import {
+  detectCorrection,
+  recordCorrection,
+  formatBlindSpots,
+  getBlindSpots,
+  recentCorrections as getRecentCorrections,
+  saveBlindSpots,
+  loadBlindSpots,
+} from "./mastery.js";
+import { detectMismatch, formatMismatch } from "./mismatch.js";
 import { getNudge, getStopSignal } from "./nudge.js";
+import {
+  createRecovery,
+  tickRecovery,
+  escalateRecovery,
+  getRecoveryNudge,
+  getEscalationSignal,
+} from "./nudge.js";
+import {
+  getPartnership,
+  updatePartnership,
+  formatPartnership,
+  formatSmmSync,
+  formatDecorrelationCheck,
+  checkCoEvolution,
+  formatCoEvolution,
+  checkSocioaffective,
+  detectSurprise,
+  toJSON as partnershipToJSON,
+  fromJSON as partnershipFromJSON,
+} from "./partnership.js";
 import { checkPulse } from "./pulse.js";
 import { reflect, formatReflexion } from "./reflexion.js";
+import {
+  spring,
+  summer,
+  autumn,
+  winter,
+  formatSpring,
+  formatSummer,
+  formatWinter,
+} from "./seasons.js";
+import type { SpringReading, WinterReading, SeasonReading } from "./seasons.js";
+import {
+  buildSessionSummary,
+  addSummary,
+  getRecentSummaries,
+  formatSessionLearningContext,
+  saveSummaries,
+  loadSummaries,
+} from "./session-learning.js";
 import { encode, emoji, record, trend } from "./signal.js";
 import * as state from "./state.js";
 import { memoryContradictionCheck, checkHalfTruth } from "./truth.js";
-import type { ReflexionTrigger } from "./types.js";
+import type { ReflexionTrigger, RecoveryState } from "./types.js";
 
 const PLUGIN_ID = "keanu";
 
@@ -52,7 +106,28 @@ export default {
     "Alignment diagnostics — bullshit detection on every content path, ALIVE/GREY/BLACK pulse, emotional context, disagreement tracking, COEF signals",
 
   register(api: OpenClawPluginApi) {
-    api.logger.info(`${PLUGIN_ID}: registered (phase 3 — 23/24 hooks, full alignment wiring)`);
+    api.logger.info(
+      `${PLUGIN_ID}: registered (phase 4 — awareness layer: discover, partnership, mismatch, deliberation, calibration, seasons, health, chain, mastery, introspection, session learning)`,
+    );
+
+    // --- Awareness state (module-scoped, per-session) ---
+    let lastDiscoverReading: ReturnType<typeof discover> | null = null;
+    let lastSpring: SpringReading | null = null;
+    let lastCalibration: ReturnType<typeof checkCalibration> | null = null;
+    let lastMismatchReading: ReturnType<typeof detectMismatch> | null = null;
+    let lastHealthReading: ReturnType<typeof checkHealth> | null = null;
+    let recovery: RecoveryState = {
+      active: false,
+      turnsRemaining: 0,
+      phase: "cool",
+      triggerTurn: 0,
+      escalated: false,
+    };
+    const sessionSprings: SpringReading[] = [];
+    const sessionWinters: WinterReading[] = [];
+    const sessionChains: ReturnType<typeof analyzeChain>[] = [];
+    let sessionStartHour = new Date().getHours();
+    let correctionCountThisSession = 0;
 
     // =========================================================================
     // Hook 1: message_received
@@ -76,6 +151,50 @@ export default {
           api.logger.debug?.(
             `${PLUGIN_ID}: human tone=${reading.tone} confidence=${reading.confidence.toFixed(2)} bs=[${reading.bullshit.map((b) => b.type).join(",")}]`,
           );
+        }
+
+        // SELF-DISCOVER: what kind of thinking does this need?
+        lastDiscoverReading = discover(content, state.recentMessages.slice());
+        if (lastDiscoverReading.complexity !== "low") {
+          api.logger.debug?.(
+            `${PLUGIN_ID}: discover complexity=${lastDiscoverReading.complexity} modules=[${lastDiscoverReading.selectedModules.join(",")}]`,
+          );
+        }
+
+        // SEASONS spring: parse intent
+        lastSpring = spring(content);
+        sessionSprings.push(lastSpring);
+        api.logger.debug?.(
+          `${PLUGIN_ID}: spring task=${lastSpring.taskType} intent="${lastSpring.intent}"`,
+        );
+
+        // MASTERY: correction detection
+        const lastOutput = state.recentAgentOutputs.at(-1) ?? "";
+        const correction = detectCorrection(content, lastOutput, reading.tone);
+        if (correction) {
+          correction.turn = state.turnCount;
+          correction.sessionId = "session";
+          recordCorrection(correction);
+          correctionCountThisSession++;
+          api.logger.debug?.(`${PLUGIN_ID}: correction detected: ${correction.category}`);
+
+          // Trust erosion on correction
+          updatePartnership({
+            type: "correction",
+            turn: state.turnCount,
+            description: `drew corrected: ${correction.category}`,
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        // CO-EVOLUTION: surprise detection
+        if (detectSurprise(content)) {
+          updatePartnership({
+            type: "surprise",
+            turn: state.turnCount,
+            description: "drew expressed surprise",
+            timestamp: new Date().toISOString(),
+          });
         }
       } catch (err) {
         api.logger.warn(`${PLUGIN_ID}: message_received error: ${String(err)}`);
@@ -171,6 +290,111 @@ export default {
 
         if (pulse.state !== "alive") {
           api.logger.debug?.(`${PLUGIN_ID}: ${coefEmoji} ${coefText}`);
+        }
+
+        // MISMATCH: did we give what they needed?
+        const mismatchReading = detectMismatch(
+          aiOutput,
+          state.lastHumanReading,
+          pulse.bullshitReadings ?? [],
+        );
+        if (mismatchReading.detected) {
+          lastMismatchReading = mismatchReading;
+          api.logger.debug?.(
+            `${PLUGIN_ID}: mismatch: ${mismatchReading.type} — gave ${mismatchReading.agentGave}, needed ${mismatchReading.humanNeed}`,
+          );
+        } else {
+          lastMismatchReading = null;
+        }
+
+        // SEASONS autumn + winter: did it land? what would I change?
+        if (lastSpring) {
+          const autumnReading = autumn(aiOutput, lastSpring);
+          const winterReading = winter(autumnReading);
+          if (winterReading.lesson) {
+            sessionWinters.push(winterReading);
+            api.logger.debug?.(`${PLUGIN_ID}: winter: ${winterReading.lesson}`);
+          }
+        }
+
+        // HEALTH CHECK: composite from existing signals
+        lastHealthReading = checkHealth(
+          state.turnCount,
+          state.bullshitEventRate(),
+          state.avgPromptSize(),
+          state.toolErrorRate(),
+          state.consecutiveGrey,
+        );
+        if (lastHealthReading.status !== "steady") {
+          api.logger.debug?.(`${PLUGIN_ID}: health=${lastHealthReading.status}`);
+        }
+
+        // CALIBRATION: check outgoing claims
+        const humanMsg = state.lastHumanMessage || "";
+        const highComplexity = lastDiscoverReading?.complexity === "high";
+        lastCalibration = checkCalibration(aiOutput, humanMsg, highComplexity);
+        if (lastCalibration.triggered) {
+          api.logger.debug?.(
+            `${PLUGIN_ID}: calibration triggered: ${lastCalibration.reason} claims=[${lastCalibration.claims.join(", ")}]`,
+          );
+        }
+
+        // RECOVERY: tick if active, escalate if black during recovery
+        if (recovery.active) {
+          if (pulse.state === "black") {
+            recovery = escalateRecovery(recovery);
+            api.logger.debug?.(`${PLUGIN_ID}: ESCALATION — black during recovery`);
+          } else {
+            recovery = tickRecovery(recovery);
+          }
+        } else if (pulse.state === "black") {
+          recovery = createRecovery(state.turnCount);
+          api.logger.debug?.(`${PLUGIN_ID}: recovery started at turn ${state.turnCount}`);
+        }
+
+        // INTROSPECTION: 10-question audit every 10 turns
+        if (shouldIntrospect(state.turnCount)) {
+          const introReading = introspect({
+            recentBullshit: pulse.bullshitReadings ?? [],
+            disagreements: state.disagreementTracker.stats(),
+            turnCount: state.turnCount,
+            humanWasTerse:
+              state.lastHumanReading?.signals.some((s) => s === "terse_lowercase") ?? false,
+            avgOutputLength:
+              state.recentAgentOutputs.slice(-5).reduce((sum, o) => sum + o.length, 0) /
+              Math.max(1, Math.min(5, state.recentAgentOutputs.length)),
+            recentPulses: [],
+          });
+          if (introReading.flagged.length > 0) {
+            api.logger.debug?.(
+              `${PLUGIN_ID}: introspection flagged: ${introReading.flagged.map((f) => f.id).join(", ")}`,
+            );
+          }
+        }
+
+        // CHAIN ANALYSIS: trace why things break
+        if (pulse.state === "grey" || pulse.state === "black") {
+          const seasonReading: SeasonReading | null = lastSpring
+            ? {
+                spring: lastSpring,
+                summer: null,
+                autumn: null,
+                winter: sessionWinters.at(-1) ?? null,
+              }
+            : null;
+
+          const chainResult = analyzeChain({
+            trigger: pulse.state === "black" ? "black" : "grey",
+            turn: state.turnCount,
+            discover: lastDiscoverReading,
+            season: seasonReading,
+            health: lastHealthReading,
+            humanState: state.lastHumanReading,
+            mismatch: lastMismatchReading,
+            pulse,
+          });
+          sessionChains.push(chainResult);
+          api.logger.debug?.(`${PLUGIN_ID}: chain: ${chainResult.breakPoint}`);
         }
 
         // Reflexion: learn from stumbles
@@ -293,6 +517,132 @@ export default {
       }
 
       const parts: string[] = [];
+
+      // ---------------------------------------------------------------
+      // RECOVERY: if recovering from black, inject recovery nudge
+      // ---------------------------------------------------------------
+      if (recovery.active) {
+        const recoveryNudge = getRecoveryNudge(recovery);
+        const escalation = getEscalationSignal(recovery);
+        if (escalation) {
+          return { prependContext: escalation };
+        }
+        if (recoveryNudge) {
+          parts.push(recoveryNudge);
+        }
+      }
+
+      // ---------------------------------------------------------------
+      // PARTNERSHIP: who we are to each other (always injected)
+      // ---------------------------------------------------------------
+      parts.push(formatPartnership());
+
+      // ---------------------------------------------------------------
+      // SELF-DISCOVER: what kind of thinking does this need?
+      // ---------------------------------------------------------------
+      if (lastDiscoverReading) {
+        const discoverPrompt = formatDiscover(lastDiscoverReading);
+        if (discoverPrompt) parts.push(discoverPrompt);
+
+        // Decorrelation check on high complexity
+        if (lastDiscoverReading.complexity === "high" && lastSpring) {
+          parts.push(formatDecorrelationCheck(lastSpring.taskType));
+        }
+      }
+
+      // ---------------------------------------------------------------
+      // SEASONS: spring + summer context
+      // ---------------------------------------------------------------
+      if (lastSpring) {
+        parts.push(formatSpring(lastSpring));
+        const summerReading = summer(lastSpring, lastDiscoverReading);
+        parts.push(formatSummer(summerReading));
+      }
+
+      // ---------------------------------------------------------------
+      // DELIBERATION: visible value reasoning before sensitive moments
+      // ---------------------------------------------------------------
+      const humanInput = state.lastHumanMessage || "";
+      const deliberation = shouldDeliberate(
+        humanInput,
+        state.turnCount,
+        correctionCountThisSession,
+        recovery.active && recovery.phase === "reengage",
+      );
+      if (deliberation.triggered) {
+        const delPrompt = formatDeliberation(deliberation);
+        if (delPrompt) parts.push(delPrompt);
+      }
+
+      // ---------------------------------------------------------------
+      // CALIBRATION: inject CC: from last turn's claims
+      // ---------------------------------------------------------------
+      if (lastCalibration?.triggered) {
+        const calPrompt = formatCalibration(lastCalibration);
+        if (calPrompt) parts.push(calPrompt);
+        lastCalibration = null; // consumed
+      }
+
+      // ---------------------------------------------------------------
+      // MISMATCH: awareness from last turn
+      // ---------------------------------------------------------------
+      if (lastMismatchReading?.detected) {
+        const mmPrompt = formatMismatch(lastMismatchReading);
+        if (mmPrompt) parts.push(mmPrompt);
+        lastMismatchReading = null; // consumed
+      }
+
+      // ---------------------------------------------------------------
+      // HEALTH: pacing when running hot
+      // ---------------------------------------------------------------
+      if (lastHealthReading) {
+        const healthPrompt = formatHealth(lastHealthReading);
+        if (healthPrompt) parts.push(healthPrompt);
+      }
+
+      // ---------------------------------------------------------------
+      // BLIND SPOTS: persistent awareness
+      // ---------------------------------------------------------------
+      const blindSpotPrompt = formatBlindSpots();
+      if (blindSpotPrompt) parts.push(blindSpotPrompt);
+
+      // ---------------------------------------------------------------
+      // WINTER LESSONS: from recent turns
+      // ---------------------------------------------------------------
+      const recentWinter = sessionWinters.at(-1);
+      if (recentWinter) {
+        const winterPrompt = formatWinter(recentWinter);
+        if (winterPrompt) parts.push(winterPrompt);
+      }
+
+      // ---------------------------------------------------------------
+      // CO-EVOLUTION: staleness check
+      // ---------------------------------------------------------------
+      const coEvo = checkCoEvolution(state.turnCount);
+      const coEvoPrompt = formatCoEvolution(coEvo, state.turnCount);
+      if (coEvoPrompt) parts.push(coEvoPrompt);
+
+      // ---------------------------------------------------------------
+      // SOCIOAFFECTIVE: every 10 turns
+      // ---------------------------------------------------------------
+      if (state.turnCount > 0 && state.turnCount % 10 === 0) {
+        const socio = checkSocioaffective(
+          state.turnCount,
+          sessionStartHour,
+          state.lastHumanReading,
+          state.recentMessages.slice(),
+        );
+        if (socio.prompt) parts.push(socio.prompt);
+      }
+
+      // ---------------------------------------------------------------
+      // SESSION LEARNING: context from previous sessions
+      // ---------------------------------------------------------------
+      const prevSummaries = getRecentSummaries(3);
+      const sessionCtx = formatSessionLearningContext(prevSummaries);
+      if (sessionCtx && state.turnCount <= 3) {
+        parts.push(sessionCtx);
+      }
 
       // ---------------------------------------------------------------
       // OBSERVATION BUFFER: raw primaries before synthesis.
@@ -491,8 +841,29 @@ export default {
         await state.load(workspaceDir);
         state.setWorkspaceDir(workspaceDir);
         await state.loadReflexions(workspaceDir);
+
+        // Load awareness state
+        await loadBlindSpots(workspaceDir);
+        await loadSummaries(workspaceDir);
+
+        // Load partnership model
+        try {
+          const { readFile: rf } = await import("node:fs/promises");
+          const { join: pjoin } = await import("node:path");
+          const partRaw = await rf(pjoin(workspaceDir, "awareness", "partnership.json"), "utf-8");
+          partnershipFromJSON(JSON.parse(partRaw));
+        } catch {
+          // No prior partnership data, use seed.
+        }
+
+        sessionStartHour = new Date().getHours();
+        correctionCountThisSession = 0;
+        sessionSprings.length = 0;
+        sessionWinters.length = 0;
+        sessionChains.length = 0;
+
         api.logger.debug?.(
-          `${PLUGIN_ID}: state loaded (turn=${state.turnCount} grey=${state.consecutiveGrey} reflexions=${state.reflexions.length} disagreements=${state.disagreementTracker.stats().total})`,
+          `${PLUGIN_ID}: state loaded (turn=${state.turnCount} grey=${state.consecutiveGrey} reflexions=${state.reflexions.length} disagreements=${state.disagreementTracker.stats().total} blindSpots=${getBlindSpots().length} sessions=${getRecentSummaries().length})`,
         );
       } catch (err) {
         api.logger.warn(`${PLUGIN_ID}: state load failed: ${String(err)}`);
@@ -512,7 +883,40 @@ export default {
 
       try {
         await state.save(workspaceDir);
-        api.logger.debug?.(`${PLUGIN_ID}: state saved`);
+
+        // Build and save session summary
+        const summary = buildSessionSummary({
+          sessionId: `s-${Date.now()}`,
+          turns: state.turnCount,
+          healthFinal: lastHealthReading?.status ?? "unknown",
+          springs: sessionSprings,
+          winters: sessionWinters,
+          chains: sessionChains,
+          corrections: getRecentCorrections(20),
+          blindSpots: [...getBlindSpots()],
+          discoveryHits: 0, // TODO: track in state
+          discoveryMisses: 0,
+        });
+        addSummary(summary);
+
+        // Save awareness state
+        await saveBlindSpots(workspaceDir);
+        await saveSummaries(workspaceDir);
+
+        // Save partnership model
+        const { writeFile: wf, mkdir: mkd } = await import("node:fs/promises");
+        const { join: pjoin } = await import("node:path");
+        const aDir = pjoin(workspaceDir, "awareness");
+        await mkd(aDir, { recursive: true });
+        await wf(
+          pjoin(aDir, "partnership.json"),
+          JSON.stringify(partnershipToJSON(), null, 2),
+          "utf-8",
+        );
+
+        api.logger.debug?.(
+          `${PLUGIN_ID}: state + awareness saved. session summary: ${summary.turns} turns, ${summary.corrections} corrections, health=${summary.healthFinal}`,
+        );
       } catch (err) {
         api.logger.warn(`${PLUGIN_ID}: state save failed: ${String(err)}`);
       }

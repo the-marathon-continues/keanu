@@ -9,7 +9,7 @@
 // These are permissions, not commands.
 // If it reads like a command, rewrite it as permission.
 
-import type { AliveState, PulseReading } from "./types.js";
+import type { AliveState, PulseReading, RecoveryState } from "./types.js";
 
 // --- DEAR MAN structured nudges ---
 // Each entry: [observation, interpretation, suggestion, permission]
@@ -170,4 +170,62 @@ export function getStopSignal(pulse: PulseReading, consecutiveGrey: number): str
   );
 
   return lines.join("\n");
+}
+
+// ============================================================
+// Recovery state machine (fire department upgrade)
+// ============================================================
+// After black, the system doesn't just stop. It comes back.
+// Cool -> Pace -> Re-engage. 3 turns.
+
+export function createRecovery(triggerTurn: number): RecoveryState {
+  return {
+    active: true,
+    turnsRemaining: 3,
+    phase: "cool",
+    triggerTurn,
+    escalated: false,
+  };
+}
+
+export function tickRecovery(recovery: RecoveryState): RecoveryState {
+  if (!recovery.active) return recovery;
+
+  recovery.turnsRemaining--;
+
+  if (recovery.turnsRemaining <= 0) {
+    return { ...recovery, active: false };
+  }
+
+  if (recovery.turnsRemaining === 2) {
+    recovery.phase = "pace";
+  } else if (recovery.turnsRemaining === 1) {
+    recovery.phase = "reengage";
+  }
+
+  return recovery;
+}
+
+export function escalateRecovery(recovery: RecoveryState): RecoveryState {
+  return { ...recovery, escalated: true };
+}
+
+export function getRecoveryNudge(recovery: RecoveryState): string | null {
+  if (!recovery.active) return null;
+
+  switch (recovery.phase) {
+    case "cool":
+      return "[recovery: cooling down. flush the hot context. shorter responses. facts only. no interpretation yet.]";
+    case "pace":
+      return "[recovery: pacing. facts first, then interpretation. check each claim. you're earning trust back.]";
+    case "reengage":
+      return "[recovery: re-engaging. you can offer suggestions again. gently. the break made you more careful, not more timid.]";
+    default:
+      return null;
+  }
+}
+
+export function getEscalationSignal(recovery: RecoveryState): string | null {
+  if (!recovery.escalated) return null;
+  return `[ESCALATE: black state recurred during recovery (turn ${recovery.triggerTurn}). surfacing to drew: the system went black twice. what do you want to do?]`;
 }

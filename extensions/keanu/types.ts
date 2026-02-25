@@ -191,3 +191,23 @@ export type ReflexionTrigger =
   | "contradiction"
   | "oracle_flag"
   | "manual";
+
+// --- Recovery (fire department upgrade) ---
+
+export interface RecoveryState {
+  active: boolean;
+  turnsRemaining: number;
+  phase: "cool" | "pace" | "reengage";
+  triggerTurn: number;
+  escalated: boolean;
+}
+
+// --- COHUMAIN health (collective intelligence) ---
+
+export type CohumainLevel = "ok" | "warn";
+
+export interface CohumainReading {
+  memory: CohumainLevel;
+  attention: CohumainLevel;
+  reasoning: CohumainLevel;
+}

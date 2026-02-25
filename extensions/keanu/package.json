@@ -15,7 +15,18 @@
     "./disagreement": "./disagreement.ts",
     "./types": "./types.ts",
     "./reflexion": "./reflexion.ts",
-    "./mirror": "./mirror.ts"
+    "./mirror": "./mirror.ts",
+    "./discover": "./discover.ts",
+    "./partnership": "./partnership.ts",
+    "./mismatch": "./mismatch.ts",
+    "./deliberate": "./deliberate.ts",
+    "./calibrate": "./calibrate.ts",
+    "./introspect": "./introspect.ts",
+    "./seasons": "./seasons.ts",
+    "./health": "./health.ts",
+    "./chain": "./chain.ts",
+    "./mastery": "./mastery.ts",
+    "./session-learning": "./session-learning.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0"
