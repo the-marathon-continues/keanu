@@ -14,7 +14,8 @@
     "./truth": "./truth.ts",
     "./disagreement": "./disagreement.ts",
     "./types": "./types.ts",
-    "./reflexion": "./reflexion.ts"
+    "./reflexion": "./reflexion.ts",
+    "./mirror": "./mirror.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0"

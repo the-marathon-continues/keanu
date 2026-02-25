@@ -205,6 +205,25 @@ export function recordToolError(toolName: string, error: string): void {
   if (_toolErrors.length > 20) _toolErrors.splice(0, _toolErrors.length - 20);
 }
 
+/** Same tool failing repeatedly = head against a wall. */
+export function repeatedToolFailures(): Array<{ tool: string; count: number }> {
+  const recent = _toolErrors.filter((e) => e.turn > turnCount - 5);
+  const counts: Record<string, number> = {};
+  for (const e of recent) counts[e.tool] = (counts[e.tool] ?? 0) + 1;
+  return Object.entries(counts)
+    .filter(([, c]) => c >= 3)
+    .map(([tool, count]) => ({ tool, count }));
+}
+
+/** Tool error rate over recent turns. */
+export function toolErrorRate(): number {
+  if (turnCount === 0) return 0;
+  const window = Math.min(turnCount, 10);
+  const recent = _toolErrors.filter((e) => e.turn > turnCount - window).length;
+  const totalCalls = Object.values(toolCallCounts).reduce((s, c) => s + c, 0);
+  return totalCalls > 0 ? recent / totalCalls : 0;
+}
+
 // ============================================================
 // Token usage
 // ============================================================
@@ -226,6 +245,15 @@ export function recordSubagentEnd(outcome: string): void {
   subagentEnds++;
   _subagentOutcomes.push(outcome);
   if (_subagentOutcomes.length > 20) _subagentOutcomes.splice(0, _subagentOutcomes.length - 20);
+}
+
+/** Are subagents struggling? Spawns without ends = hanging. Bad outcomes = broken delegation. */
+export function subagentHealth(): { successRate: number; hanging: number } {
+  const successes = _subagentOutcomes.filter((o) => o === "success" || o === "completed").length;
+  const total = _subagentOutcomes.length;
+  const successRate = total > 0 ? successes / total : 1;
+  const hanging = subagentSpawns - subagentEnds;
+  return { successRate, hanging };
 }
 
 // ============================================================
@@ -376,6 +404,27 @@ export function buildSignalState(pulse: PulseReading): SignalState {
   const human = lastHumanReading;
   const dStats = disagreementTracker.stats();
   const alerts = disagreementTracker.alerts(turnCount);
+
+  // Tool errors: same tool failing repeatedly = stuck in a loop
+  const stuck = repeatedToolFailures();
+  for (const { tool, count } of stuck) {
+    alerts.push(`tool_loop: ${tool} failed ${count}x in last 5 turns`);
+  }
+
+  // Tool error rate across session
+  const errRate = toolErrorRate();
+  if (errRate > 0.3) {
+    alerts.push(`tool_error_rate: ${(errRate * 100).toFixed(0)}% of tool calls failing`);
+  }
+
+  // Subagent health: broken delegation or hanging spawns
+  const sHealth = subagentHealth();
+  if (sHealth.successRate < 0.5 && _subagentOutcomes.length >= 3) {
+    alerts.push(`subagent_struggling: ${(sHealth.successRate * 100).toFixed(0)}% success rate`);
+  }
+  if (sHealth.hanging > 2) {
+    alerts.push(`subagent_hanging: ${sHealth.hanging} spawned without ending`);
+  }
 
   // Both sides of the mirror: agent bullshit (from pulse) + human bullshit (from human reading)
   const agentBs = pulse.bullshitReadings ?? [];

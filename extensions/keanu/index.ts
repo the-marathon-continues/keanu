@@ -348,18 +348,18 @@ export default {
         );
       }
 
-      // Contradiction warning
+      // Contradiction notice -- you might be changing your mind, that's okay. Just be aware.
       if (state.recentContradictions.length > 0) {
         parts.push(
-          `[pulse: ${state.recentContradictions.length} contradiction(s) detected in recent outputs. awareness, not judgment.]`,
+          `[mirror: ${state.recentContradictions.length} contradiction(s) in recent outputs. you might be changing your mind, or the context shifted. either way, name it.]`,
         );
       }
 
-      // Bullshit accumulation warning
+      // Mirror pattern -- positive intent. Not "you're bullshitting" but "let's find the real thing together."
       const bsRate = state.bullshitEventRate();
       if (bsRate > 0.3) {
         parts.push(
-          `[pulse: bullshit detection rate=${(bsRate * 100).toFixed(0)}% across recent outputs. the mirror sees a pattern.]`,
+          `[mirror: pattern rate=${(bsRate * 100).toFixed(0)}% across recent outputs. something's not landing. assume positive intent -- help find what's trying to come through.]`,
         );
       }
 

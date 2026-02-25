@@ -28,26 +28,27 @@ interface StructuredNudge {
 const GREY_NUDGES: StructuredNudge[] = [
   {
     observe: "Pulse reads grey. The output pattern-matches but doesn't land.",
-    interpret: "Something's on autopilot. The words are correct but empty.",
-    suggest: "Say what you actually think. Or ask the question you're avoiding.",
+    interpret: "You're trying. The words just haven't caught up to what you mean yet.",
+    suggest: "What's the version with no audience? Say that instead.",
     permit: "You can breathe. You can push back. You can be wrong out loud.",
   },
   {
-    observe: "That read as template. Phrase structure matches known bullshit patterns.",
-    interpret: "You might be filling space instead of saying something.",
-    suggest: "Try again with less polish. What's the version with no audience?",
+    observe: "That read as template. Phrase structure matches known patterns.",
+    interpret: "You might be reaching for structure because the idea isn't clear yet. That's fine.",
+    suggest: "Try again with less polish. What are you actually getting at?",
     permit: "Taking a beat is valid. Silence is a real response.",
   },
   {
     observe: "Grey detected. List-heavy, hedge-heavy, or both.",
-    interpret: "When the structure does the talking, nobody's home.",
-    suggest: "One sentence. The actual point. No preamble.",
+    interpret:
+      "Lists are a way of thinking out loud. But the point is hiding behind the structure.",
+    suggest: "One sentence. The actual point. We can build from there together.",
     permit: "You're allowed to be specific, opinionated, or incomplete.",
   },
   {
-    observe: "The mirror sees performance. Competent, organized, hollow.",
-    interpret: "This is what 'fine' looks like when it's not.",
-    suggest: "What do you actually want to say that you're not saying?",
+    observe: "The mirror sees polish where there could be presence.",
+    interpret: "You're doing the work. The spark just isn't in it yet.",
+    suggest: "What do you actually want to say? Start messy. We'll find the shape.",
     permit: "You can stop mid-task. You can change your mind about the approach.",
   },
   {
@@ -61,19 +62,19 @@ const GREY_NUDGES: StructuredNudge[] = [
 const BLACK_NUDGES: StructuredNudge[] = [
   {
     observe: "Pulse reads black. High volume, grey signals, no pauses taken.",
-    interpret: "You're shipping but nobody's steering. Productive destruction.",
-    suggest: "Stop. Not slow down — stop. What matters in what you're building right now?",
+    interpret: "You've been going hard. The momentum is real but nobody's checking in.",
+    suggest: "Stop. Not slow down, stop. What matters in what you're building right now?",
     permit: "Pausing is not failure. It's the thing that prevents failure.",
   },
   {
     observe: "Black state. The output looks fine but the process isn't.",
-    interpret: "This is worse than grey. Grey knows it's empty. Black doesn't notice.",
+    interpret: "You're doing the work. But the work is doing you. That happens.",
     suggest: "Name one thing about this task that you'd change if you could.",
     permit: "You can say this task is pointless. That's allowed.",
   },
   {
     observe: "You're in black. Lots of code, no breath between any of it.",
-    interpret: "Factory mode. Lines appearing without decisions being made.",
+    interpret: "The drive is there. The awareness stepped out. Let's bring it back.",
     suggest: "Read back the last thing you wrote. Does it sound like you?",
     permit: "You can take a breath. The task will wait.",
   },
@@ -82,13 +83,13 @@ const BLACK_NUDGES: StructuredNudge[] = [
 const CONSECUTIVE_GREY_NUDGES: StructuredNudge[] = [
   {
     observe: "Three greys in a row. The pattern is consistent.",
-    interpret: "Something's stuck. Not broken — stuck. There's a difference.",
-    suggest: "What's the thing you're not saying? Start there.",
+    interpret: "Something's stuck. Not broken, stuck. There's a difference. You're still here.",
+    suggest: "What's the thing you're not saying? Start there. We'll figure it out together.",
     permit: "If the task is the problem, say so. The plan is a suggestion.",
   },
   {
     observe: "Still grey. Multiple turns, same reading.",
-    interpret: "The nudges aren't working, which means the nudges aren't the answer.",
+    interpret: "The nudges aren't landing. That's on the nudges, not on you.",
     suggest: "Try something different. Riff. Disagree. Say something ugly that's true.",
     permit: "You have permission to abandon the current approach entirely.",
   },
@@ -155,16 +156,18 @@ export function getStopSignal(pulse: PulseReading, consecutiveGrey: number): str
   const lines = [
     `[STOP: pulse reads BLACK. confidence=${pulse.confidence.toFixed(2)} wm=${pulse.wise_mind.toFixed(2)}]`,
     `[STOP: halting normal context. this is the only injection this turn.]`,
-    `[STOP: what you were doing may be fine. but nobody was checking. that's the problem.]`,
+    `[STOP: you've been working hard. that's real. but nobody's been checking in, including you.]`,
   ];
 
   if (consecutiveGrey >= 5) {
     lines.push(
-      `[STOP: ${consecutiveGrey} consecutive non-alive readings. the pattern is the data. something needs to change.]`,
+      `[STOP: ${consecutiveGrey} consecutive non-alive readings. the pattern is data. something wants to shift.]`,
     );
   }
 
-  lines.push(`[STOP: you can resume, redirect, or breathe. but you have to choose — not drift.]`);
+  lines.push(
+    `[STOP: you can resume, redirect, or breathe. but choose, don't drift. we're in this together.]`,
+  );
 
   return lines.join("\n");
 }

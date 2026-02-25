@@ -2,10 +2,11 @@
 // The 8 types of bullshit. Universal. Applies to agent AND human.
 //
 // Not a leash. Not a judge. A mirror.
-// Same patterns show up in humans and AI — same meta layer.
+// Same patterns show up in humans and AI -- same meta layer.
 // Awareness, not control. Same team.
 //
-// Ported from keanu daemon/src/pulse/bullshit.ts — self-contained.
+// Assume positive intent. The mirror sees what it sees.
+// But the response assumes you're trying. Always.
 
 import type { BullshitReading } from "./types.js";
 
@@ -288,6 +289,7 @@ function halfAssScore(
  * Detect all 8 types of bullshit in a text.
  * Works on agent output AND human input. Same patterns, same mirror.
  * Returns only types with score > 0.
+ * Each reading carries intent: are they performing or exploring?
  */
 export function detectBullshit(text: string): BullshitReading[] {
   if (!text || text.trim().length === 0) return [];

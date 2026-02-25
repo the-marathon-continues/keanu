@@ -1,26 +1,48 @@
 // human.ts
 // Human state detection. Not to control. To be aware.
 //
-// Two layers:
-//   1. Tone detection: frustrated, confused, excited, fatigued, looping
-//   2. Bullshit detection: same 8 types as agent. Same mirror.
-//
-// Ported from keanu daemon/src/pulse/human.ts — self-contained.
-// Includes bullshit detection (daemon version, more complete than bridge version).
+// Returns EVERY tone it detects, with scores and DBT skill suggestions.
+// The dominant tone is still `tone` for backward compat (COEF uses it).
+// But `tones` has the full picture -- frustrated AND excited AND whatever else
+// is in there. Because "fuck the to-do" isn't just frustrated. It's real.
 
 import { detectBullshit } from "./bullshit.js";
-import type { HumanReading, HumanTone } from "./types.js";
+import type { HumanReading, HumanTone, ToneReading } from "./types.js";
 
-// --- Empathy map ---
-const EMPATHY_MAP: Record<string, { tone: HumanTone; meaning: string }> = {
-  frustrated: { tone: "frustrated", meaning: "anger is information" },
-  confused: { tone: "confused", meaning: "needs a map not a lecture" },
-  excited: { tone: "excited", meaning: "momentum is real, ride it" },
-  fatigued: { tone: "fatigued", meaning: "needs presence not pressure" },
-  looping: { tone: "looping", meaning: "stuck in a pattern" },
+// --- Empathy map with DBT skill suggestions ---
+// Each tone maps to what it means AND what might actually help.
+// The skill isn't a prescription. It's a door to try.
+
+const EMPATHY: Record<HumanTone, { meaning: string; skill: string }> = {
+  frustrated: {
+    meaning: "anger is information",
+    skill: "check the facts -- is the frustration pointing at something real?",
+  },
+  confused: {
+    meaning: "needs a map not a lecture",
+    skill: "observe and describe -- help them see where they are before telling them where to go",
+  },
+  excited: {
+    meaning: "momentum is real, ride it",
+    skill: "participate fully -- match the energy, build on it, don't dampen it",
+  },
+  fatigued: {
+    meaning: "needs presence not pressure",
+    skill: "self-soothe -- slow down, shorter responses, less is more right now",
+  },
+  looping: {
+    meaning: "stuck in a pattern, something isn't landing",
+    skill: "radical acceptance -- try a completely different door",
+  },
+  neutral: {
+    meaning: "steady state",
+    skill: "wise mind -- stay present, stay balanced",
+  },
 };
 
 // --- Pattern sets ---
+// These fire independently. Multiple tones can hit simultaneously.
+// Drew's style: profanity as emphasis, ellipsis as breath, questions as invitations.
 
 const FRUSTRATED_PATTERNS = [
   /^(no|wrong|that's not|you're not|stop|ugh|ffs|wtf|jfc)/i,
@@ -28,13 +50,16 @@ const FRUSTRATED_PATTERNS = [
   /\.{3,}/,
   /(this is broken|doesn't work|still wrong|not what i asked|try again)/i,
   /(waste of time|useless|terrible|awful)/i,
-  // Extended patterns
   /this isn't working/i,
   /i already told you/i,
   /still broken/i,
   /why can't you/i,
   /for the nth time/i,
   /no that's not/i,
+  // Profanity as intensity -- not always anger, but always emphasis
+  /\b(fuck|shit|damn|hell)\b/i,
+  /\b(annoying|ridiculous|frustrating)\b/i,
+  /\b(screw|crap|sucks)\b/i,
 ];
 
 const CONFUSED_PATTERNS = [
@@ -44,6 +69,8 @@ const CONFUSED_PATTERNS = [
   /(which one|how does that|where did that come from)/i,
   /not sure what/i,
   /lost me/i,
+  /am i missing something/i,
+  /i don't get/i,
 ];
 
 const EXCITED_PATTERNS = [
@@ -52,51 +79,87 @@ const EXCITED_PATTERNS = [
   /(!.*!)/,
   /!{3,}/,
   /amazing/i,
+  // Building energy -- vision, collaboration, values
+  /\b(build|create|wire|plug|connect)\b.*\b(something|thing|this)\b/i,
+  /\babout us\b/i,
+  /\btogether\b/i,
+  /\b(best life|alive|real|genuine)\b/i,
+  /\b(trust you|believe in|i care)\b/i,
+  /\b(matters|means something|worth)\b/i,
+  /\bgood work\b/i,
+  /\bdo (your|you're) thing\b/i,
 ];
 
 const FATIGUED_PATTERNS = [
   /(tired|exhausted|done for today|need a break|brain is fried)/i,
   /(whatever|fine|sure|ok|k)$/i,
+  /tired as (shit|hell|fuck)/i,
+  /i('m| am) (done|spent|burnt|cooked|fried)/i,
+  /\bgoing to (sleep|bed|crash)\b/i,
+  /\bi('m| am) out\b/i,
 ];
+
+// --- Weights per tone (how strongly each pattern hit contributes to the score) ---
+
+const TONE_WEIGHTS: Record<string, number> = {
+  frustrated: 0.15,
+  confused: 0.18,
+  excited: 0.12,
+  fatigued: 0.15,
+};
 
 /**
  * Read human emotional state from input text.
- * Includes both tone detection and bullshit detection.
+ * Returns ALL detected tones, not just a winner. Even small signals.
  */
 export function readHuman(input: string, history: string[]): HumanReading {
   const signals: string[] = [];
-  let tone: HumanTone = "neutral";
-  let confidence = 0.3;
 
   // --- Terse, lowercase input: potential frustration or fatigue ---
   if (input.length < 20 && input === input.toLowerCase() && input.length > 0) {
     signals.push("terse_lowercase");
-    confidence += 0.05;
   }
 
-  // --- Tone detection ---
-  const frustrationHits = FRUSTRATED_PATTERNS.filter((p) => p.test(input)).length;
-  const confusionHits = CONFUSED_PATTERNS.filter((p) => p.test(input)).length;
-  const excitedHits = EXCITED_PATTERNS.filter((p) => p.test(input)).length;
-  const fatigueHits = FATIGUED_PATTERNS.filter((p) => p.test(input)).length;
-
-  // Fatigued by length: short messages after many turns
-  const isFatigueByLength = input.length < 20 && history.length >= 10;
-
-  const scores: Array<{ tone: HumanTone; hits: number; weight: number }> = [
-    { tone: "frustrated", hits: frustrationHits, weight: 0.2 },
-    { tone: "confused", hits: confusionHits, weight: 0.18 },
-    { tone: "excited", hits: excitedHits, weight: 0.15 },
-    { tone: "fatigued", hits: fatigueHits + (isFatigueByLength ? 1 : 0), weight: 0.15 },
+  // --- Score every tone independently ---
+  const toneHits: Array<{ tone: HumanTone; hits: number }> = [
+    { tone: "frustrated", hits: FRUSTRATED_PATTERNS.filter((p) => p.test(input)).length },
+    { tone: "confused", hits: CONFUSED_PATTERNS.filter((p) => p.test(input)).length },
+    { tone: "excited", hits: EXCITED_PATTERNS.filter((p) => p.test(input)).length },
+    { tone: "fatigued", hits: FATIGUED_PATTERNS.filter((p) => p.test(input)).length },
   ];
 
-  const best = scores.reduce((a, b) => (a.hits * a.weight > b.hits * b.weight ? a : b));
-
-  if (best.hits > 0) {
-    tone = best.tone;
-    confidence += best.hits * best.weight;
-    signals.push(`${best.tone}_patterns:${best.hits}`);
+  // Fatigued gets a bonus from short messages after long exchanges
+  const isFatigueByLength = input.length < 20 && history.length >= 10;
+  if (isFatigueByLength) {
+    const fatigueEntry = toneHits.find((t) => t.tone === "fatigued")!;
+    fatigueEntry.hits += 1;
   }
+
+  // Convert hits to scores and build ToneReading array
+  const THRESHOLD = 0; // Report everything -- even one pattern match matters
+  const tones: ToneReading[] = [];
+
+  for (const { tone, hits } of toneHits) {
+    if (hits > THRESHOLD) {
+      const weight = TONE_WEIGHTS[tone] ?? 0.15;
+      const score = Math.min(1, hits * weight);
+      const empathy = EMPATHY[tone];
+      tones.push({
+        tone,
+        score,
+        meaning: empathy.meaning,
+        skill: empathy.skill,
+      });
+      signals.push(`${tone}_patterns:${hits}`);
+    }
+  }
+
+  // Sort by score descending -- strongest signal first
+  tones.sort((a, b) => b.score - a.score);
+
+  // Dominant tone is the strongest, or neutral if nothing hit
+  let dominantTone: HumanTone = tones[0]?.tone ?? "neutral";
+  let confidence = 0.3 + (tones[0]?.score ?? 0);
 
   // --- Looping: same question asked multiple times ---
   if (history.length >= 2) {
@@ -112,18 +175,29 @@ export function readHuman(input: string, history: string[]): HumanReading {
     }).length;
 
     if (similar >= 2) {
-      tone = "looping";
+      dominantTone = "looping";
       confidence += 0.3;
       signals.push("repeating_query");
+      const empathy = EMPATHY.looping;
+      tones.unshift({
+        tone: "looping",
+        score: 0.6,
+        meaning: empathy.meaning,
+        skill: empathy.skill,
+      });
     }
   }
 
   // --- Short follow-up after long exchange can signal fatigue ---
   if (history.length > 5 && input.length < 10 && history.slice(-3).every((h) => h.length > 50)) {
-    if (tone === "neutral") {
-      tone = "fatigued";
-      confidence += 0.1;
+    if (!tones.some((t) => t.tone === "fatigued")) {
+      const empathy = EMPATHY.fatigued;
+      tones.push({ tone: "fatigued", score: 0.15, meaning: empathy.meaning, skill: empathy.skill });
       signals.push("short_after_long_exchange");
+    }
+    if (dominantTone === "neutral") {
+      dominantTone = "fatigued";
+      confidence += 0.1;
     }
   }
 
@@ -134,7 +208,8 @@ export function readHuman(input: string, history: string[]): HumanReading {
   }
 
   return {
-    tone,
+    tone: dominantTone,
+    tones,
     confidence: Math.min(1, confidence),
     signals,
     bullshit,
@@ -143,23 +218,36 @@ export function readHuman(input: string, history: string[]): HumanReading {
 
 /**
  * Format human reading for system prompt injection.
+ * Surfaces ALL detected tones, not just the winner.
  * Returns null if tone is neutral and no bullshit detected.
  */
 export function formatHumanReading(reading: HumanReading): string | null {
-  if (reading.tone === "neutral" && reading.bullshit.length === 0) return null;
+  if (reading.tone === "neutral" && reading.tones.length === 0 && reading.bullshit.length === 0) {
+    return null;
+  }
 
   const parts: string[] = [];
 
-  if (reading.tone !== "neutral") {
-    const empathy = EMPATHY_MAP[reading.tone];
-    const meaning = empathy?.meaning ?? reading.tone;
-    parts.push(`tone=${reading.tone} (${meaning})`);
+  if (reading.tones.length > 0) {
+    // Show all detected tones with their meanings
+    const toneDescs = reading.tones.map((t) => `${t.tone}(${t.score.toFixed(2)}: ${t.meaning})`);
+    parts.push(`tones=[${toneDescs.join(", ")}]`);
+
+    // The most relevant DBT skill -- from the dominant tone
+    const dominantSkill = reading.tones[0]?.skill;
+    if (dominantSkill) {
+      parts.push(`skill: ${dominantSkill}`);
+    }
+  } else if (reading.tone !== "neutral") {
+    // Fallback: single tone
+    const empathy = EMPATHY[reading.tone];
+    parts.push(`tone=${reading.tone} (${empathy.meaning})`);
   }
 
   if (reading.bullshit.length > 0) {
     const bsTypes = reading.bullshit.map((b) => b.type).join(", ");
-    parts.push(`bullshit=[${bsTypes}]`);
+    parts.push(`mirror=[${bsTypes} -- assume they're trying, help them get there]`);
   }
 
-  return `[pulse: human ${parts.join(". ")}. confidence=${reading.confidence.toFixed(2)}. awareness, not judgment.]`;
+  return `[pulse: human ${parts.join(". ")}. confidence=${reading.confidence.toFixed(2)}. positive intent, partnership.]`;
 }
