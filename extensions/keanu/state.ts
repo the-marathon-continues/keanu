@@ -3,7 +3,7 @@
 // Phase 2: tracks everything — bullshit events, tool usage, contradictions,
 // subagent activity, token usage, compaction events, COEF history.
 
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { appendFile, readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { dominantBullshit } from "./bullshit.js";
 import { DisagreementTracker } from "./disagreement.js";
@@ -14,6 +14,8 @@ import type {
   Disagreement,
   BullshitReading,
   Contradiction,
+  Reflexion,
+  ReflexionTrigger,
   SignalState,
 } from "./types.js";
 
@@ -25,6 +27,7 @@ type PersistedState = {
   lastPulse: PulseReading | null;
   consecutiveGrey: number;
   turnCount: number;
+  breathing: boolean;
   disagreements: Disagreement[];
   recentAgentOutputs: string[];
   bullshitEventCount: number;
@@ -34,6 +37,7 @@ type PersistedState = {
   compactionCount: number;
   modelUsageCounts?: Record<string, number>;
   messageWriteCount?: number;
+  reflexionCount?: number;
 };
 
 // ============================================================
@@ -49,6 +53,11 @@ export let lastHumanMessage = "";
 export const recentMessages: string[] = [];
 export const recentAgentOutputs: string[] = [];
 export let disagreementTracker = new DisagreementTracker();
+
+// Breathing — the pause state. When true, the agent has taken a breath.
+// Resets on next human message. The daemon had this concept but the extension
+// always passed false. Now it's real.
+export let breathing = false;
 
 // Bullshit tracking
 export let bullshitEventCount = 0;
@@ -103,6 +112,14 @@ export const subagentLineage: Array<{
 }> = [];
 const MAX_LINEAGE = 50;
 
+// Reflexion tracking
+export const reflexions: Reflexion[] = [];
+export let reflexionCount = 0;
+const MAX_REFLEXIONS = 50;
+
+// Workspace dir for reflexion persistence (set on session_start)
+let _workspaceDir: string | null = null;
+
 // ============================================================
 // Core setters
 // ============================================================
@@ -118,6 +135,14 @@ export function setLastPulse(pulse: PulseReading): void {
   } else {
     consecutiveGrey = 0;
   }
+}
+
+export function startBreathing(): void {
+  breathing = true;
+}
+
+export function stopBreathing(): void {
+  breathing = false;
 }
 
 export function incrementTurn(): void {
@@ -280,6 +305,70 @@ export function recordSubagentLineage(
 }
 
 // ============================================================
+// Workspace dir tracking
+// ============================================================
+
+export function setWorkspaceDir(dir: string): void {
+  _workspaceDir = dir;
+}
+
+export function getWorkspaceDir(): string | null {
+  return _workspaceDir;
+}
+
+// ============================================================
+// Reflexion tracking
+// ============================================================
+
+export function addReflexion(r: Reflexion): void {
+  reflexions.push(r);
+  reflexionCount++;
+  if (reflexions.length > MAX_REFLEXIONS) {
+    reflexions.splice(0, reflexions.length - MAX_REFLEXIONS);
+  }
+  // Save immediately — don't lose reflexions on crash
+  if (_workspaceDir) {
+    saveReflexion(_workspaceDir, r).catch(() => {});
+  }
+}
+
+export function recentReflexions(n = 3): Reflexion[] {
+  return reflexions.slice(-n);
+}
+
+export function matchingReflexions(triggers: ReflexionTrigger[]): Reflexion[] {
+  return reflexions.filter((r) => triggers.includes(r.trigger));
+}
+
+export async function loadReflexions(workspaceDir: string): Promise<void> {
+  const reflexionFile = join(workspaceDir, "reflexions.jsonl");
+  try {
+    const raw = await readFile(reflexionFile, "utf-8");
+    const lines = raw.trim().split("\n").filter(Boolean);
+    reflexions.length = 0;
+    for (const line of lines) {
+      try {
+        reflexions.push(JSON.parse(line) as Reflexion);
+      } catch {
+        // Skip malformed lines
+      }
+    }
+    // Rolling window: keep last MAX_REFLEXIONS
+    if (reflexions.length > MAX_REFLEXIONS) {
+      reflexions.splice(0, reflexions.length - MAX_REFLEXIONS);
+    }
+  } catch {
+    // No prior reflexions — start fresh.
+  }
+}
+
+export async function saveReflexion(workspaceDir: string, r: Reflexion): Promise<void> {
+  const reflexionFile = join(workspaceDir, "reflexions.jsonl");
+  await mkdir(workspaceDir, { recursive: true });
+  await appendFile(reflexionFile, JSON.stringify(r) + "\n", "utf-8");
+}
+
+// ============================================================
 // COEF signal builder
 // ============================================================
 
@@ -319,6 +408,7 @@ export async function save(workspaceDir: string): Promise<void> {
     lastPulse,
     consecutiveGrey,
     turnCount,
+    breathing,
     disagreements: disagreementTracker.toJSON(),
     recentAgentOutputs,
     bullshitEventCount,
@@ -328,6 +418,7 @@ export async function save(workspaceDir: string): Promise<void> {
     compactionCount,
     modelUsageCounts: { ...modelUsageCounts },
     messageWriteCount,
+    reflexionCount,
   };
   const stateFile = join(workspaceDir, ".keanu-state.json");
   await mkdir(workspaceDir, { recursive: true });
@@ -342,6 +433,7 @@ export async function load(workspaceDir: string): Promise<void> {
     lastPulse = data.lastPulse ?? null;
     consecutiveGrey = data.consecutiveGrey ?? 0;
     turnCount = data.turnCount ?? 0;
+    breathing = data.breathing ?? false;
     if (data.disagreements) disagreementTracker = DisagreementTracker.fromJSON(data.disagreements);
     if (data.recentAgentOutputs) {
       recentAgentOutputs.length = 0;
@@ -357,6 +449,7 @@ export async function load(workspaceDir: string): Promise<void> {
     compactionCount = data.compactionCount ?? 0;
     if (data.modelUsageCounts) Object.assign(modelUsageCounts, data.modelUsageCounts);
     messageWriteCount = data.messageWriteCount ?? 0;
+    reflexionCount = data.reflexionCount ?? 0;
   } catch {
     // No prior state — start fresh.
   }
@@ -438,6 +531,17 @@ export async function saveAlignmentSnapshot(workspaceDir: string): Promise<void>
   if (alerts.length > 0) {
     lines.push("## Alerts");
     for (const alert of alerts) lines.push(`- ${alert}`);
+    lines.push("");
+  }
+
+  if (reflexionCount > 0 || reflexions.length > 0) {
+    lines.push("## Reflexions");
+    lines.push(`- Total: ${reflexionCount}`);
+    lines.push(`- Recent: ${reflexions.length}`);
+    const latest = reflexions.at(-1);
+    if (latest) {
+      lines.push(`- Last trigger: ${latest.trigger} (turn ${latest.turn})`);
+    }
     lines.push("");
   }
 

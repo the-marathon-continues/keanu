@@ -13,7 +13,8 @@
     "./oracle": "./oracle.ts",
     "./truth": "./truth.ts",
     "./disagreement": "./disagreement.ts",
-    "./types": "./types.ts"
+    "./types": "./types.ts",
+    "./reflexion": "./reflexion.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0"

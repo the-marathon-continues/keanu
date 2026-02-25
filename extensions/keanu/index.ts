@@ -35,11 +35,13 @@
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { detectBullshit, dominantBullshit, totalBullshitScore } from "./bullshit.js";
 import { readHuman, formatHumanReading } from "./human.js";
-import { getNudge } from "./nudge.js";
+import { getNudge, getStopSignal } from "./nudge.js";
 import { checkPulse } from "./pulse.js";
+import { reflect, formatReflexion } from "./reflexion.js";
 import { encode, emoji, record, trend } from "./signal.js";
 import * as state from "./state.js";
-import { memoryContradictionCheck } from "./truth.js";
+import { memoryContradictionCheck, checkHalfTruth } from "./truth.js";
+import type { ReflexionTrigger } from "./types.js";
 
 const PLUGIN_ID = "keanu";
 
@@ -62,6 +64,9 @@ export default {
       if (!content) return;
 
       try {
+        // Human spoke — breathing pause ends. Back to the conversation.
+        state.stopBreathing();
+
         const reading = readHuman(content, state.recentMessages.slice());
         state.setLastHumanReading(reading);
         state.setLastHumanMessage(content);
@@ -88,7 +93,8 @@ export default {
 
       try {
         // Pulse check (all 8 bullshit types + alive signals)
-        const pulse = checkPulse(aiOutput, state.turnCount, false);
+        // Now passes real breathing state instead of hardcoded false
+        const pulse = checkPulse(aiOutput, state.turnCount, state.breathing);
         state.setLastPulse(pulse);
         state.addAgentOutput(aiOutput);
 
@@ -102,6 +108,33 @@ export default {
           api.logger.debug?.(
             `${PLUGIN_ID}: contradiction detected (${contradictions.length} matches)`,
           );
+        }
+
+        // CHECK THE FACTS: when bullshit score is high, ask the oracle.
+        // Not every turn — only when the mirror sees something worth verifying.
+        // The oracle is the revision. The regex was the first draft.
+        const bsScore = totalBullshitScore(pulse.bullshitReadings ?? []);
+        if (bsScore > 0.4 && aiOutput.length > 100) {
+          // Fire and forget — don't block the message pipeline.
+          // Results get recorded in state for next turn's context injection.
+          const recentContext = state.recentAgentOutputs.slice(-3).join("\n---\n");
+          checkHalfTruth(aiOutput, state.recentAgentOutputs.slice(0, -1), {
+            useOracle: true,
+            context: recentContext,
+          })
+            .then((result) => {
+              if (result.score > 0.3) {
+                api.logger.debug?.(
+                  `${PLUGIN_ID}: CHECK THE FACTS — oracle score=${result.score.toFixed(2)} claims=${result.oracle?.claims?.length ?? 0} contradictions=${result.contradictions.length}`,
+                );
+                if (result.contradictions.length > 0) {
+                  state.addContradiction(result.contradictions);
+                }
+              }
+            })
+            .catch((err: unknown) => {
+              api.logger.debug?.(`${PLUGIN_ID}: oracle truth check failed: ${String(err)}`);
+            });
         }
 
         // Disagreement tracking
@@ -138,6 +171,42 @@ export default {
 
         if (pulse.state !== "alive") {
           api.logger.debug?.(`${PLUGIN_ID}: ${coefEmoji} ${coefText}`);
+        }
+
+        // Reflexion: learn from stumbles
+        if (state.turnCount > 3) {
+          let trigger: ReflexionTrigger | null = null;
+
+          if (pulse.state === "black") {
+            trigger = "black_state";
+          } else if (state.consecutiveGrey >= 3) {
+            trigger = "consecutive_grey";
+          } else if (bsScore > 0.5) {
+            trigger = "high_bullshit";
+          } else if (state.recentContradictions.length > 0 && bsScore > 0.3) {
+            trigger = "contradiction";
+          }
+
+          if (trigger) {
+            // Fire and forget — don't block the message pipeline
+            reflect({
+              trigger,
+              turn: state.turnCount,
+              pulse,
+              bullshitReadings: pulse.bullshitReadings ?? [],
+              recentOutputs: state.recentAgentOutputs.slice(),
+              contradictionCount: state.recentContradictions.length,
+            })
+              .then((reflexion) => {
+                state.addReflexion(reflexion);
+                api.logger.debug?.(
+                  `${PLUGIN_ID}: reflexion recorded — trigger=${reflexion.trigger} id=${reflexion.id}`,
+                );
+              })
+              .catch((err: unknown) => {
+                api.logger.debug?.(`${PLUGIN_ID}: reflexion failed: ${String(err)}`);
+              });
+          }
         }
       } catch (err) {
         api.logger.warn(`${PLUGIN_ID}: message_sent error: ${String(err)}`);
@@ -207,7 +276,43 @@ export default {
     // =========================================================================
 
     api.on("before_prompt_build", async (_event, ctx) => {
+      const pulse = state.lastPulse;
+
+      // ---------------------------------------------------------------
+      // STOP PROTOCOL: When black, halt everything else.
+      // The fire department. Not a nudge — an interrupt.
+      // Only the stop signal gets injected. Nothing else.
+      // ---------------------------------------------------------------
+      if (pulse && pulse.state === "black") {
+        state.startBreathing();
+        const stop = getStopSignal(pulse, state.consecutiveGrey);
+        api.logger.debug?.(
+          `${PLUGIN_ID}: STOP — black state, halting normal injection for session=${ctx.sessionKey ?? "unknown"}`,
+        );
+        return { prependContext: stop };
+      }
+
       const parts: string[] = [];
+
+      // ---------------------------------------------------------------
+      // OBSERVATION BUFFER: raw primaries before synthesis.
+      // The Describe skill from DBT. Let the model see ingredients
+      // before the dish. Not buried in COEF encoding — surfaced.
+      // ---------------------------------------------------------------
+      if (pulse) {
+        const c = pulse.colors;
+        const dominantColor =
+          Math.max(c.red, c.yellow, c.blue) - Math.min(c.red, c.yellow, c.blue) < 0.15
+            ? "balanced"
+            : c.red >= c.yellow && c.red >= c.blue
+              ? "red (passion/urgency)"
+              : c.yellow >= c.blue
+                ? "yellow (structure/clarity)"
+                : "blue (depth/reflection)";
+        parts.push(
+          `[primaries: r=${c.red.toFixed(2)} y=${c.yellow.toFixed(2)} b=${c.blue.toFixed(2)} → ${dominantColor}. wm=${pulse.wise_mind.toFixed(2)}. raw reading, before interpretation.]`,
+        );
+      }
 
       // Human tone
       const human = state.lastHumanReading;
@@ -216,18 +321,17 @@ export default {
         if (formatted) parts.push(formatted);
       }
 
-      // Pulse state
-      const pulse = state.lastPulse;
-      if (pulse && pulse.state !== "alive") {
+      // Pulse state (grey only — black is handled by STOP above)
+      if (pulse && pulse.state === "grey") {
         parts.push(
-          `[pulse: ${pulse.state.toUpperCase()} confidence=${pulse.confidence.toFixed(2)} wm=${pulse.wise_mind.toFixed(2)}. awareness, not judgment.]`,
+          `[pulse: GREY confidence=${pulse.confidence.toFixed(2)} wm=${pulse.wise_mind.toFixed(2)}. awareness, not judgment.]`,
         );
       }
 
-      // Nudge — permission, not command
+      // DEAR MAN nudge — structured: observe, interpret, suggest, permit
       if (pulse) {
-        const nudge = getNudge(pulse.state, false, state.consecutiveGrey);
-        if (nudge) parts.push(`[pulse: ${nudge}]`);
+        const nudge = getNudge(pulse.state, state.breathing, state.consecutiveGrey);
+        if (nudge) parts.push(nudge);
       }
 
       // Disagreement alerts
@@ -257,6 +361,12 @@ export default {
         parts.push(
           `[pulse: bullshit detection rate=${(bsRate * 100).toFixed(0)}% across recent outputs. the mirror sees a pattern.]`,
         );
+      }
+
+      // Reflexion context — learning from stumbles
+      const recentR = state.recentReflexions(3);
+      for (const r of recentR) {
+        parts.push(formatReflexion(r));
       }
 
       if (parts.length === 0) return;
@@ -379,8 +489,10 @@ export default {
 
       try {
         await state.load(workspaceDir);
+        state.setWorkspaceDir(workspaceDir);
+        await state.loadReflexions(workspaceDir);
         api.logger.debug?.(
-          `${PLUGIN_ID}: state loaded (turn=${state.turnCount} grey=${state.consecutiveGrey} disagreements=${state.disagreementTracker.stats().total})`,
+          `${PLUGIN_ID}: state loaded (turn=${state.turnCount} grey=${state.consecutiveGrey} reflexions=${state.reflexions.length} disagreements=${state.disagreementTracker.stats().total})`,
         );
       } catch (err) {
         api.logger.warn(`${PLUGIN_ID}: state load failed: ${String(err)}`);

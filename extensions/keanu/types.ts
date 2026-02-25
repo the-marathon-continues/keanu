@@ -26,8 +26,16 @@ export interface ColorReading {
 
 export type HumanTone = "frustrated" | "excited" | "confused" | "neutral" | "fatigued" | "looping";
 
-export interface HumanReading {
+export interface ToneReading {
   tone: HumanTone;
+  score: number; // 0-1, strength of signal
+  meaning: string; // empathy map: what this tells you about where they are
+  skill?: string; // DBT skill suggestion: what might actually help
+}
+
+export interface HumanReading {
+  tone: HumanTone; // dominant tone (backward compat, COEF uses this)
+  tones: ToneReading[]; // ALL detected tones, sorted by score desc. even small ones.
   confidence: number;
   signals: string[];
   bullshit: BullshitReading[];
@@ -159,3 +167,27 @@ export interface SignalState {
   alerts?: string[];
   lastTool?: string;
 }
+
+// --- Reflexion ---
+
+export interface Reflexion {
+  id: string;
+  turn: number;
+  timestamp: string;
+  trigger: ReflexionTrigger;
+  what_happened: string;
+  why_it_failed: string;
+  what_was_missed: string;
+  next_time: string;
+  pulse_state: AliveState;
+  wise_mind: number;
+  bullshit_types: BullshitType[];
+}
+
+export type ReflexionTrigger =
+  | "high_bullshit"
+  | "consecutive_grey"
+  | "black_state"
+  | "contradiction"
+  | "oracle_flag"
+  | "manual";
