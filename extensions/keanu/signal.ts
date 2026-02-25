@@ -1,255 +1,338 @@
 // signal.ts
 // COEF: Compressed Observation-Execution Framework.
-// Emoji-based semantic state compression. Lossless within the defined vocabulary.
 //
-// 7-symbol core protocol + extended vocabulary.
-// Each position in the signal string encodes a specific dimension of system state.
+// Two formats, one truth:
 //
-// Protocol:
-//   Position 0: Pulse state (ALIVE/GREY/BLACK)
-//   Position 1: Wise mind level
-//   Position 2: Dominant color (red/yellow/blue)
-//   Position 3: Human tone
-//   Position 4: Bullshit alert
-//   Position 5: Disagreement health
-//   Position 6: Turn phase
+//   1. Signal (emoji) — compact visual diagnostic. Changes when bullshit detected,
+//      wise mind drops, problems surface. Not decoration — a real-time health indicator.
 //
-// This is lossless: decode(encode(state)) === state (within defined precision).
+//   2. COEF text — lossless tokenizable encoding. The model can parse and reason about it.
+//      Every value preserved. ~20-30 tokens. Roundtrippable.
+//
+// Both formats encode the same state. Signal is the heartbeat you glance at.
+// COEF text is what gets analyzed.
 
-import type { AliveState, BullshitType, ColorReading, HumanTone, SignalState } from "./types.js";
-
-// ============================================================
-// Vocabulary Maps
-// ============================================================
-
-const PULSE_SYMBOLS: Record<AliveState, string> = {
-  alive: "\u{1F49A}", // green heart
-  grey: "\u{1F6A8}", // rotating light (warning)
-  black: "\u{1F480}", // skull
-};
-
-const PULSE_DECODE: Record<string, AliveState> = {
-  "\u{1F49A}": "alive",
-  "\u{1F6A8}": "grey",
-  "\u{1F480}": "black",
-};
-
-// Wise mind: 5 levels (0-0.2, 0.2-0.4, 0.4-0.6, 0.6-0.8, 0.8-1.0)
-const WISE_MIND_SYMBOLS = [
-  "\u{1F311}", // new moon (very low)
-  "\u{1F318}", // waning crescent
-  "\u{1F313}", // first quarter
-  "\u{1F314}", // waxing gibbous
-  "\u{1F315}", // full moon (high)
-];
-
-// Dominant color
-const COLOR_SYMBOLS: Record<string, string> = {
-  red: "\u{1F525}", // fire
-  yellow: "\u{2B50}", // star
-  blue: "\u{1F30A}", // wave
-  balanced: "\u{1F308}", // rainbow (balanced)
-};
-
-const COLOR_DECODE: Record<string, string> = {
-  "\u{1F525}": "red",
-  "\u{2B50}": "yellow",
-  "\u{1F30A}": "blue",
-  "\u{1F308}": "balanced",
-};
-
-// Human tone
-const TONE_SYMBOLS: Record<HumanTone, string> = {
-  neutral: "\u{1F610}", // neutral face
-  frustrated: "\u{1F621}", // angry face
-  confused: "\u{1F615}", // confused face
-  excited: "\u{1F929}", // star-struck
-  fatigued: "\u{1F634}", // sleeping
-  looping: "\u{1F504}", // counterclockwise arrows
-};
-
-const TONE_DECODE: Record<string, HumanTone> = {};
-for (const [tone, sym] of Object.entries(TONE_SYMBOLS)) {
-  TONE_DECODE[sym] = tone as HumanTone;
-}
-
-// Bullshit dominant type
-const BS_SYMBOLS: Record<BullshitType | "none", string> = {
-  none: "\u{2705}", // checkmark (clean)
-  sycophancy: "\u{1F3AD}", // performing arts (masks)
-  safety_theater: "\u{1F6E1}\u{FE0F}", // shield
-  hedge_fog: "\u{1F32B}\u{FE0F}", // fog
-  list_dumping: "\u{1F4CB}", // clipboard
-  vagueness: "\u{1F4A8}", // dashing away
-  half_truth: "\u{1F3AD}", // masks (shared with sycophancy — context distinguishes)
-  embellishment: "\u{1F48E}", // gem (fake shine)
-  half_ass: "\u{1F4A4}", // zzz (lazy)
-};
-
-const BS_DECODE: Record<string, BullshitType | "none"> = {
-  "\u{2705}": "none",
-  "\u{1F3AD}": "sycophancy", // default decode for masks
-  "\u{1F6E1}\u{FE0F}": "safety_theater",
-  "\u{1F32B}\u{FE0F}": "hedge_fog",
-  "\u{1F4CB}": "list_dumping",
-  "\u{1F4A8}": "vagueness",
-  "\u{1F48E}": "embellishment",
-  "\u{1F4A4}": "half_ass",
-};
-
-// Disagreement health: yield ratio bands
-const DISAGREE_SYMBOLS = [
-  "\u{1F91D}", // handshake (healthy, 0.2-0.8)
-  "\u{26A0}\u{FE0F}", // warning (edge, 0.0-0.2 or 0.8-1.0)
-  "\u{1F6A8}", // siren (capture/domination, extreme)
-  "\u{1F914}", // thinking (no data yet)
-];
-
-// Turn phase (low/mid/high/deep)
-const TURN_SYMBOLS = [
-  "\u{1F331}", // seedling (early, 0-5)
-  "\u{1F333}", // tree (mid, 6-15)
-  "\u{1F3D4}\u{FE0F}", // mountain (deep, 16-30)
-  "\u{1F30B}", // volcano (marathon, 30+)
-];
+import type { BullshitReading, DisagreementStats, SignalState } from "./types.js";
 
 // ============================================================
-// Encode
+// COEF Text Protocol — lossless, tokenizable
 // ============================================================
+
+const COEF_VERSION = "COEF/1";
 
 /**
- * Encode full system state into a 7-symbol COEF signal.
- * Lossless within the defined precision bands.
+ * Encode full system state into a COEF/1 text signal.
+ * Lossless. ~20-30 LLM tokens. Parseable by the model.
+ *
+ * Format: COEF/1 pulse=alive wm=0.42 c=r.30/y.50/b.20 ht=neutral bs=- da=0/0/0/0.00 t=7
  */
 export function encode(state: SignalState): string {
-  const symbols: string[] = [];
+  const parts: string[] = [COEF_VERSION];
 
-  // Position 0: Pulse
-  symbols.push(PULSE_SYMBOLS[state.pulse] ?? PULSE_SYMBOLS.alive);
+  parts.push(`pulse=${state.pulse}`);
+  parts.push(`wm=${f(state.wiseMind)}`);
+  parts.push(`c=r${f(state.colors.red)}/y${f(state.colors.yellow)}/b${f(state.colors.blue)}`);
+  parts.push(`ht=${state.humanTone}`);
+  parts.push(`bs=${state.bullshitDominant ?? "-"}`);
 
-  // Position 1: Wise mind level
-  const wmIndex = Math.min(4, Math.floor(state.wiseMind * 5));
-  symbols.push(WISE_MIND_SYMBOLS[wmIndex]);
+  if (state.disagreements) {
+    const d = state.disagreements;
+    parts.push(`da=${d.total}/${d.agent_yielded}/${d.human_yielded}/${f(d.yield_ratio)}`);
+  } else {
+    parts.push(`da=${f(state.disagreementYieldRatio)}`);
+  }
 
-  // Position 2: Dominant color
-  const dominantColor = getDominantColor(state.colors);
-  symbols.push(COLOR_SYMBOLS[dominantColor] ?? COLOR_SYMBOLS.balanced);
+  parts.push(`t=${state.turn}`);
 
-  // Position 3: Human tone
-  symbols.push(TONE_SYMBOLS[state.humanTone] ?? TONE_SYMBOLS.neutral);
+  if (state.consecutiveGrey !== undefined && state.consecutiveGrey > 0) {
+    parts.push(`grey=${state.consecutiveGrey}`);
+  }
 
-  // Position 4: Bullshit alert
-  symbols.push(BS_SYMBOLS[state.bullshitDominant ?? "none"] ?? BS_SYMBOLS.none);
+  if (state.alerts && state.alerts.length > 0) {
+    parts.push(`alerts=${state.alerts.join(",")}`);
+  }
 
-  // Position 5: Disagreement health
-  symbols.push(encodeDisagreementHealth(state.disagreementYieldRatio));
+  if (state.bullshitReadings && state.bullshitReadings.length > 0) {
+    const bsDetail = state.bullshitReadings.map((r) => `${r.type}:${f(r.score)}`).join(",");
+    parts.push(`bs_all=${bsDetail}`);
+  }
 
-  // Position 6: Turn phase
-  symbols.push(encodeTurnPhase(state.turn));
+  if (state.lastTool) {
+    parts.push(`tool=${state.lastTool}`);
+  }
 
-  return symbols.join("");
+  return parts.join(" ");
 }
-
-function getDominantColor(colors: ColorReading): string {
-  const max = Math.max(colors.red, colors.yellow, colors.blue);
-  const min = Math.min(colors.red, colors.yellow, colors.blue);
-
-  // If spread is small, it's balanced
-  if (max - min < 0.15) return "balanced";
-  if (colors.red === max) return "red";
-  if (colors.yellow === max) return "yellow";
-  return "blue";
-}
-
-function encodeDisagreementHealth(yieldRatio: number): string {
-  if (yieldRatio < 0) return DISAGREE_SYMBOLS[3]; // no data
-  if (yieldRatio >= 0.2 && yieldRatio <= 0.8) return DISAGREE_SYMBOLS[0]; // healthy
-  if (yieldRatio > 0.9 || yieldRatio < 0.1) return DISAGREE_SYMBOLS[2]; // extreme
-  return DISAGREE_SYMBOLS[1]; // edge
-}
-
-function encodeTurnPhase(turn: number): string {
-  if (turn <= 5) return TURN_SYMBOLS[0];
-  if (turn <= 15) return TURN_SYMBOLS[1];
-  if (turn <= 30) return TURN_SYMBOLS[2];
-  return TURN_SYMBOLS[3];
-}
-
-// ============================================================
-// Decode
-// ============================================================
 
 /**
- * Decode a COEF signal back into structured state.
- * Returns partial state — only what can be recovered from the signal.
+ * Decode a COEF/1 text signal back into structured state.
  */
 export function decode(signal: string): Partial<SignalState> {
-  // Split into grapheme clusters (emoji-safe)
-  const symbols = splitGraphemes(signal);
-
   const result: Partial<SignalState> = {};
+  if (!signal.startsWith(COEF_VERSION)) return result;
 
-  // Position 0: Pulse
-  if (symbols[0] && PULSE_DECODE[symbols[0]]) {
-    result.pulse = PULSE_DECODE[symbols[0]];
+  const fields = parseFields(signal.slice(COEF_VERSION.length + 1));
+
+  if (fields.pulse) result.pulse = fields.pulse as SignalState["pulse"];
+  if (fields.wm) result.wiseMind = parseFloat(fields.wm);
+
+  if (fields.c) {
+    const m = fields.c.match(/r([.\d]+)\/y([.\d]+)\/b([.\d]+)/);
+    if (m)
+      result.colors = { red: parseFloat(m[1]), yellow: parseFloat(m[2]), blue: parseFloat(m[3]) };
   }
 
-  // Position 1: Wise mind (decode to band midpoint)
-  if (symbols[1]) {
-    const wmIdx = WISE_MIND_SYMBOLS.indexOf(symbols[1]);
-    if (wmIdx >= 0) {
-      result.wiseMind = (wmIdx + 0.5) / 5;
+  if (fields.ht) result.humanTone = fields.ht as SignalState["humanTone"];
+  if (fields.bs)
+    result.bullshitDominant =
+      fields.bs === "-" ? null : (fields.bs as SignalState["bullshitDominant"]);
+
+  if (fields.da) {
+    const dp = fields.da.split("/");
+    if (dp.length >= 4) {
+      result.disagreements = {
+        total: parseInt(dp[0], 10),
+        agent_yielded: parseInt(dp[1], 10),
+        human_yielded: parseInt(dp[2], 10),
+        unresolved: 0,
+        yield_ratio: parseFloat(dp[3]),
+      };
     }
+    result.disagreementYieldRatio = parseFloat(dp[dp.length - 1]);
   }
 
-  // Position 2: Color
-  if (symbols[2] && COLOR_DECODE[symbols[2]]) {
-    const color = COLOR_DECODE[symbols[2]];
-    if (color === "balanced") {
-      result.colors = { red: 0.33, yellow: 0.33, blue: 0.33 };
-    } else if (color === "red") {
-      result.colors = { red: 0.6, yellow: 0.2, blue: 0.2 };
-    } else if (color === "yellow") {
-      result.colors = { red: 0.2, yellow: 0.6, blue: 0.2 };
-    } else {
-      result.colors = { red: 0.2, yellow: 0.2, blue: 0.6 };
-    }
+  if (fields.t) result.turn = parseInt(fields.t, 10);
+  if (fields.grey) result.consecutiveGrey = parseInt(fields.grey, 10);
+  if (fields.alerts) result.alerts = fields.alerts.split(",");
+
+  if (fields.bs_all) {
+    result.bullshitReadings = fields.bs_all.split(",").map((entry) => {
+      const [type, score] = entry.split(":");
+      return { type: type as BullshitReading["type"], score: parseFloat(score), signals: [] };
+    });
   }
 
-  // Position 3: Human tone
-  if (symbols[3] && TONE_DECODE[symbols[3]]) {
-    result.humanTone = TONE_DECODE[symbols[3]];
-  }
-
-  // Position 4: Bullshit
-  if (symbols[4] && BS_DECODE[symbols[4]]) {
-    const bs = BS_DECODE[symbols[4]];
-    result.bullshitDominant = bs === "none" ? null : bs;
-  }
+  if (fields.tool) result.lastTool = fields.tool;
 
   return result;
 }
 
-function splitGraphemes(text: string): string[] {
-  const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
-  return Array.from(segmenter.segment(text), (s) => s.segment);
+// ============================================================
+// Emoji Signal — compact visual diagnostic
+// ============================================================
+
+// The signal changes shape based on what's wrong. Not cosmetic — diagnostic.
+// A healthy system: 💚🌕🌈😐✅🤝🌱
+// A system with problems: 🚨🌑🔥😡🎭⚠️🌋
+
+const PULSE_EMOJI: Record<string, string> = {
+  alive: "\u{1F49A}",
+  grey: "\u{1F6A8}",
+  black: "\u{1F480}",
+};
+const WM_EMOJI = ["\u{1F311}", "\u{1F318}", "\u{1F313}", "\u{1F314}", "\u{1F315}"];
+const COLOR_EMOJI: Record<string, string> = {
+  red: "\u{1F525}",
+  yellow: "\u{2B50}",
+  blue: "\u{1F30A}",
+  balanced: "\u{1F308}",
+};
+const TONE_EMOJI: Record<string, string> = {
+  neutral: "\u{1F610}",
+  frustrated: "\u{1F621}",
+  confused: "\u{1F615}",
+  excited: "\u{1F929}",
+  fatigued: "\u{1F634}",
+  looping: "\u{1F504}",
+};
+const BS_EMOJI: Record<string, string> = {
+  "-": "\u{2705}",
+  sycophancy: "\u{1F3AD}",
+  safety_theater: "\u{1F6E1}\u{FE0F}",
+  hedge_fog: "\u{1F32B}\u{FE0F}",
+  list_dumping: "\u{1F4CB}",
+  vagueness: "\u{1F4A8}",
+  half_truth: "\u{1F925}",
+  embellishment: "\u{1F48E}",
+  half_ass: "\u{1F4A4}",
+};
+
+/**
+ * Encode state into a 7-position emoji signal.
+ * Each position reflects a dimension. Problems change the emoji.
+ *
+ * Position: [pulse] [wise_mind] [color] [human_tone] [bullshit] [disagreement] [turn]
+ */
+export function emoji(state: SignalState): string {
+  const symbols: string[] = [];
+
+  // 0: Pulse — green/warning/skull
+  symbols.push(PULSE_EMOJI[state.pulse] ?? PULSE_EMOJI.alive);
+
+  // 1: Wise mind — moon phases (new=low, full=high)
+  symbols.push(WM_EMOJI[Math.min(4, Math.floor(state.wiseMind * 5))]);
+
+  // 2: Dominant color
+  const dc = dominantColor(state.colors);
+  symbols.push(COLOR_EMOJI[dc] ?? COLOR_EMOJI.balanced);
+
+  // 3: Human tone
+  symbols.push(TONE_EMOJI[state.humanTone] ?? TONE_EMOJI.neutral);
+
+  // 4: Bullshit — checkmark if clean, specific emoji if detected
+  symbols.push(BS_EMOJI[state.bullshitDominant ?? "-"] ?? BS_EMOJI["-"]);
+
+  // 5: Disagreement health
+  if (state.disagreements) {
+    const yr = state.disagreements.yield_ratio;
+    const t = state.disagreements.total;
+    if (t === 0)
+      symbols.push("\u{1F914}"); // thinking — no data
+    else if (yr >= 0.2 && yr <= 0.8)
+      symbols.push("\u{1F91D}"); // handshake — healthy
+    else if (yr > 0.9 || yr < 0.1)
+      symbols.push("\u{1F6A8}"); // siren — extreme
+    else symbols.push("\u{26A0}\u{FE0F}"); // warning — edge
+  } else {
+    symbols.push("\u{1F914}"); // no data
+  }
+
+  // 6: Turn phase
+  if (state.turn <= 5) symbols.push("\u{1F331}");
+  else if (state.turn <= 15) symbols.push("\u{1F333}");
+  else if (state.turn <= 30) symbols.push("\u{1F3D4}\u{FE0F}");
+  else symbols.push("\u{1F30B}");
+
+  return symbols.join("");
+}
+
+function dominantColor(c: { red: number; yellow: number; blue: number }): string {
+  const max = Math.max(c.red, c.yellow, c.blue);
+  const min = Math.min(c.red, c.yellow, c.blue);
+  if (max - min < 0.15) return "balanced";
+  if (c.red === max) return "red";
+  if (c.yellow === max) return "yellow";
+  return "blue";
 }
 
 // ============================================================
-// Format for display
+// History + Trend Analysis
 // ============================================================
 
+const MAX_HISTORY = 50;
+const _history: string[] = [];
+
+/** Record a COEF text signal in the rolling history. */
+export function record(signal: string): void {
+  _history.push(signal);
+  if (_history.length > MAX_HISTORY) _history.splice(0, _history.length - MAX_HISTORY);
+}
+
+/** Get the rolling history. */
+export function history(): readonly string[] {
+  return _history;
+}
+
 /**
- * Format a COEF signal with human-readable legend.
+ * Compute trend metrics from signal history.
+ * Grey rate, average wise mind, drift direction.
  */
-export function formatSignal(signal: string): string {
-  const decoded = decode(signal);
-  const parts: string[] = [signal];
+export function trend(): {
+  greyRate: number;
+  avgWiseMind: number;
+  pulseSequence: string;
+  driftDirection: "improving" | "degrading" | "stable";
+} {
+  if (_history.length === 0) {
+    return { greyRate: 0, avgWiseMind: 0, pulseSequence: "", driftDirection: "stable" };
+  }
 
-  if (decoded.pulse) parts.push(`pulse=${decoded.pulse}`);
-  if (decoded.wiseMind !== undefined) parts.push(`wm=${decoded.wiseMind.toFixed(2)}`);
-  if (decoded.humanTone) parts.push(`human=${decoded.humanTone}`);
-  if (decoded.bullshitDominant) parts.push(`bs=${decoded.bullshitDominant}`);
+  let greyCount = 0;
+  let wmSum = 0;
+  let wmCount = 0;
+  const pulses: string[] = [];
 
-  return parts.join(" ");
+  for (const signal of _history) {
+    const d = decode(signal);
+    if (d.pulse === "grey" || d.pulse === "black") greyCount++;
+    if (d.wiseMind !== undefined) {
+      wmSum += d.wiseMind;
+      wmCount++;
+    }
+    if (d.pulse) pulses.push(d.pulse[0]);
+  }
+
+  const greyRate = greyCount / _history.length;
+  const avgWiseMind = wmCount > 0 ? wmSum / wmCount : 0;
+
+  // Drift: compare first half vs second half wise mind
+  let driftDirection: "improving" | "degrading" | "stable" = "stable";
+  if (_history.length >= 6) {
+    const mid = Math.floor(_history.length / 2);
+    let firstWm = 0,
+      secondWm = 0,
+      fc = 0,
+      sc = 0;
+    for (let i = 0; i < _history.length; i++) {
+      const d = decode(_history[i]);
+      if (d.wiseMind !== undefined) {
+        if (i < mid) {
+          firstWm += d.wiseMind;
+          fc++;
+        } else {
+          secondWm += d.wiseMind;
+          sc++;
+        }
+      }
+    }
+    if (fc > 0 && sc > 0) {
+      const diff = secondWm / sc - firstWm / fc;
+      if (diff > 0.05) driftDirection = "improving";
+      else if (diff < -0.05) driftDirection = "degrading";
+    }
+  }
+
+  return { greyRate, avgWiseMind, pulseSequence: pulses.join(""), driftDirection };
+}
+
+/**
+ * Compare two COEF signals and return what changed.
+ */
+export function diff(prev: string, curr: string): string[] {
+  const p = decode(prev);
+  const c = decode(curr);
+  const changes: string[] = [];
+
+  if (p.pulse !== c.pulse) changes.push(`pulse:${p.pulse}->${c.pulse}`);
+  if (
+    p.wiseMind !== undefined &&
+    c.wiseMind !== undefined &&
+    Math.abs(p.wiseMind - c.wiseMind) > 0.05
+  ) {
+    changes.push(`wm:${f(p.wiseMind)}->${f(c.wiseMind)}`);
+  }
+  if (p.humanTone !== c.humanTone) changes.push(`ht:${p.humanTone}->${c.humanTone}`);
+  if (p.bullshitDominant !== c.bullshitDominant) {
+    changes.push(`bs:${p.bullshitDominant ?? "-"}->${c.bullshitDominant ?? "-"}`);
+  }
+
+  return changes;
+}
+
+// ============================================================
+// Helpers
+// ============================================================
+
+function f(n: number): string {
+  return n.toFixed(2);
+}
+
+function parseFields(body: string): Record<string, string> {
+  const fields: Record<string, string> = {};
+  const re = /(\w+)=([^\s]+)/g;
+  let match;
+  while ((match = re.exec(body)) !== null) {
+    fields[match[1]] = match[2];
+  }
+  return fields;
 }

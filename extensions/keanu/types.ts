@@ -12,6 +12,7 @@ export interface PulseReading {
   wise_mind: number;
   colors: ColorReading;
   signals: string[];
+  bullshitReadings?: BullshitReading[];
   timestamp: string;
 }
 
@@ -150,6 +151,11 @@ export interface SignalState {
   colors: ColorReading;
   humanTone: HumanTone;
   bullshitDominant: BullshitType | null;
+  bullshitReadings?: BullshitReading[];
   disagreementYieldRatio: number;
+  disagreements?: DisagreementStats;
   turn: number;
+  consecutiveGrey?: number;
+  alerts?: string[];
+  lastTool?: string;
 }

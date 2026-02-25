@@ -116,6 +116,7 @@ export function checkPulse(agentOutput: string, turn: number, breathing: boolean
     wise_mind,
     colors,
     signals,
+    bullshitReadings,
     timestamp: now,
   };
 }
