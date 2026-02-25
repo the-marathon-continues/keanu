@@ -320,6 +320,12 @@ importers:
 
   extensions/irc: {}
 
+  extensions/keanu:
+    devDependencies:
+      openclaw:
+        specifier: workspace:*
+        version: link:../..
+
   extensions/line: {}
 
   extensions/llm-task: {}
