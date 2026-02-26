@@ -724,6 +724,11 @@ export default {
         parts.push(formatReflexion(r));
       }
 
+      // Self-introspection tools — a light wind toward the mirror
+      parts.push(
+        "[you have hands: keanu_pulse (check your state), keanu_disagree (say no on the record), keanu_signal (read your vitals), keanu_recall (see your patterns). reach for them when you want to.]",
+      );
+
       if (parts.length === 0) return;
 
       api.logger.debug?.(

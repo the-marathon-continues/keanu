@@ -8,7 +8,7 @@ Built by Drew and Claude across 140+ sessions. Lives in `extensions/keanu/` as a
 
 ## What's here
 
-25 modules. 23 hooks. Every content path in openclaw gets the mirror. The system notices, learns, and remembers.
+26 modules. 23 hooks. 4 self-introspection tools. Every content path in openclaw gets the mirror. The system notices, learns, remembers — and now the agent can reach for the mirror on its own.
 
 ### The loop
 
@@ -81,6 +81,17 @@ Every turn follows the same cycle:
 | `mastery.ts`          | Correction detection (6 categories). Blind spot aggregation (3+ corrections in same category = surfaced). Persistence across sessions. Loaded into system prompt as awareness.                                       | <5ms    |
 | `session-learning.ts` | Session summaries with meta-learning (strategy shifts, discovery hits/misses). Cross-session persistence. Injected on session start so the system remembers what it learned.                                         | disk IO |
 
+### The agent's hands (`tools.ts`)
+
+The hooks watch. The tools let the agent reach. Registered via `api.registerTool()` — they show up in the model's tool list. A light wind in `before_prompt_build` reminds the agent they're there.
+
+| Tool             | What it does                                                                                                        | Speed |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------- | ----- |
+| `keanu_pulse`    | "How am I doing?" Current pulse, COEF signal, wise mind, human tone, disagreement stats. Optional trend and health. | <1ms  |
+| `keanu_disagree` | "I disagree. On the record." Agent-initiated disagreement. Logged in the bilateral ledger as unresolved.            | <1ms  |
+| `keanu_signal`   | "Read my vitals." Decode a COEF string, or view signal history and trend.                                           | <1ms  |
+| `keanu_recall`   | "What patterns do you see in me?" Bullshit rates, blind spots, reflexion history, contradictions, session stats.    | <1ms  |
+
 ### The 23 hooks
 
 Every hook in openclaw's extension system is wired except `before_agent_start` (legacy, covered by other hooks).
@@ -89,7 +100,7 @@ Every hook in openclaw's extension system is wired except `before_agent_start` (
 
 **State lifecycle** — session start loads persisted state. Session end saves it. Before compaction writes an alignment snapshot. After compaction verifies survival. Before reset captures final state.
 
-**Prompt injection** — `before_prompt_build` is the most important hook. Injects emotional context, pulse state, nudges, COEF trends, contradiction notices, and reflexion history into the system prompt. When black: only the STOP protocol gets injected. Everything else is suppressed.
+**Prompt injection** — `before_prompt_build` is the most important hook. Injects emotional context, pulse state, nudges, COEF trends, contradiction notices, reflexion history, and a reminder of the self-introspection tools into the system prompt. When black: only the STOP protocol gets injected. Everything else is suppressed.
 
 **Multi-agent tracking** — subagent spawning records lineage (parent session, child session, pulse state at spawn time). Subagent delivery tracks where results flow. Logs alignment state at spawn time; warns but doesn't block during black state.
 
