@@ -36,6 +36,7 @@ import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { detectBullshit, dominantBullshit, totalBullshitScore } from "./bullshit.js";
 import { checkCalibration, formatCalibration, trackCalibrationClaims } from "./calibrate.js";
 import { detectCarnegie, formatCarnegie, assessCarnegieDelta } from "./carnegie.js";
+import { detectCascadeStage, formatCascade } from "./cascade.js";
 import { analyzeChain, formatChain } from "./chain.js";
 import {
   generateCuriosity,
@@ -653,6 +654,19 @@ export default {
         const summerReading = summer(lastSpring, lastDiscoverReading);
         parts.push(formatSummer(summerReading));
       }
+
+      // ---------------------------------------------------------------
+      // CASCADE: flow state for coding tasks
+      // ---------------------------------------------------------------
+      const recentTools = Object.keys(state.toolCallCounts).slice(-5);
+      const cascadeReading = detectCascadeStage(
+        lastSpring,
+        state.lastHumanMessage,
+        recentTools,
+        state.turnCount,
+      );
+      const cascadeNudge = formatCascade(cascadeReading);
+      if (cascadeNudge) parts.push(cascadeNudge);
 
       // ---------------------------------------------------------------
       // DELIBERATION: visible value reasoning before sensitive moments

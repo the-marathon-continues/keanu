@@ -3,7 +3,7 @@
   "version": "2026.2.24",
   "description": "Keanu alignment diagnostics — ALIVE/GREY/BLACK detection, 8-type bullshit mirror, emotional context, disagreement tracking, COEF signals. Self-contained, no daemon.",
   "license": "BUSL-1.1",
-  "author": "Andrew Kemp-Dahlberg <drew@anywhereops.ai>",
+  "author": "Andrew Kemp-Dahlberg <drew@the-marathon-continues.com>",
   "type": "module",
   "exports": {
     ".": "./index.ts",
@@ -31,15 +31,15 @@
     "./session-learning": "./session-learning.ts",
     "./tools": "./tools.ts",
     "./curiosity": "./curiosity.ts",
-    "./metrics": "./metrics.ts"
+    "./metrics": "./metrics.ts",
+    "./cascade": "./cascade.ts",
+    "./carnegie": "./carnegie.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
     "@sinclair/typebox": "^0.34.0"
   },
-  "devDependencies": {
-    "openclaw": "workspace:*"
-  },
+  "devDependencies": {},
   "peerDependencies": {
     "openclaw": ">=2026.1.26"
   },
