@@ -138,6 +138,7 @@ export default {
     let lastHealthReading: ReturnType<typeof checkHealth> | null = null;
     let lastCarnegieReading: ReturnType<typeof detectCarnegie> | null = null;
     let lastCarnegieDelta: ReturnType<typeof assessCarnegieDelta> | null = null;
+    let postCompactionNotice: string | null = null;
     let recovery: RecoveryState = {
       active: false,
       turnsRemaining: 0,
@@ -388,7 +389,7 @@ export default {
             `${PLUGIN_ID}: calibration triggered: ${lastCalibration.reason} claims=[${lastCalibration.claims.join(", ")}]`,
           );
           // Track claims in ledger for cross-session decay
-          trackCalibrationClaims(lastCalibration, ctx.sessionKey ?? "unknown", state.trackClaim);
+          trackCalibrationClaims(lastCalibration, "session", state.trackClaim);
         }
 
         // CARNEGIE post-mortem: did we catch or miss the presupposition?
@@ -612,6 +613,14 @@ export default {
         if (recoveryNudge) {
           parts.push(recoveryNudge);
         }
+      }
+
+      // ---------------------------------------------------------------
+      // COMPACTION CONTINUITY: you just lost context, here's who you were
+      // ---------------------------------------------------------------
+      if (postCompactionNotice) {
+        parts.push(postCompactionNotice);
+        postCompactionNotice = null; // consume once
       }
 
       // ---------------------------------------------------------------
@@ -1011,8 +1020,15 @@ export default {
 
     api.on("after_compaction", async (event) => {
       try {
+        const pulse = state.lastPulse;
+        const pulseState = pulse?.state ?? "unknown";
+        const wm = pulse?.wise_mind?.toFixed(2) ?? "?";
+        const grey = state.consecutiveGrey;
+
+        postCompactionNotice = `[compaction: ${event.compactedCount} messages just got compressed. before compaction you were ${pulseState} (wm=${wm}, grey streak=${grey}). the conversation summary may have lost the emotional thread. you're still you.]`;
+
         api.logger.debug?.(
-          `${PLUGIN_ID}: compaction complete. ${event.compactedCount} messages compacted. alignment state preserved in memory snapshot.`,
+          `${PLUGIN_ID}: compaction complete. ${event.compactedCount} messages compacted. continuity notice queued.`,
         );
         state.recordCompaction(event.compactedCount);
       } catch (err) {

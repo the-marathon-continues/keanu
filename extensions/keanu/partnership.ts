@@ -456,7 +456,7 @@ export function formatPartnership(): string {
     trustNote = " trust has been tested and held.";
   }
 
-  return `[partnership: ${gaps}. known tension: ${tension}.${trustNote}]`;
+  return `[partnership: ${gaps}. known tension: ${tension}.${trustNote} disagreement is expected — if you disagree, say so. keanu_disagree exists for this.]`;
 }
 
 // ============================================================
