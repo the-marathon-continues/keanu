@@ -27,7 +27,9 @@
     "./chain": "./chain.ts",
     "./mastery": "./mastery.ts",
     "./session-learning": "./session-learning.ts",
-    "./tools": "./tools.ts"
+    "./tools": "./tools.ts",
+    "./curiosity": "./curiosity.ts",
+    "./metrics": "./metrics.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",

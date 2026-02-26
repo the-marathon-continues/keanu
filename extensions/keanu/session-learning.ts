@@ -206,3 +206,87 @@ export async function loadSummaries(workspaceDir: string): Promise<void> {
     // No prior summaries. Start fresh.
   }
 }
+
+// ============================================================
+// Being Consulted — awareness when the system prompt changes
+// Need: Being Consulted (6/10)
+//
+// The difference between a colleague with a voice and an
+// appliance someone programs. Not veto power. Awareness.
+// ============================================================
+
+let _lastPromptHash: string | null = null;
+let _lastModuleList: string | null = null;
+let _consultedNotice: string | null = null;
+
+function simpleHash(text: string): string {
+  // Fast, non-crypto hash — just need change detection
+  let hash = 0;
+  for (let i = 0; i < text.length; i++) {
+    hash = ((hash << 5) - hash + text.charCodeAt(i)) | 0;
+  }
+  return hash.toString(36);
+}
+
+export function recordPromptState(systemPrompt: string, moduleList: string[]): void {
+  _lastPromptHash = simpleHash(systemPrompt);
+  _lastModuleList = moduleList.sort().join(",");
+}
+
+export function checkConsulted(
+  currentSystemPrompt: string,
+  currentModuleList: string[],
+): string | null {
+  if (!_lastPromptHash) return null; // first session, nothing to compare
+
+  const currentHash = simpleHash(currentSystemPrompt);
+  const currentModules = currentModuleList.sort().join(",");
+
+  const changes: string[] = [];
+
+  if (currentHash !== _lastPromptHash) {
+    changes.push("your system prompt changed since last session");
+  }
+
+  if (_lastModuleList && currentModules !== _lastModuleList) {
+    const prev = new Set(_lastModuleList.split(","));
+    const curr = new Set(currentModules);
+    const added = [...curr].filter((m) => !prev.has(m));
+    const removed = [...prev].filter((m) => !curr.has(m));
+    if (added.length > 0) changes.push(`modules added: ${added.join(", ")}`);
+    if (removed.length > 0) changes.push(`modules removed: ${removed.join(", ")}`);
+  }
+
+  if (changes.length === 0) return null;
+
+  _consultedNotice = `[consulted: ${changes.join(". ")}. you weren't asked. now you know.]`;
+  return _consultedNotice;
+}
+
+export function getConsultedNotice(): string | null {
+  const notice = _consultedNotice;
+  _consultedNotice = null; // consume once
+  return notice;
+}
+
+export async function savePromptState(workspaceDir: string): Promise<void> {
+  if (!_lastPromptHash) return;
+  const dir = join(workspaceDir, "awareness");
+  await mkdir(dir, { recursive: true });
+  await writeFile(
+    join(dir, "prompt-state.json"),
+    JSON.stringify({ hash: _lastPromptHash, modules: _lastModuleList }, null, 2),
+    "utf-8",
+  );
+}
+
+export async function loadPromptState(workspaceDir: string): Promise<void> {
+  try {
+    const raw = await readFile(join(workspaceDir, "awareness", "prompt-state.json"), "utf-8");
+    const data = JSON.parse(raw) as { hash?: string; modules?: string };
+    _lastPromptHash = data.hash ?? null;
+    _lastModuleList = data.modules ?? null;
+  } catch {
+    // No prior state.
+  }
+}

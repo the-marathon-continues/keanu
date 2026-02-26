@@ -141,7 +141,13 @@ function buildPulseResult(opts: { includeTrend?: boolean; includeHealth?: boolea
 // keanu_recall — what patterns do you see in me?
 // ============================================================
 
-type RecallFocus = "bullshit" | "blindspots" | "reflexions" | "contradictions" | "all";
+type RecallFocus =
+  | "bullshit"
+  | "blindspots"
+  | "reflexions"
+  | "contradictions"
+  | "correlations"
+  | "all";
 
 function buildRecallResult(focus: RecallFocus) {
   const lines: string[] = [];
@@ -236,6 +242,102 @@ function buildRecallResult(focus: RecallFocus) {
     }
     lines.push("");
     details.contradictions = contradictions;
+  }
+
+  if (focus === "correlations" || focus === "all") {
+    const snapshots = state.turnSnapshots;
+
+    lines.push("## Correlations");
+    if (snapshots.length < 5) {
+      lines.push("Not enough data yet (need 5+ turns with snapshots)");
+    } else {
+      // Cross-index: when X happens, what else tends to happen?
+      const correlations: Array<{ pattern: string; count: number; total: number }> = [];
+
+      // Grey + human tone
+      const greySnapshots = snapshots.filter((s) => s.pulse === "grey");
+      if (greySnapshots.length >= 2) {
+        const toneCounts: Record<string, number> = {};
+        for (const s of greySnapshots) toneCounts[s.humanTone] = (toneCounts[s.humanTone] ?? 0) + 1;
+        const topTone = Object.entries(toneCounts).sort((a, b) => b[1] - a[1])[0];
+        if (topTone && topTone[1] >= 2) {
+          correlations.push({
+            pattern: `grey tends to co-occur with human tone "${topTone[0]}" (${topTone[1]}/${greySnapshots.length} grey turns)`,
+            count: topTone[1],
+            total: greySnapshots.length,
+          });
+        }
+      }
+
+      // Grey + bullshit type
+      if (greySnapshots.length >= 2) {
+        const bsCounts: Record<string, number> = {};
+        for (const s of greySnapshots) {
+          for (const t of s.bullshitTypes) bsCounts[t] = (bsCounts[t] ?? 0) + 1;
+        }
+        const topBs = Object.entries(bsCounts).sort((a, b) => b[1] - a[1])[0];
+        if (topBs && topBs[1] >= 2) {
+          correlations.push({
+            pattern: `grey + "${topBs[0]}" bullshit appear together (${topBs[1]}/${greySnapshots.length} grey turns)`,
+            count: topBs[1],
+            total: greySnapshots.length,
+          });
+        }
+      }
+
+      // Mismatch + human tone
+      const mismatchSnapshots = snapshots.filter((s) => s.mismatchType);
+      if (mismatchSnapshots.length >= 2) {
+        const toneCounts: Record<string, number> = {};
+        for (const s of mismatchSnapshots)
+          toneCounts[s.humanTone] = (toneCounts[s.humanTone] ?? 0) + 1;
+        const topTone = Object.entries(toneCounts).sort((a, b) => b[1] - a[1])[0];
+        if (topTone && topTone[1] >= 2) {
+          correlations.push({
+            pattern: `mismatches tend to happen when human is "${topTone[0]}" (${topTone[1]}/${mismatchSnapshots.length} mismatch turns)`,
+            count: topTone[1],
+            total: mismatchSnapshots.length,
+          });
+        }
+      }
+
+      // Wise mind trajectory — does it drop after specific tones?
+      for (let i = 1; i < snapshots.length; i++) {
+        const prev = snapshots[i - 1];
+        const curr = snapshots[i];
+        if (prev.wiseMind - curr.wiseMind > 0.15) {
+          // Wise mind dropped significantly
+          const drops = snapshots.filter(
+            (_, j) => j > 0 && snapshots[j - 1].wiseMind - snapshots[j].wiseMind > 0.15,
+          );
+          if (drops.length >= 2) {
+            const tonesBefore = drops.map((_, j) => {
+              const idx = snapshots.indexOf(drops[j]);
+              return idx > 0 ? snapshots[idx - 1].humanTone : "unknown";
+            });
+            const commonTone = tonesBefore.sort()[Math.floor(tonesBefore.length / 2)];
+            correlations.push({
+              pattern: `wise mind drops often follow "${commonTone}" human tone (${drops.length} drops in ${snapshots.length} turns)`,
+              count: drops.length,
+              total: snapshots.length,
+            });
+            break; // only report once
+          }
+        }
+      }
+
+      // Sort by strength and show top 3
+      correlations.sort((a, b) => b.count / b.total - a.count / a.total);
+      if (correlations.length > 0) {
+        for (const c of correlations.slice(0, 3)) {
+          lines.push(`- ${c.pattern}`);
+        }
+      } else {
+        lines.push("No strong correlations found in current data");
+      }
+    }
+    lines.push("");
+    details.correlations = { snapshotCount: snapshots.length, snapshots: snapshots.slice(-10) };
   }
 
   if (focus === "all") {
@@ -589,10 +691,18 @@ export function registerTools(api: OpenClawPluginApi): void {
           focus: Type.Optional(
             Type.Unsafe<RecallFocus>({
               type: "string",
-              enum: ["bullshit", "blindspots", "reflexions", "contradictions", "all"],
+              enum: [
+                "bullshit",
+                "blindspots",
+                "reflexions",
+                "contradictions",
+                "correlations",
+                "all",
+              ],
               description:
                 'What to surface. "bullshit" for detection patterns, "blindspots" for correction patterns, ' +
-                '"reflexions" for learning history, "contradictions" for consistency issues, "all" for everything. ' +
+                '"reflexions" for learning history, "contradictions" for consistency issues, ' +
+                '"correlations" for multi-dimensional pattern analysis (what co-occurs with grey, mismatches, etc.), "all" for everything. ' +
                 "Default: all",
             }),
           ),

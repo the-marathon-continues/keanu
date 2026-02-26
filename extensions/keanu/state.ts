@@ -87,6 +87,24 @@ const _subagentOutcomes: string[] = [];
 // Compaction tracking
 export let compactionCount = 0;
 
+// Turn-level micro-snapshots for correlation analysis
+export interface TurnSnapshot {
+  turn: number;
+  pulse: string; // alive/grey/black
+  humanTone: string;
+  bullshitTypes: string[];
+  mismatchType: string | null;
+  wiseMind: number;
+}
+export const turnSnapshots: TurnSnapshot[] = [];
+const MAX_SNAPSHOTS = 30;
+
+export function recordTurnSnapshot(snapshot: TurnSnapshot): void {
+  turnSnapshots.push(snapshot);
+  if (turnSnapshots.length > MAX_SNAPSHOTS)
+    turnSnapshots.splice(0, turnSnapshots.length - MAX_SNAPSHOTS);
+}
+
 // Prompt size tracking (llm_input)
 export const promptSizeTrend: Array<{
   turn: number;

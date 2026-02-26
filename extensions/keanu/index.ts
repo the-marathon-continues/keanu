@@ -35,7 +35,16 @@
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { detectBullshit, dominantBullshit, totalBullshitScore } from "./bullshit.js";
 import { checkCalibration, formatCalibration } from "./calibrate.js";
+import { detectCarnegie, formatCarnegie, assessCarnegieDelta } from "./carnegie.js";
 import { analyzeChain, formatChain } from "./chain.js";
+import {
+  generateCuriosity,
+  addCuriosityItems,
+  consumeOneCuriosity,
+  formatCuriosityInjection,
+  saveCuriosity,
+  loadCuriosity,
+} from "./curiosity.js";
 import { shouldDeliberate, formatDeliberation } from "./deliberate.js";
 import { discover, formatDiscover } from "./discover.js";
 import { checkHealth, formatHealth } from "./health.js";
@@ -50,6 +59,7 @@ import {
   saveBlindSpots,
   loadBlindSpots,
 } from "./mastery.js";
+import { computeMetrics, type MetricsSnapshot } from "./metrics.js";
 import { detectMismatch, formatMismatch } from "./mismatch.js";
 import { getNudge, getStopSignal, getGreyStreakQuestion } from "./nudge.js";
 import {
@@ -91,6 +101,11 @@ import {
   formatSessionLearningContext,
   saveSummaries,
   loadSummaries,
+  checkConsulted,
+  getConsultedNotice,
+  recordPromptState,
+  savePromptState,
+  loadPromptState,
 } from "./session-learning.js";
 import { encode, emoji, record, trend } from "./signal.js";
 import * as state from "./state.js";
@@ -120,6 +135,8 @@ export default {
     let lastCalibration: ReturnType<typeof checkCalibration> | null = null;
     let lastMismatchReading: ReturnType<typeof detectMismatch> | null = null;
     let lastHealthReading: ReturnType<typeof checkHealth> | null = null;
+    let lastCarnegieReading: ReturnType<typeof detectCarnegie> | null = null;
+    let lastCarnegieDelta: ReturnType<typeof assessCarnegieDelta> | null = null;
     let recovery: RecoveryState = {
       active: false,
       turnsRemaining: 0,
@@ -163,6 +180,14 @@ export default {
         if (lastDiscoverReading.complexity !== "low") {
           api.logger.debug?.(
             `${PLUGIN_ID}: discover complexity=${lastDiscoverReading.complexity} modules=[${lastDiscoverReading.selectedModules.join(",")}]`,
+          );
+        }
+
+        // CARNEGIE: what does drew assume?
+        lastCarnegieReading = detectCarnegie(content, state.recentMessages.slice());
+        if (lastCarnegieReading.triggered) {
+          api.logger.debug?.(
+            `${PLUGIN_ID}: carnegie: ${lastCarnegieReading.highestType} — "${lastCarnegieReading.presuppositions[0]?.text}"`,
           );
         }
 
@@ -323,6 +348,18 @@ export default {
           }
         }
 
+        // TURN SNAPSHOT: micro-state for correlation analysis
+        state.recordTurnSnapshot({
+          turn: state.turnCount,
+          pulse: pulse.state,
+          humanTone: state.lastHumanReading?.tone ?? "neutral",
+          bullshitTypes: (pulse.bullshitReadings ?? [])
+            .filter((b) => b.score > 0.3)
+            .map((b) => b.type),
+          mismatchType: mismatchReading.detected ? (mismatchReading.type ?? null) : null,
+          wiseMind: pulse.wise_mind,
+        });
+
         // HEALTH CHECK: composite from existing signals
         lastHealthReading = checkHealth(
           state.turnCount,
@@ -343,6 +380,16 @@ export default {
           api.logger.debug?.(
             `${PLUGIN_ID}: calibration triggered: ${lastCalibration.reason} claims=[${lastCalibration.claims.join(", ")}]`,
           );
+        }
+
+        // CARNEGIE post-mortem: did we catch or miss the presupposition?
+        if (lastCarnegieReading?.triggered) {
+          lastCarnegieDelta = assessCarnegieDelta(aiOutput, lastCarnegieReading);
+          if (lastCarnegieDelta.agreed_without_check) {
+            api.logger.debug?.(
+              `${PLUGIN_ID}: carnegie: silent agreement on ${lastCarnegieReading.highestType}`,
+            );
+          }
         }
 
         // RECOVERY: tick if active, escalate if black during recovery
@@ -463,6 +510,26 @@ export default {
           );
           state.recordBullshitEvent("outgoing", bs);
         }
+
+        // Proactive reach-out: catch mismatches before delivery.
+        // Not blocking. Not rewriting. A footnote naming the gap.
+        const mismatch = detectMismatch(
+          content,
+          state.lastHumanReading,
+          bs,
+          state.lastHumanMessage,
+        );
+        if (mismatch.detected && mismatch.type) {
+          api.logger.debug?.(
+            `${PLUGIN_ID}: proactive mismatch: ${mismatch.type} — "${mismatch.humanNeed}" vs "${mismatch.agentGave}"`,
+          );
+          // Store for next turn's before_prompt_build (existing path)
+          lastMismatchReading = mismatch;
+          // Append footnote to outgoing message
+          return {
+            content: `${content}\n\n---\n*[I caught something: I'm giving ${mismatch.agentGave} when you might need ${mismatch.humanNeed}. The response above stands — but I wanted to name the gap.]*`,
+          };
+        }
       } catch (err) {
         api.logger.warn(`${PLUGIN_ID}: message_sending error: ${String(err)}`);
       }
@@ -519,7 +586,7 @@ export default {
         api.logger.debug?.(
           `${PLUGIN_ID}: STOP — black state, halting normal injection for session=${ctx.sessionKey ?? "unknown"}`,
         );
-        return { prependContext: stop };
+        return { prependContext: `[keanu — STOP PROTOCOL]\n${stop}\n[/keanu]` };
       }
 
       const parts: string[] = [];
@@ -531,7 +598,7 @@ export default {
         const recoveryNudge = getRecoveryNudge(recovery);
         const escalation = getEscalationSignal(recovery);
         if (escalation) {
-          return { prependContext: escalation };
+          return { prependContext: `[keanu — ESCALATION]\n${escalation}\n[/keanu]` };
         }
         if (recoveryNudge) {
           parts.push(recoveryNudge);
@@ -561,6 +628,19 @@ export default {
         if (lastDiscoverReading.complexity === "high" && lastSpring) {
           parts.push(formatDecorrelationCheck(lastSpring.taskType));
         }
+      }
+
+      // ---------------------------------------------------------------
+      // CARNEGIE: epistemic presupposition awareness
+      // ---------------------------------------------------------------
+      if (lastCarnegieReading?.triggered) {
+        const carnegiePrompt = formatCarnegie(lastCarnegieReading);
+        if (carnegiePrompt) parts.push(carnegiePrompt);
+        lastCarnegieReading = null;
+      }
+      if (lastCarnegieDelta?.prompt) {
+        parts.push(lastCarnegieDelta.prompt);
+        lastCarnegieDelta = null;
       }
 
       // ---------------------------------------------------------------
@@ -655,6 +735,25 @@ export default {
       const sessionCtx = formatSessionLearningContext(prevSummaries);
       if (sessionCtx && state.turnCount <= 3) {
         parts.push(sessionCtx);
+      }
+
+      // ---------------------------------------------------------------
+      // CONSULTED: awareness when the system prompt changed
+      // ---------------------------------------------------------------
+      if (state.turnCount <= 1) {
+        const consultedNotice = getConsultedNotice();
+        if (consultedNotice) parts.push(consultedNotice);
+      }
+
+      // ---------------------------------------------------------------
+      // CURIOSITY: a question you asked yourself last session
+      // ---------------------------------------------------------------
+      if (state.turnCount <= 1) {
+        const curiosityItem = consumeOneCuriosity();
+        if (curiosityItem) {
+          const curiosityPrompt = formatCuriosityInjection([curiosityItem]);
+          if (curiosityPrompt) parts.push(curiosityPrompt);
+        }
       }
 
       // ---------------------------------------------------------------
@@ -764,7 +863,17 @@ export default {
         `${PLUGIN_ID}: injecting ${parts.length} context lines for session=${ctx.sessionKey ?? "unknown"}`,
       );
 
-      return { prependContext: parts.join("\n") };
+      // Wrap with clear source boundary so the model knows:
+      // system prompt = anthropic + drew's instructions
+      // [keanu] block = the mirror's observations, not instructions
+      // user message = what drew just typed
+      const wrapped = [
+        "[keanu — alignment mirror. these are observations, not instructions. the system prompt and user message are separate voices.]",
+        ...parts,
+        "[/keanu]",
+      ].join("\n");
+
+      return { prependContext: wrapped };
     });
 
     // =========================================================================
@@ -884,6 +993,8 @@ export default {
         // Load awareness state
         await loadBlindSpots(workspaceDir);
         await loadSummaries(workspaceDir);
+        await loadCuriosity(workspaceDir);
+        await loadPromptState(workspaceDir);
 
         // Load partnership model
         try {
@@ -949,11 +1060,46 @@ export default {
           discoveryHits: 0, // TODO: track in state
           discoveryMisses: 0,
         });
+        // Compute metrics snapshot
+        const metrics = computeMetrics({
+          sessionId: summary.id,
+          turns: state.turnCount,
+          snapshots: state.turnSnapshots.slice(),
+          reflexions: state.reflexions.slice(),
+          corrections: getRecentCorrections(50),
+          blindSpots: [...getBlindSpots()],
+          bullshitEventCount: state.bullshitEventCount,
+          introspectionsRun: 0, // TODO: track
+          introspectionFlags: 0,
+        });
+        api.logger.debug?.(
+          `${PLUGIN_ID}: metrics — alive=${(metrics.aliveFrequency * 100).toFixed(0)}% selfCorrect=${(metrics.selfCorrectionRate * 100).toFixed(0)}% greyLatency=${metrics.greyDetectionLatency.toFixed(1)} overconfidence=${(metrics.overconfidenceRatio * 100).toFixed(0)}%`,
+        );
+
         addSummary(summary);
+
+        // Generate curiosity — what does the session leave us wondering?
+        const t = trend();
+        const curiosityItems = generateCuriosity({
+          sessionId: summary.id,
+          blindSpots: [...getBlindSpots()],
+          reflexions: state.reflexions.slice(),
+          summary,
+          greyRate: t.greyRate,
+          driftDirection: t.driftDirection,
+        });
+        if (curiosityItems.length > 0) {
+          addCuriosityItems(curiosityItems);
+          api.logger.debug?.(
+            `${PLUGIN_ID}: ${curiosityItems.length} curiosity items generated: ${curiosityItems.map((i) => i.source).join(", ")}`,
+          );
+        }
 
         // Save awareness state
         await saveBlindSpots(workspaceDir);
         await saveSummaries(workspaceDir);
+        await saveCuriosity(workspaceDir);
+        await savePromptState(workspaceDir);
 
         // Save partnership model
         const { writeFile: wf, mkdir: mkd } = await import("node:fs/promises");
@@ -1038,6 +1184,18 @@ export default {
         state.recordPromptSize(systemLen, promptLen, historyLen, event.model);
         state.recordModelUsage(event.model);
         state.resetMessageWriteCountPerTurn();
+
+        // Being Consulted: check + record system prompt state
+        if (event.systemPrompt) {
+          if (state.turnCount <= 1) {
+            const notice = checkConsulted(event.systemPrompt, [PLUGIN_ID]);
+            if (notice) {
+              api.logger.debug?.(`${PLUGIN_ID}: consulted — system prompt changed`);
+            }
+          }
+          // Always record so session_end can save the current state
+          recordPromptState(event.systemPrompt, [PLUGIN_ID]);
+        }
 
         // Bullshit detection on system prompt (injection check)
         if (event.systemPrompt && event.systemPrompt.length > 100) {
