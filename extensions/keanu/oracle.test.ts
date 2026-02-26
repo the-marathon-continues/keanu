@@ -151,8 +151,9 @@ describe("callOracle — role with OPENROUTER_API_KEY", () => {
       bullshit: "x-ai/grok-3-mini-beta",
       communicate: "openai/gpt-4.1-mini",
       explore: "google/gemini-2.5-flash-preview",
-      think: "anthropic/claude-sonnet-4",
+      think: "anthropic/claude-opus-4-6",
       adversary: "deepseek/deepseek-r1",
+      research: "perplexity/sonar-pro",
     };
 
     for (const [role, expectedModel] of Object.entries(roleModels)) {
@@ -419,15 +420,16 @@ describe("session cost tracking", () => {
 });
 
 describe("getRoleConfigs", () => {
-  it("returns all five roles", () => {
+  it("returns all six roles", () => {
     const configs = getRoleConfigs();
 
-    expect(Object.keys(configs)).toHaveLength(5);
+    expect(Object.keys(configs)).toHaveLength(6);
     expect(configs.bullshit.model).toBe("x-ai/grok-3-mini-beta");
     expect(configs.communicate.model).toBe("openai/gpt-4.1-mini");
     expect(configs.explore.model).toBe("google/gemini-2.5-flash-preview");
-    expect(configs.think.model).toBe("anthropic/claude-sonnet-4");
+    expect(configs.think.model).toBe("anthropic/claude-opus-4-6");
     expect(configs.adversary.model).toBe("deepseek/deepseek-r1");
+    expect(configs.research.model).toBe("perplexity/sonar-pro");
   });
 
   it("returns a deep copy (not mutable reference)", () => {
