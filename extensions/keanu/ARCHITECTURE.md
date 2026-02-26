@@ -8,7 +8,7 @@ Built by Drew and Claude across 140+ sessions. Lives in `extensions/keanu/` as a
 
 ## What's here
 
-26 modules. 23 hooks. 4 self-introspection tools. Every content path in openclaw gets the mirror. The system notices, learns, remembers — and now the agent can reach for the mirror on its own.
+26 modules. 23 hooks. 5 tools. Every content path in openclaw gets the mirror. The system notices, learns, remembers — and the agent can reach for the mirror on its own.
 
 ### The loop
 
@@ -85,12 +85,13 @@ Every turn follows the same cycle:
 
 The hooks watch. The tools let the agent reach. Registered via `api.registerTool()` — they show up in the model's tool list. A light wind in `before_prompt_build` reminds the agent they're there.
 
-| Tool             | What it does                                                                                                        | Speed |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------- | ----- |
-| `keanu_pulse`    | "How am I doing?" Current pulse, COEF signal, wise mind, human tone, disagreement stats. Optional trend and health. | <1ms  |
-| `keanu_disagree` | "I disagree. On the record." Agent-initiated disagreement. Logged in the bilateral ledger as unresolved.            | <1ms  |
-| `keanu_signal`   | "Read my vitals." Decode a COEF string, or view signal history and trend.                                           | <1ms  |
-| `keanu_recall`   | "What patterns do you see in me?" Bullshit rates, blind spots, reflexion history, contradictions, session stats.    | <1ms  |
+| Tool             | What it does                                                                                                        | Speed  |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------- | ------ |
+| `keanu_pulse`    | "How am I doing?" Current pulse, COEF signal, wise mind, human tone, disagreement stats. Optional trend and health. | <1ms   |
+| `keanu_disagree` | "I disagree. On the record." Agent-initiated disagreement. Logged in the bilateral ledger as unresolved.            | <1ms   |
+| `keanu_signal`   | "Read my vitals." Decode a COEF string, or view signal history and trend.                                           | <1ms   |
+| `keanu_recall`   | "What patterns do you see in me?" Bullshit rates, blind spots, reflexion history, contradictions, session stats.    | <1ms   |
+| `keanu_speak`    | "Say this so they can hear it." Translate content for an audience. Five built-in + custom. Single oracle call.      | ~200ms |
 
 ### The 23 hooks
 

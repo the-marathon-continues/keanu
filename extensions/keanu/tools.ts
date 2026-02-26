@@ -1,5 +1,5 @@
 // tools.ts
-// The agent's hands. Four ways to feel its own body.
+// The agent's hands. Five ways to feel its own body.
 //
 // Until now the nervous system watched the agent. The agent got told
 // what the mirror saw. These tools flip it: the agent reaches for
@@ -9,12 +9,14 @@
 // keanu_disagree — "I disagree. On the record."
 // keanu_signal  — "read my vitals"
 // keanu_recall  — "what patterns do you see in me?"
+// keanu_speak   — "say this so they can hear it"
 
 import { Type } from "@sinclair/typebox";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { checkHealth } from "./health.js";
 import { getBlindSpots, recentCorrections as getRecentCorrections } from "./mastery.js";
 import { encode, decode, emoji, history, trend } from "./signal.js";
+import { speak, AUDIENCES } from "./speak.js";
 import * as state from "./state.js";
 
 // ============================================================
@@ -470,7 +472,63 @@ export function registerTools(api: OpenClawPluginApi): void {
     { name: "keanu_recall" },
   );
 
-  api.logger.info?.(
-    "keanu: 4 self-introspection tools registered (pulse, disagree, signal, recall)",
+  // --- keanu_speak ---
+  const audienceNames = Object.keys(AUDIENCES);
+
+  api.registerTool(
+    {
+      name: "keanu_speak",
+      label: "Keanu Speak",
+      description:
+        "Translate content for a different audience. Same meaning, different container. " +
+        "Five built-in audiences: friend (coffee talk), executive (impact + numbers), " +
+        "junior_dev (explain the why), five_year_old (one idea per sentence), " +
+        "architect (Drew — no hand-holding). Or describe a custom audience. " +
+        "Uses a single oracle call (~200ms).",
+      parameters: Type.Object(
+        {
+          content: Type.String({ description: "The content to translate" }),
+          audience: Type.String({
+            description:
+              `Who's reading. Built-in: ${audienceNames.join(", ")}. ` +
+              "Or describe a custom audience in plain language.",
+          }),
+        },
+        { additionalProperties: false },
+      ),
+      execute: async (_toolCallId, params) => {
+        const { content, audience } = params as { content: string; audience: string };
+        const result = await speak(content, audience);
+
+        if (result.error) {
+          return {
+            content: [{ type: "text" as const, text: `Translation failed: ${result.error}` }],
+            details: { error: result.error },
+          };
+        }
+
+        const lines: string[] = [result.translation];
+
+        if (result.key_shifts.length > 0) {
+          lines.push("");
+          lines.push("---");
+          for (const s of result.key_shifts) {
+            lines.push(`- **${s.what_changed}** — ${s.why}`);
+          }
+        }
+
+        return {
+          content: [{ type: "text" as const, text: lines.join("\n") }],
+          details: {
+            audience,
+            translation: result.translation,
+            key_shifts: result.key_shifts,
+          },
+        };
+      },
+    },
+    { name: "keanu_speak" },
   );
+
+  api.logger.info?.("keanu: 5 tools registered (pulse, disagree, signal, recall, speak)");
 }
