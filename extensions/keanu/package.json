@@ -2,6 +2,8 @@
   "name": "@openclaw/keanu",
   "version": "2026.2.24",
   "description": "Keanu alignment diagnostics — ALIVE/GREY/BLACK detection, 8-type bullshit mirror, emotional context, disagreement tracking, COEF signals. Self-contained, no daemon.",
+  "license": "BUSL-1.1",
+  "author": "Andrew Kemp-Dahlberg <drew@anywhereops.ai>",
   "type": "module",
   "exports": {
     ".": "./index.ts",
