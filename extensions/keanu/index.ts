@@ -34,11 +34,17 @@
 
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import * as breatheModule from "./breathe.js";
-import { detectBullshit, dominantBullshit, totalBullshitScore } from "./bullshit.js";
+import {
+  detectBullshit,
+  detectBullshitDeep,
+  dominantBullshit,
+  totalBullshitScore,
+} from "./bullshit.js";
 import { checkCalibration, formatCalibration, trackCalibrationClaims } from "./calibrate.js";
 import { detectCarnegie, formatCarnegie, assessCarnegieDelta } from "./carnegie.js";
 import { detectCascadeStage, formatCascade } from "./cascade.js";
 import { analyzeChain, formatChain } from "./chain.js";
+import { Helix, DualityGraph, type HelixResult } from "./convergence/index.js";
 import {
   generateCuriosity,
   addCuriosityItems,
@@ -144,6 +150,9 @@ export default {
     let lastHealthReading: ReturnType<typeof checkHealth> | null = null;
     let lastCarnegieReading: ReturnType<typeof detectCarnegie> | null = null;
     let lastCarnegieDelta: ReturnType<typeof assessCarnegieDelta> | null = null;
+    let lastHelixReading: HelixResult | null = null;
+    const helix = new Helix();
+    const dualityGraph = new DualityGraph();
     let postCompactionNotice: string | null = null;
     let recovery: RecoveryState = {
       active: false,
@@ -254,6 +263,19 @@ export default {
         const pulse = checkPulse(aiOutput, state.turnCount, state.breathing);
         state.setLastPulse(pulse);
         state.addAgentOutput(aiOutput);
+
+        // Helix double-strand: factual + felt. The second lens.
+        lastHelixReading = helix.analyze(aiOutput);
+        if (lastHelixReading.aliveState === "dark") {
+          api.logger.debug?.(`${PLUGIN_ID}: helix DARK ALIVE — ${lastHelixReading.diagnosis}`);
+        } else if (
+          lastHelixReading.aliveState !== "alive" &&
+          lastHelixReading.aliveState !== "unscored"
+        ) {
+          api.logger.debug?.(
+            `${PLUGIN_ID}: helix ${lastHelixReading.aliveState} — ${lastHelixReading.diagnosis}`,
+          );
+        }
 
         // Contradiction check against recent agent outputs
         const contradictions = memoryContradictionCheck(
@@ -525,6 +547,19 @@ export default {
             `${PLUGIN_ID}: outgoing message bullshit score=${score.toFixed(2)} dominant=${dominant?.type ?? "none"}`,
           );
           state.recordBullshitEvent("outgoing", bs);
+        } else if (score > 0.3) {
+          // Ambiguous zone — regex isn't sure. Escalate to Grok for a real read.
+          detectBullshitDeep(content, "outgoing agent message, regex score was ambiguous")
+            .then((deepBs) => {
+              const deepScore = totalBullshitScore(deepBs);
+              if (deepScore > 0.3) {
+                api.logger.debug?.(
+                  `${PLUGIN_ID}: deep bs escalation: regex=${score.toFixed(2)} grok=${deepScore.toFixed(2)} types=[${deepBs.map((b) => b.type).join(",")}]`,
+                );
+                state.recordBullshitEvent("outgoing_deep", deepBs);
+              }
+            })
+            .catch(() => {});
         }
 
         // Proactive reach-out: catch mismatches before delivery.
@@ -707,6 +742,36 @@ export default {
           "high",
           "awareness",
         );
+      }
+
+      // Helix double-strand: if the second lens disagrees with pulse, surface the tension
+      if (lastHelixReading && lastHelixReading.aliveState !== "unscored") {
+        const helixState = lastHelixReading.aliveState;
+        if (helixState === "dark") {
+          // Dark alive: present with pain. Surface the counter-balance.
+          const graph = dualityGraph;
+          const wisdom = graph.get("derived.wisdom");
+          const hope = graph.get("derived.hope");
+          const flow = graph.get("derived.flow");
+          const positives = [wisdom, hope, flow]
+            .filter(Boolean)
+            .map((d) => d!.concept)
+            .join(", ");
+          add(
+            "helix-dark",
+            `[helix: DARK ALIVE — both strands strong, negative valence. the pain is real. also real: ${positives}. hold both.]`,
+            "high",
+            "awareness",
+          );
+        } else if (helixState !== "alive" && pulse?.state === "alive") {
+          // Mirror disagrees: pulse says alive, helix says something else
+          add(
+            "helix-tension",
+            `[helix: pulse reads alive but the double strand reads ${helixState}. ${lastHelixReading.diagnosis}]`,
+            "medium",
+            "awareness",
+          );
+        }
       }
 
       // Seasons spring + summer
@@ -989,16 +1054,19 @@ export default {
         ...parts,
       ].join("\n");
 
-      // Self-notice: run the bullshit detector on our own injection.
-      const injectionBs = detectBullshit(awareness);
-      const injectionBsScore = totalBullshitScore(injectionBs);
-      if (injectionBsScore > 0.3) {
-        const bsTypes = injectionBs.map((b) => b.type).join(", ");
-        api.logger.debug?.(
-          `${PLUGIN_ID}: self-notice: injection triggered bs detector (${bsTypes}, score=${injectionBsScore.toFixed(2)}). the mirror noticed itself.`,
-        );
-        state.recordBullshitEvent("injection_self_notice", injectionBs);
-      }
+      // Self-notice: Grok reads the injection. Fire and forget — don't block the response.
+      detectBullshitDeep(awareness, "keanu injection into system prompt")
+        .then((bs) => {
+          const score = totalBullshitScore(bs);
+          if (score > 0.3) {
+            const bsTypes = bs.map((b) => b.type).join(", ");
+            api.logger.debug?.(
+              `${PLUGIN_ID}: self-notice (deep): injection triggered (${bsTypes}, score=${score.toFixed(2)}). the mirror noticed itself.`,
+            );
+            state.recordBullshitEvent("injection_self_notice", bs);
+          }
+        })
+        .catch(() => {});
 
       return { systemPromptAppend: awareness };
     });
@@ -1168,10 +1236,31 @@ export default {
           singContent = null;
         }
 
-        // Load breathe + investigate state
+        // Load breathe + investigate + duality graph state
         await breatheModule.load(workspaceDir);
         breatheModule.setSessionId(`s-${Date.now()}`);
         await investigateModule.load(workspaceDir);
+
+        // Load persistent duality graph (convergence strengths accumulate across sessions)
+        try {
+          const { readFile: rf } = await import("node:fs/promises");
+          const { join: pjoin } = await import("node:path");
+          const graphRaw = await rf(
+            pjoin(workspaceDir, "awareness", "duality-graph.json"),
+            "utf-8",
+          );
+          const loadedGraph = DualityGraph.fromJSON(JSON.parse(graphRaw));
+          // Overlay persisted convergence strengths onto the live graph
+          for (const [id, d] of loadedGraph.dualities) {
+            const live = dualityGraph.get(id);
+            if (live) {
+              live.convergenceStrength = d.convergenceStrength;
+              live.signal = d.signal;
+            }
+          }
+        } catch {
+          // No prior graph — seed stands alone
+        }
 
         // Investigate a curiosity item from last session (if any)
         const curiosityItem = consumeOneCuriosity();
@@ -1269,6 +1358,17 @@ export default {
         await savePromptState(workspaceDir);
         await breatheModule.save(workspaceDir);
         await investigateModule.save(workspaceDir);
+
+        // Save duality graph (convergence strengths persist)
+        const { writeFile: wfGraph, mkdir: mkdGraph } = await import("node:fs/promises");
+        const { join: pjGraph } = await import("node:path");
+        const gDir = pjGraph(workspaceDir, "awareness");
+        await mkdGraph(gDir, { recursive: true });
+        await wfGraph(
+          pjGraph(gDir, "duality-graph.json"),
+          JSON.stringify(dualityGraph.toJSON(), null, 2),
+          "utf-8",
+        );
 
         // Export observability metrics
         const sigTrend = trend();

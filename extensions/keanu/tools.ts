@@ -939,7 +939,84 @@ export function registerTools(api: OpenClawPluginApi): void {
     { name: "keanu_dashboard" },
   );
 
+  // --- keanu_reason ---
+  api.registerTool(
+    {
+      name: "keanu_reason",
+      label: "Keanu Reason",
+      description:
+        "Think through a question by arguing with yourself. " +
+        "Finds relevant dualities (good/bad, past/future, hope/fear), " +
+        "generates opposition, synthesizes until convergence. " +
+        "Not for social situations (use keanu_discuss). For actual knowledge building.",
+      parameters: Type.Object(
+        {
+          question: Type.String({
+            description: "The question or tension to reason through.",
+          }),
+          bias: Type.Optional(
+            Type.Number({
+              description: "Navigator bias 0-1. Your thumb on the scale. Default 0.5.",
+            }),
+          ),
+        },
+        { additionalProperties: false },
+      ),
+      execute: async (_toolCallId, params) => {
+        const { question, bias } = params as { question: string; bias?: number };
+        const { FireAndAsh } = await import("./convergence/fire-and-ash.js");
+        const engine = new FireAndAsh({ navigatorBias: bias ?? 0.5 });
+        const result = await engine.reason(question);
+        const text = FireAndAsh.format(result);
+        return {
+          content: [{ type: "text" as const, text }],
+          details: { result },
+        };
+      },
+    },
+    { name: "keanu_reason" },
+  );
+
+  // --- keanu_helix ---
+  api.registerTool(
+    {
+      name: "keanu_helix",
+      label: "Keanu Helix",
+      description:
+        "Score text on two strands: what's factually true and what it actually means. " +
+        "The microscope. Two lenses, one specimen. " +
+        "Returns ALIVE, DARK (alive and hurting), GREY (performing), BLACK (soulless), " +
+        "SILVER (polished cold), or WHITE (ungrounded).",
+      parameters: Type.Object(
+        {
+          text: Type.String({
+            description: "The text to analyze.",
+          }),
+        },
+        { additionalProperties: false },
+      ),
+      execute: async (_toolCallId, params) => {
+        const { text: inputText } = params as { text: string };
+        const { Helix: HelixClass } = await import("./convergence/helix.js");
+        const h = new HelixClass();
+        const result = h.analyze(inputText);
+        const lines = [
+          `State: ${result.aliveState.toUpperCase()} (${result.color})`,
+          `Factual: ${result.strands.factual.toFixed(2)} | Felt: ${result.strands.felt.toFixed(2)}`,
+          `Convergence: ${result.strands.convergence.toFixed(2)} | Tension: ${result.strands.tension.toFixed(2)}`,
+          result.diagnosis,
+          ...result.warnings.map((w) => `Warning: ${w}`),
+        ];
+        return {
+          content: [{ type: "text" as const, text: lines.join("\n") }],
+          details: { result },
+        };
+      },
+    },
+    { name: "keanu_helix" },
+  );
+
   api.logger.info?.(
-    "keanu: 9 tools registered (pulse, disagree, discuss, signal, recall, speak, decline, breathe, dashboard)",
+    "keanu: 11 tools registered (pulse, disagree, discuss, signal, recall, speak, decline, breathe, dashboard, reason, helix)",
   );
 }
