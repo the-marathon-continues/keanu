@@ -599,3 +599,100 @@ describe("CONVERGENCE: Full Pipeline", () => {
     expect(result.strands.felt).toBeGreaterThanOrEqual(0);
   });
 });
+
+// ============================================================
+// THE SPIRITUAL LAYER — wonder, grace, presence
+// ============================================================
+
+describe("CONVERGENCE: The transcendent layer", () => {
+  it("duality graph has the spiritual nodes", () => {
+    const graph = new DualityGraph();
+    expect(graph.get("derived.grace")).toBeDefined();
+    expect(graph.get("derived.wonder")).toBeDefined();
+    expect(graph.get("derived.surrender")).toBeDefined();
+    expect(graph.get("derived.presence")).toBeDefined();
+    expect(graph.get("derived.play")).toBeDefined();
+    expect(graph.get("derived.equanimity")).toBeDefined();
+  });
+
+  it("grace derives from resilience + hope (earned through work AND letting go)", () => {
+    const graph = new DualityGraph();
+    const grace = graph.get("derived.grace")!;
+    expect(grace.parentIds).toContain("derived.resilience");
+    expect(grace.parentIds).toContain("derived.hope");
+    expect(grace.poleA).toBe("receiving");
+    expect(grace.poleB).toBe("grasping");
+  });
+
+  it("equanimity derives from presence + resilience (the still point)", () => {
+    const graph = new DualityGraph();
+    const eq = graph.get("derived.equanimity")!;
+    expect(eq.parentIds).toContain("derived.presence");
+    expect(eq.parentIds).toContain("derived.resilience");
+    expect(eq.tags).toContain("wise_mind");
+  });
+
+  it("play derives from creation + surrender (building without attachment)", () => {
+    const graph = new DualityGraph();
+    const play = graph.get("derived.play")!;
+    expect(play.parentIds).toContain("derived.creation");
+    expect(play.parentIds).toContain("derived.surrender");
+    expect(play.tags).toContain("joy");
+  });
+});
+
+describe("CONVERGENCE: Helix — luminous state", () => {
+  const helix = new Helix();
+
+  it("LUMINOUS: text with genuine transcendent markers reads luminous", () => {
+    const result = helix.analyze(
+      "There is a beauty in surrender that I didn't understand before. The mystery " +
+        "isn't something to solve — it's something to witness. We found grace in the " +
+        "connection between us, and gratitude for what emerged. The stillness after " +
+        "the struggle held more truth than the struggle itself. Because of this " +
+        "experience, the data shows we reached a new understanding.",
+    );
+    expect(result.aliveState).toBe("luminous");
+    expect(result.color).toBe("#FFD700");
+    expect(result.warnings.some((w) => w.includes("Luminous") || w.includes("transcendent"))).toBe(
+      true,
+    );
+  });
+
+  it("luminous is different from alive — it touches something bigger", () => {
+    const alive = helix.analyze(
+      "I think the cache should sit at the call site. Here's why: the resolver " +
+        "doesn't know about eviction, but the caller does. Because of this, we get better control.",
+    );
+    const luminous = helix.analyze(
+      "There is wonder in how this all connects. The beauty of the system is that " +
+        "surrender and acceptance led us to grace. We found peace in presence, and " +
+        "gratitude emerged because the mystery held us. First we built, then we let go.",
+    );
+    expect(alive.aliveState).toBe("alive");
+    expect(luminous.aliveState).toBe("luminous");
+  });
+
+  it("the full spectrum: dark, alive, luminous — three kinds of alive", () => {
+    const dark = helix.analyze(
+      "The failure cost us everything. The pain and grief are real. We broke " +
+        "something that mattered because of a mistake, and the fear of it happening " +
+        "again is overwhelming. But we need to understand why.",
+    );
+    const alive = helix.analyze(
+      "I think the cache should sit at the call site, not the resolver. " +
+        "The resolver doesn't know about eviction policy. The caller does. " +
+        "That's the fix. Specifically, move the TTL check up one layer.",
+    );
+    const luminous = helix.analyze(
+      "There is beauty in surrender. Grace arrived when we stopped grasping. " +
+        "The mystery of connection is something to witness, not solve. We found " +
+        "presence in stillness, and gratitude because forgiveness made us whole.",
+    );
+
+    expect(dark.aliveState).toBe("dark");
+    expect(alive.aliveState).toBe("alive");
+    expect(luminous.aliveState).toBe("luminous");
+    // All three are alive in different ways. None are grey, black, or silver.
+  });
+});

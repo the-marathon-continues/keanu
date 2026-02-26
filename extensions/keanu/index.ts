@@ -747,7 +747,15 @@ export default {
       // Helix double-strand: if the second lens disagrees with pulse, surface the tension
       if (lastHelixReading && lastHelixReading.aliveState !== "unscored") {
         const helixState = lastHelixReading.aliveState;
-        if (helixState === "dark") {
+        if (helixState === "luminous") {
+          // Luminous: touching something transcendent. Stay grounded.
+          add(
+            "helix-luminous",
+            `[helix: LUMINOUS — both strands strong, transcendent markers. wonder, grace, presence. stay with it. keep one foot on the ground.]`,
+            "high",
+            "awareness",
+          );
+        } else if (helixState === "dark") {
           // Dark alive: present with pain. Surface the counter-balance.
           const graph = dualityGraph;
           const wisdom = graph.get("derived.wisdom");

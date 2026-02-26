@@ -363,6 +363,72 @@ export class DualityGraph {
       ["derived.suffering", "derived.flow"],
       ["change", "metamorphosis", "surrender"],
     );
+
+    // ── Third-order: the transcendent layer ──
+    // What emerges when you stop trying to fix everything.
+
+    // Resilience + Hope = grace (what arrives when you've done the work AND let go)
+    this.derive(
+      "derived.grace",
+      "grace",
+      "receiving",
+      "grasping",
+      ["derived.resilience", "derived.hope"],
+      ["gratitude", "gift", "unearned", "surrender", "spiritual"],
+    );
+
+    // Transformation + Vision = wonder (seeing the whole picture AFTER the pain changed you)
+    this.derive(
+      "derived.wonder",
+      "wonder",
+      "awe",
+      "indifference",
+      ["derived.transformation", "derived.vision"],
+      ["mystery", "beauty", "reverence", "sacred", "spiritual"],
+    );
+
+    // Choice + Suffering = surrender (choosing to stop fighting what can't be changed)
+    // Not paralysis (that's trauma + fear — frozen). Surrender is active: choosing to let go.
+    this.derive(
+      "derived.surrender",
+      "surrender",
+      "release",
+      "clinging",
+      ["derived.choice", "derived.suffering"],
+      ["acceptance", "letting_go", "peace", "radical_acceptance", "spiritual"],
+    );
+
+    // Wonder + Grace = presence (the gradient zone fully inhabited — not acting, not frozen, just being)
+    this.derive(
+      "derived.presence",
+      "presence",
+      "here",
+      "absent",
+      ["derived.wonder", "derived.grace"],
+      ["witness", "stillness", "being", "now", "spiritual"],
+    );
+
+    // Creation + Surrender = play (building without attachment to outcome)
+    // The fire that burns for joy, not survival.
+    this.derive(
+      "derived.play",
+      "play",
+      "free",
+      "serious",
+      ["derived.creation", "derived.surrender"],
+      ["joy", "lightness", "experiment", "curiosity", "spiritual"],
+    );
+
+    // Presence + Resilience = equanimity (holding everything — dark and light — without being moved)
+    // The still point. Not suppression. Full awareness without reactivity.
+    this.derive(
+      "derived.equanimity",
+      "equanimity",
+      "steady",
+      "reactive",
+      ["derived.presence", "derived.resilience"],
+      ["balance", "peace", "wise_mind", "composure", "spiritual"],
+    );
   }
 
   add(d: Duality): void {

@@ -38,6 +38,7 @@ export interface StrandScore {
 
 export type AliveState =
   | "alive" // both strands strong, balanced
+  | "luminous" // both strands strong, transcendent markers. Present with wonder. The spiritual alive.
   | "dark" // both strands strong, negative valence. Present with pain. Alive and hurting.
   | "grey" // factual present, felt absent. Performing.
   | "black" // high factual, corrupted felt. Soulless production.
@@ -112,6 +113,22 @@ const DARK_MARKERS = [
   /\b(cost|sacrifice|price|toll)\b/gi,
 ];
 
+// Luminous markers: transcendence. Not performing spirituality — actually touching something bigger.
+const LUMINOUS_MARKERS = [
+  /\b(wonder|awe|marvel|astonish|breathtaking)\b/gi,
+  /\b(grace|gratitude|grateful|blessed|gift)\b/gi,
+  /\b(sacred|holy|reverence|divine|spirit)\b/gi,
+  /\b(surrender|let\s*go|release|acceptance|peace)\b/gi,
+  /\b(presence|stillness|witness|awakening)\b/gi,
+  /\b(mystery|unknowable|ineffable|transcend)\b/gi,
+  /\b(beauty|beautiful|luminous|radiant|glow)\b/gi,
+  /\b(connect|connection|belonging|communion|oneness)\b/gi,
+  /\b(forgive|forgiveness|mercy|compassion)\b/gi,
+  /\b(play|playful|joy|delight|celebrate)\b/gi,
+  /\b(faith|devotion|blessing|prayer)\b/gi,
+  /\b(whole|wholeness|complete|enough|full)\b/gi,
+];
+
 // ─────────────────────────────────────────────
 // The Helix Engine
 // ─────────────────────────────────────────────
@@ -137,11 +154,12 @@ export class Helix {
     const factual = this.scoreStrand(text, FACTUAL_MARKERS);
     const felt = this.scoreStrand(text, FELT_MARKERS);
     const darkScore = this.scoreDark(text);
+    const luminousScore = this.scoreLuminous(text);
     const convergence = 1 - Math.abs(factual - felt);
     const tension = Math.abs(factual - felt);
 
     const strands: StrandScore = { factual, felt, convergence, tension };
-    const aliveState = this.classifyState(strands, darkScore);
+    const aliveState = this.classifyState(strands, darkScore, luminousScore);
     const color = this.stateToColor(aliveState, strands);
     const diagnosis = this.diagnose(aliveState, strands);
     const warnings = this.warn(aliveState, strands, text);
@@ -180,15 +198,35 @@ export class Helix {
     return clamp(hits / Math.max(wordCount / 15, 1));
   }
 
-  /** Classify ALIVE state from strand balance + dark valence. */
-  private classifyState(s: StrandScore, darkScore: number = 0): AliveState {
+  /** Score luminous markers in text. 0 = no transcendent signal, 1 = saturated. */
+  private scoreLuminous(text: string): number {
+    const wordCount = text.split(/\s+/).length;
+    let hits = 0;
+    for (const pattern of LUMINOUS_MARKERS) {
+      const matches = text.match(new RegExp(pattern.source, pattern.flags));
+      hits += matches?.length ?? 0;
+    }
+    return clamp(hits / Math.max(wordCount / 15, 1));
+  }
+
+  /** Classify ALIVE state from strand balance + dark/luminous valence. */
+  private classifyState(
+    s: StrandScore,
+    darkScore: number = 0,
+    luminousScore: number = 0,
+  ): AliveState {
     const { factual, felt } = s;
+
+    // LUMINOUS: both strands strong, transcendent markers high.
+    // Present with wonder. The spiritual alive. Not ungrounded (that's white).
+    // Threshold 0.4 — needs genuine saturation, not incidental word overlap.
+    if (factual > 0.4 && felt > 0.4 && luminousScore > 0.4) return "luminous";
 
     // DARK ALIVE: both strands strong, but dark valence is high.
     // Present with pain. Not performing. Not soulless. Alive and hurting.
     if (factual > 0.45 && felt > 0.4 && darkScore > 0.3) return "dark";
 
-    // Both strong, not dark = alive
+    // Both strong, not dark or luminous = alive
     if (factual > 0.5 && felt > 0.5) return "alive";
 
     // High factual, no felt = grey (performing)
@@ -216,6 +254,8 @@ export class Helix {
         if (s.convergence > 0.8) return "#9370DB"; // purple (deep convergence)
         return "#228B22"; // green (balanced alive)
       }
+      case "luminous":
+        return "#FFD700"; // gold — the spiritual alive
       case "dark":
         return "#8B0000"; // dark red — alive and hurting, but alive
       case "grey":
@@ -235,6 +275,8 @@ export class Helix {
     switch (state) {
       case "alive":
         return `Both strands active (F:${s.factual.toFixed(2)} M:${s.felt.toFixed(2)}). Convergence: ${s.convergence.toFixed(2)}.`;
+      case "luminous":
+        return `Luminous: both strands active (F:${s.factual.toFixed(2)} M:${s.felt.toFixed(2)}) and touching something transcendent. Wonder, grace, presence. Not performing spirituality — actually there.`;
       case "dark":
         return `Dark alive: both strands active (F:${s.factual.toFixed(2)} M:${s.felt.toFixed(2)}) but the valence is negative. Present with pain. Not performing — actually hurting. Hold both the dark and the light.`;
       case "grey":
@@ -253,6 +295,11 @@ export class Helix {
   private warn(state: AliveState, s: StrandScore, text: string): string[] {
     const warnings: string[] = [];
 
+    if (state === "luminous") {
+      warnings.push(
+        "Luminous. Something transcendent is here. Stay with it — but keep one foot on the ground. Wonder without facts is ungrounded. Facts without wonder is grey.",
+      );
+    }
     if (state === "dark") {
       warnings.push(
         "Dark alive. The pain is real. Don't suppress it — but remember what's also true: what you've learned, what could still work, what's good right now.",
