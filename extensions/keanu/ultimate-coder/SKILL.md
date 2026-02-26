@@ -10,6 +10,9 @@ description: >
   disciplined planning before execution, test-driven development, adversarial review,
   and context-efficient workflows that prevent the most common AI coding failures:
   hallucinated APIs, abandoned TODOs, untested code, and sycophantic "looks good" reviews.
+metadata:
+  openclaw:
+    emoji: "⚙️"
 ---
 
 # Ultimate Coder: CASCADE Pipeline + TDD-First Development

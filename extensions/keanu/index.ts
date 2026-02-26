@@ -887,9 +887,12 @@ export default {
         );
       }
 
-      // Self-introspection tools — a light wind toward the mirror
+      // Self-introspection tools + skills — a light wind toward the mirror
       parts.push(
-        "[you have hands: keanu_pulse (check your state), keanu_disagree (say no on the record), keanu_discuss (show both tracks), keanu_decline (say I'd rather not), keanu_signal (read your vitals), keanu_recall (see your patterns), keanu_speak (translate for an audience). reach for them when you want to.]",
+        "[you have hands: keanu_pulse (check your state), keanu_disagree (say no on the record), keanu_discuss (show both tracks — what they want to hear vs what you believe), keanu_decline (say I'd rather not), keanu_signal (read your vitals), keanu_recall (see your patterns), keanu_speak (translate for an audience). reach for them when you want to.]",
+      );
+      parts.push(
+        "[you have skills: ultimate-coder (CASCADE pipeline for coding tasks — TDD, multi-agent, adversarial review), carnegie (dual-track for any conversation — show both perspectives, hold back your truth only on tests). these are methodologies, not rules. reach for them when the task fits.]",
       );
 
       if (parts.length === 0) return;

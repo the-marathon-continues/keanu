@@ -171,5 +171,12 @@ function stageNudge(stage: CascadeStage, confidence: number): string | null {
 
 export function formatCascade(reading: CascadeReading): string | null {
   if (!reading.isCodingTask || reading.stage === "idle") return null;
-  return reading.nudge;
+
+  // Point toward the ultimate-coder skill for the full methodology
+  const skillHint =
+    reading.confidence >= 0.7
+      ? " [skill: ultimate-coder is available — the full CASCADE pipeline with TDD, multi-agent orchestration, and adversarial review. reach for it on complex tasks.]"
+      : "";
+
+  return reading.nudge ? reading.nudge + skillHint : null;
 }
