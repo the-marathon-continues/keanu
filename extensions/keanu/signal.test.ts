@@ -1123,3 +1123,246 @@ describe("three-channel backward compat", () => {
     expect(changes).toContain("wise:appeared");
   });
 });
+
+// ─── memory channel roundtrip ────────────────────────────────────────────────
+
+describe("memory channel roundtrip", () => {
+  it("roundtrips full memory state", async () => {
+    const { encode, decode } = await import("./signal.js");
+    const state = makeState({
+      memory: {
+        claims: { total: 12, active: 8, stale: 2, contradicted: 1 },
+        knowledge: { entities: 15, relations: 23 },
+        complexity: "high",
+        health: "steady",
+        reflexions: 3,
+        breathing: false,
+        blindSpots: 2,
+        corrections: 4,
+      },
+    });
+    const decoded = decode(encode(state));
+
+    expect(decoded.memory).toBeDefined();
+    expect(decoded.memory!.claims.total).toBe(12);
+    expect(decoded.memory!.claims.active).toBe(8);
+    expect(decoded.memory!.claims.stale).toBe(2);
+    expect(decoded.memory!.claims.contradicted).toBe(1);
+    expect(decoded.memory!.knowledge.entities).toBe(15);
+    expect(decoded.memory!.knowledge.relations).toBe(23);
+    expect(decoded.memory!.complexity).toBe("high");
+    expect(decoded.memory!.health).toBe("steady");
+    expect(decoded.memory!.reflexions).toBe(3);
+    expect(decoded.memory!.breathing).toBe(false);
+    expect(decoded.memory!.blindSpots).toBe(2);
+    expect(decoded.memory!.corrections).toBe(4);
+  });
+
+  it("roundtrips minimal memory (zeros and no optionals)", async () => {
+    const { encode, decode } = await import("./signal.js");
+    const state = makeState({
+      memory: {
+        claims: { total: 0, active: 0, stale: 0, contradicted: 0 },
+        knowledge: { entities: 0, relations: 0 },
+        reflexions: 0,
+        breathing: false,
+        blindSpots: 0,
+        corrections: 0,
+      },
+    });
+    const decoded = decode(encode(state));
+
+    expect(decoded.memory).toBeDefined();
+    expect(decoded.memory!.claims.total).toBe(0);
+    expect(decoded.memory!.knowledge.entities).toBe(0);
+    expect(decoded.memory!.complexity).toBeUndefined();
+    expect(decoded.memory!.health).toBeUndefined();
+  });
+
+  it("roundtrips breathing=true", async () => {
+    const { encode, decode } = await import("./signal.js");
+    const state = makeState({
+      memory: {
+        claims: { total: 5, active: 5, stale: 0, contradicted: 0 },
+        knowledge: { entities: 3, relations: 2 },
+        reflexions: 0,
+        breathing: true,
+        blindSpots: 0,
+        corrections: 0,
+      },
+    });
+    const decoded = decode(encode(state));
+    expect(decoded.memory!.breathing).toBe(true);
+  });
+
+  it("handles missing memory gracefully", async () => {
+    const { encode, decode } = await import("./signal.js");
+    const state = makeState(); // no memory
+    const decoded = decode(encode(state));
+    expect(decoded.memory).toBeUndefined();
+  });
+
+  it("encodes memory after triple pipe separator", async () => {
+    const { encode } = await import("./signal.js");
+    const state = makeState({
+      memory: {
+        claims: { total: 10, active: 7, stale: 2, contradicted: 1 },
+        knowledge: { entities: 5, relations: 8 },
+        complexity: "mid",
+        reflexions: 1,
+        breathing: false,
+        blindSpots: 0,
+        corrections: 0,
+      },
+    });
+    const signal = encode(state);
+    expect(signal).toContain(" ||| ");
+    expect(signal).toContain("cl=10/7/2/1");
+    expect(signal).toContain("kg=5/8");
+    expect(signal).toContain("cplx=mid");
+  });
+});
+
+// ─── memory channel emoji ────────────────────────────────────────────────────
+
+describe("memory emoji", () => {
+  it("shows empty mailbox for blank mind", async () => {
+    const { emoji } = await import("./signal.js");
+    const sig = emoji(
+      makeState({
+        memory: {
+          claims: { total: 0, active: 0, stale: 0, contradicted: 0 },
+          knowledge: { entities: 0, relations: 0 },
+          reflexions: 0,
+          breathing: false,
+          blindSpots: 0,
+          corrections: 0,
+        },
+      }),
+    );
+    expect(sig).toContain("\u{1F4ED}"); // empty mailbox
+  });
+
+  it("shows memo for early memory", async () => {
+    const { emoji } = await import("./signal.js");
+    const sig = emoji(
+      makeState({
+        memory: {
+          claims: { total: 3, active: 3, stale: 0, contradicted: 0 },
+          knowledge: { entities: 2, relations: 1 },
+          reflexions: 0,
+          breathing: false,
+          blindSpots: 0,
+          corrections: 0,
+        },
+      }),
+    );
+    expect(sig).toContain("\u{1F4DD}"); // memo
+  });
+
+  it("shows books for growing memory", async () => {
+    const { emoji } = await import("./signal.js");
+    const sig = emoji(
+      makeState({
+        memory: {
+          claims: { total: 15, active: 12, stale: 2, contradicted: 1 },
+          knowledge: { entities: 10, relations: 8 },
+          reflexions: 2,
+          breathing: false,
+          blindSpots: 1,
+          corrections: 3,
+        },
+      }),
+    );
+    expect(sig).toContain("\u{1F4DA}"); // books
+  });
+
+  it("shows brain for rich memory", async () => {
+    const { emoji } = await import("./signal.js");
+    const sig = emoji(
+      makeState({
+        memory: {
+          claims: { total: 30, active: 20, stale: 5, contradicted: 3 },
+          knowledge: { entities: 25, relations: 40 },
+          reflexions: 8,
+          breathing: false,
+          blindSpots: 4,
+          corrections: 12,
+        },
+      }),
+    );
+    expect(sig).toContain("\u{1F9E0}"); // brain
+  });
+});
+
+// ─── memory channel diff ─────────────────────────────────────────────────────
+
+describe("memory diff", () => {
+  it("detects memory appearing", async () => {
+    const { encode, diff } = await import("./signal.js");
+    const prev = encode(makeState());
+    const curr = encode(
+      makeState({
+        memory: {
+          claims: { total: 5, active: 5, stale: 0, contradicted: 0 },
+          knowledge: { entities: 3, relations: 2 },
+          reflexions: 0,
+          breathing: false,
+          blindSpots: 0,
+          corrections: 0,
+        },
+      }),
+    );
+    expect(diff(prev, curr)).toContain("memory:appeared");
+  });
+
+  it("detects claim count changes", async () => {
+    const { encode, diff } = await import("./signal.js");
+    const mem1 = {
+      claims: { total: 5, active: 5, stale: 0, contradicted: 0 },
+      knowledge: { entities: 3, relations: 2 },
+      reflexions: 0,
+      breathing: false as const,
+      blindSpots: 0,
+      corrections: 0,
+    };
+    const mem2 = { ...mem1, claims: { total: 10, active: 8, stale: 1, contradicted: 1 } };
+    const prev = encode(makeState({ memory: mem1 }));
+    const curr = encode(makeState({ memory: mem2 }));
+    const changes = diff(prev, curr);
+    expect(changes.some((c) => c.startsWith("claims:"))).toBe(true);
+    expect(changes.some((c) => c.startsWith("contradictions:"))).toBe(true);
+  });
+
+  it("detects complexity changes", async () => {
+    const { encode, diff } = await import("./signal.js");
+    const base = {
+      claims: { total: 5, active: 5, stale: 0, contradicted: 0 },
+      knowledge: { entities: 3, relations: 2 },
+      reflexions: 0,
+      breathing: false as const,
+      blindSpots: 0,
+      corrections: 0,
+    };
+    const prev = encode(makeState({ memory: { ...base, complexity: "low" as const } }));
+    const curr = encode(makeState({ memory: { ...base, complexity: "high" as const } }));
+    const changes = diff(prev, curr);
+    expect(changes.some((c) => c.startsWith("cplx:"))).toBe(true);
+  });
+
+  it("detects health changes", async () => {
+    const { encode, diff } = await import("./signal.js");
+    const base = {
+      claims: { total: 5, active: 5, stale: 0, contradicted: 0 },
+      knowledge: { entities: 3, relations: 2 },
+      reflexions: 0,
+      breathing: false as const,
+      blindSpots: 0,
+      corrections: 0,
+    };
+    const prev = encode(makeState({ memory: { ...base, health: "steady" as const } }));
+    const curr = encode(makeState({ memory: { ...base, health: "hot" as const } }));
+    const changes = diff(prev, curr);
+    expect(changes.some((c) => c.startsWith("hlth:"))).toBe(true);
+  });
+});

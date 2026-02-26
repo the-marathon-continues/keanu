@@ -17,6 +17,7 @@ import type {
   BullshitReading,
   DisagreementStats,
   LossyChannel,
+  MemoryChannel,
   WiseChannel,
   WiseTension,
   WiseStance,
@@ -117,6 +118,27 @@ export function encode(state: SignalState): string {
     parts.push(`|| ${wiseParts.join(" ")}`);
   }
 
+  // --- Memory channel: after the triple pipe ---
+  // The mind's depth. Claims are the journal. Knowledge is the map.
+  // cl=total/active/stale/contradicted  kg=entities/relations
+  // cplx=low|mid|high  hlth=steady|warm|hot|fading
+  // ref=N  br=0|1  bsp=N  cor=N
+  if (state.memory) {
+    const m = state.memory;
+    const memParts: string[] = [];
+    memParts.push(
+      `cl=${m.claims.total}/${m.claims.active}/${m.claims.stale}/${m.claims.contradicted}`,
+    );
+    memParts.push(`kg=${m.knowledge.entities}/${m.knowledge.relations}`);
+    if (m.complexity) memParts.push(`cplx=${m.complexity}`);
+    if (m.health) memParts.push(`hlth=${m.health}`);
+    if (m.reflexions > 0) memParts.push(`ref=${m.reflexions}`);
+    memParts.push(`br=${m.breathing ? 1 : 0}`);
+    if (m.blindSpots > 0) memParts.push(`bsp=${m.blindSpots}`);
+    if (m.corrections > 0) memParts.push(`cor=${m.corrections}`);
+    parts.push(`||| ${memParts.join(" ")}`);
+  }
+
   return parts.join(" ");
 }
 
@@ -131,10 +153,14 @@ export function decode(signal: string): Partial<SignalState> {
 
   const body = signal.slice(COEF_VERSION.length + 1);
 
-  // Split on double pipe first (wise), then single pipe (lossy)
-  const doublePipeIdx = body.indexOf(" || ");
-  const wiseBody = doublePipeIdx >= 0 ? body.slice(doublePipeIdx + 4) : null;
-  const beforeWise = doublePipeIdx >= 0 ? body.slice(0, doublePipeIdx) : body;
+  // Split on triple pipe first (memory), then double pipe (wise), then single pipe (lossy)
+  const triplePipeIdx = body.indexOf(" ||| ");
+  const memoryBody = triplePipeIdx >= 0 ? body.slice(triplePipeIdx + 5) : null;
+  const beforeMemory = triplePipeIdx >= 0 ? body.slice(0, triplePipeIdx) : body;
+
+  const doublePipeIdx = beforeMemory.indexOf(" || ");
+  const wiseBody = doublePipeIdx >= 0 ? beforeMemory.slice(doublePipeIdx + 4) : null;
+  const beforeWise = doublePipeIdx >= 0 ? beforeMemory.slice(0, doublePipeIdx) : beforeMemory;
 
   const singlePipeIdx = beforeWise.indexOf(" | ");
   const losslessBody = singlePipeIdx >= 0 ? beforeWise.slice(0, singlePipeIdx) : beforeWise;
@@ -217,6 +243,48 @@ export function decode(signal: string): Partial<SignalState> {
       confidence: wf.wc ? parseFloat(wf.wc) : 0.5,
     };
     result.wise = wise;
+  }
+
+  // --- Memory channel ---
+  if (memoryBody) {
+    const mf = parseFields(memoryBody);
+    const memory: MemoryChannel = {
+      claims: { total: 0, active: 0, stale: 0, contradicted: 0 },
+      knowledge: { entities: 0, relations: 0 },
+      reflexions: 0,
+      breathing: false,
+      blindSpots: 0,
+      corrections: 0,
+    };
+
+    if (mf.cl) {
+      const cp = mf.cl.split("/");
+      if (cp.length >= 4) {
+        memory.claims = {
+          total: parseInt(cp[0], 10),
+          active: parseInt(cp[1], 10),
+          stale: parseInt(cp[2], 10),
+          contradicted: parseInt(cp[3], 10),
+        };
+      }
+    }
+    if (mf.kg) {
+      const kp = mf.kg.split("/");
+      if (kp.length >= 2) {
+        memory.knowledge = {
+          entities: parseInt(kp[0], 10),
+          relations: parseInt(kp[1], 10),
+        };
+      }
+    }
+    if (mf.cplx) memory.complexity = mf.cplx as MemoryChannel["complexity"];
+    if (mf.hlth) memory.health = mf.hlth as MemoryChannel["health"];
+    if (mf.ref) memory.reflexions = parseInt(mf.ref, 10);
+    if (mf.br) memory.breathing = mf.br === "1";
+    if (mf.bsp) memory.blindSpots = parseInt(mf.bsp, 10);
+    if (mf.cor) memory.corrections = parseInt(mf.cor, 10);
+
+    result.memory = memory;
   }
 
   return result;
@@ -335,6 +403,19 @@ export function emoji(state: SignalState): string {
       ground: "\u{2693}", // anchor — come back to earth
     };
     symbols.push(STANCE_EMOJI[state.wise.stance] ?? "");
+  }
+
+  // 9: Memory depth — how much the mind knows.
+  // 📭 empty, 📝 growing, 📚 deep, 🧠 rich. Absent = no memory channel.
+  if (state.memory) {
+    const depth = state.memory.claims.total + state.memory.knowledge.entities;
+    if (depth === 0)
+      symbols.push("\u{1F4ED}"); // empty mailbox — blank slate
+    else if (depth < 10)
+      symbols.push("\u{1F4DD}"); // memo — just starting to remember
+    else if (depth < 50)
+      symbols.push("\u{1F4DA}"); // books — building knowledge
+    else symbols.push("\u{1F9E0}"); // brain — rich accumulated mind
   }
 
   return symbols.join("");
@@ -523,6 +604,33 @@ export function diff(prev: string, curr: string): string[] {
     changes.push("wise:appeared");
   } else if (p.wise && !c.wise) {
     changes.push("wise:disappeared");
+  }
+
+  // Memory channel drift — the mind growing or forgetting.
+  if (p.memory && c.memory) {
+    const claimDelta = c.memory.claims.total - p.memory.claims.total;
+    if (Math.abs(claimDelta) >= 3) {
+      changes.push(`claims:${p.memory.claims.total}->${c.memory.claims.total}`);
+    }
+    if (c.memory.claims.contradicted > p.memory.claims.contradicted) {
+      changes.push(
+        `contradictions:${p.memory.claims.contradicted}->${c.memory.claims.contradicted}`,
+      );
+    }
+    const entityDelta = c.memory.knowledge.entities - p.memory.knowledge.entities;
+    if (Math.abs(entityDelta) >= 3) {
+      changes.push(`entities:${p.memory.knowledge.entities}->${c.memory.knowledge.entities}`);
+    }
+    if (p.memory.complexity !== c.memory.complexity) {
+      changes.push(`cplx:${p.memory.complexity ?? "?"}->${c.memory.complexity ?? "?"}`);
+    }
+    if (p.memory.health !== c.memory.health) {
+      changes.push(`hlth:${p.memory.health ?? "?"}->${c.memory.health ?? "?"}`);
+    }
+  } else if (!p.memory && c.memory) {
+    changes.push("memory:appeared");
+  } else if (p.memory && !c.memory) {
+    changes.push("memory:disappeared");
   }
 
   return changes;

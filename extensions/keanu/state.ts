@@ -16,6 +16,7 @@ import type {
   BullshitReading,
   Contradiction,
   DeclineEvent,
+  MemoryChannel,
   Reflexion,
   ReflexionTrigger,
   SignalState,
@@ -599,7 +600,7 @@ export async function saveReflexion(workspaceDir: string, r: Reflexion): Promise
 // COEF signal builder
 // ============================================================
 
-export function buildSignalState(pulse: PulseReading): SignalState {
+export function buildSignalState(pulse: PulseReading, memory?: MemoryChannel): SignalState {
   const human = lastHumanReading;
   const dStats = disagreementTracker.stats();
   const alerts = disagreementTracker.alerts(turnCount);
@@ -677,6 +678,7 @@ export function buildSignalState(pulse: PulseReading): SignalState {
     alerts: alerts.length > 0 ? alerts : undefined,
     lossy,
     wise,
+    memory,
   };
 }
 

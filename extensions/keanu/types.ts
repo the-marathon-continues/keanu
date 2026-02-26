@@ -227,6 +227,21 @@ export interface SignalState {
   lastTool?: string;
   lossy?: LossyChannel; // channel 2: the color name
   wise?: WiseChannel; // channel 3: what the barcode + color name mean together
+  memory?: MemoryChannel; // channel 4: how deep the mind goes
+}
+
+// Memory channel: the mind's depth. How much it knows, how stable its convictions are.
+// Claims are the journal. Knowledge is the map. Together they're the difference between
+// a mirror and a mind.
+export interface MemoryChannel {
+  claims: { total: number; active: number; stale: number; contradicted: number };
+  knowledge: { entities: number; relations: number };
+  complexity?: "low" | "mid" | "high";
+  health?: "steady" | "warm" | "hot" | "fading";
+  reflexions: number;
+  breathing: boolean;
+  blindSpots: number;
+  corrections: number;
 }
 
 // --- Reflexion ---

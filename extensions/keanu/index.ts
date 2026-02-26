@@ -749,8 +749,27 @@ export default {
         add("human-tone", formatHumanReading(state.lastHumanReading), "high", "awareness");
       }
 
-      // Wise channel: the synthesis of facts + feels
-      const wiseSignalState = pulse ? state.buildSignalState(pulse) : null;
+      // Wise channel + memory: the synthesis of facts + feels + depth
+      const allClaims = silveradoModule.getAllClaims();
+      const knowledgeStats = knowledgeModule.stats();
+      const memoryChannel: import("./types.js").MemoryChannel = {
+        claims: {
+          total: allClaims.length,
+          active: allClaims.filter((c) => c.status === "active").length,
+          stale: silveradoModule.staleClaims().length,
+          contradicted: silveradoModule.contradictedClaims().length,
+        },
+        knowledge: { entities: knowledgeStats.entities, relations: knowledgeStats.relations },
+        complexity: lastDiscoverReading?.complexity,
+        health: (["steady", "warm", "hot", "fading"].includes(lastHealthReading?.status ?? "")
+          ? lastHealthReading?.status
+          : undefined) as import("./types.js").MemoryChannel["health"],
+        reflexions: state.reflexionCount,
+        breathing: state.breathing,
+        blindSpots: getBlindSpots().length,
+        corrections: correctionCountThisSession,
+      };
+      const wiseSignalState = pulse ? state.buildSignalState(pulse, memoryChannel) : null;
       if (wiseSignalState?.wise) {
         const w = wiseSignalState.wise;
         const wiseContent = w.tension
