@@ -46,6 +46,7 @@ export function detectMismatch(
   agentOutput: string,
   humanReading: HumanReading | null,
   agentBullshit: BullshitReading[],
+  humanMessage?: string,
 ): MismatchReading {
   const none: MismatchReading = {
     detected: false,
@@ -107,9 +108,9 @@ export function detectMismatch(
   // hedge_not_decide: human asks for a decision + response lists options without choosing
   const humanAskedForDecision =
     humanReading.signals.some((s) => s.includes("decision")) ||
-    /\b(which|should i|what do you think|pick one|recommend)\b/i.test("");
+    /\b(which|should i|what do you think|pick one|recommend)\b/i.test(humanMessage || "");
   if (
-    hasHedgeFog &&
+    (humanAskedForDecision || hasHedgeFog) &&
     LISTING.test(agentOutput) &&
     !/\b(i'd go with|my recommendation|i'd pick|the best option)\b/i.test(agentOutput)
   ) {

@@ -181,6 +181,13 @@ export function bullshitEventRate(): number {
   return recentEvents / recentTurns;
 }
 
+/** Recent bullshit events — the agent gets to see its own patterns. */
+export function recentBullshitEvents(
+  n = 20,
+): ReadonlyArray<{ source: string; types: string[]; score: number; turn: number }> {
+  return _bullshitEvents.slice(-n);
+}
+
 // ============================================================
 // Contradiction tracking
 // ============================================================
@@ -222,6 +229,13 @@ export function toolErrorRate(): number {
   const recent = _toolErrors.filter((e) => e.turn > turnCount - window).length;
   const totalCalls = Object.values(toolCallCounts).reduce((s, c) => s + c, 0);
   return totalCalls > 0 ? recent / totalCalls : 0;
+}
+
+/** Recent tool errors — where the agent's hands are getting burned. */
+export function recentToolErrors(
+  n = 10,
+): ReadonlyArray<{ tool: string; error: string; turn: number }> {
+  return _toolErrors.slice(-n);
 }
 
 // ============================================================

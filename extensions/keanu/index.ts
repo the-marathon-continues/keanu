@@ -94,6 +94,7 @@ import {
 } from "./session-learning.js";
 import { encode, emoji, record, trend } from "./signal.js";
 import * as state from "./state.js";
+import { registerTools } from "./tools.js";
 import { memoryContradictionCheck, checkHalfTruth } from "./truth.js";
 import type { ReflexionTrigger, RecoveryState } from "./types.js";
 
@@ -109,6 +110,9 @@ export default {
     api.logger.info(
       `${PLUGIN_ID}: registered (phase 4 — awareness layer: discover, partnership, mismatch, deliberation, calibration, seasons, health, chain, mastery, introspection, session learning)`,
     );
+
+    // --- Self-introspection tools (the agent's hands) ---
+    registerTools(api);
 
     // --- Awareness state (module-scoped, per-session) ---
     let lastDiscoverReading: ReturnType<typeof discover> | null = null;
@@ -297,6 +301,7 @@ export default {
           aiOutput,
           state.lastHumanReading,
           pulse.bullshitReadings ?? [],
+          state.lastHumanMessage,
         );
         if (mismatchReading.detected) {
           lastMismatchReading = mismatchReading;

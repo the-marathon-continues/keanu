@@ -325,6 +325,9 @@ importers:
       '@anthropic-ai/sdk':
         specifier: ^0.39.0
         version: 0.39.0
+      '@sinclair/typebox':
+        specifier: 0.34.48
+        version: 0.34.48
     devDependencies:
       openclaw:
         specifier: workspace:*

@@ -186,17 +186,17 @@ This is the missing fire department.
 
 **5. TIPP emergency override.** Context reset protocol for Black-state cascades. The system learns to cool down. **→ PARTIAL** (STOP covers the halt, no full TIPP context reset/pacing yet)
 
-**6. Opposite Action mismatch detection.** Flag when content and intent diverge. The system learns to see gaps. **→ OPEN**
+**6. Opposite Action mismatch detection.** Flag when content and intent diverge. The system learns to see gaps. **→ BUILT** (`mismatch.ts` — 5 mismatch types, cross-references human state with agent output)
 
-**7. Build Mastery learning loop.** Feed scan misses back into bake.py. The system learns to learn. **→ OPEN** (partially addressed by `reflexion.ts` learning loop)
+**7. Build Mastery learning loop.** Feed scan misses back into bake.py. The system learns to learn. **→ BUILT** (`mastery.ts` blind spot aggregation + `reflexion.ts` learning loop)
 
 ### Tier 4: Roadmap
 
-**8. PLEASE system health monitoring.** Agent self-care checks. The system learns to rest. **→ OPEN**
+**8. PLEASE system health monitoring.** Agent self-care checks. The system learns to rest. **→ BUILT** (`health.ts` — composite score from context age, bullshit trend, prompt size, tool failures, grey streaks)
 
 **9. Validation Levels.** Six-depth scan mode selection. The system learns to listen at different depths. **→ OPEN**
 
-**10. Behavioral Chain Analysis.** Post-mortem pipeline for bad readings. The system learns from its failures. **→ OPEN**
+**10. Behavioral Chain Analysis.** Post-mortem pipeline for bad readings. The system learns from its failures. **→ BUILT** (`chain.ts` — full causal chain tracing on grey/black/correction events)
 
 ---
 

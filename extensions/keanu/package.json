@@ -26,10 +26,12 @@
     "./health": "./health.ts",
     "./chain": "./chain.ts",
     "./mastery": "./mastery.ts",
-    "./session-learning": "./session-learning.ts"
+    "./session-learning": "./session-learning.ts",
+    "./tools": "./tools.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.39.0"
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@sinclair/typebox": "^0.34.0"
   },
   "devDependencies": {
     "openclaw": "workspace:*"

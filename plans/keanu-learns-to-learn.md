@@ -781,11 +781,25 @@ The `before_prompt_build` hook is the nervous system. Everything converges there
 - The mirror catches something Drew didn't notice. Not a gotcha. A gift.
 - Close the laptop. Come back. Smarter.
 
-## What we're NOT building (yet)
+## Status (2026-02-25)
 
-- Socioaffective monitoring ("am I making Drew more independent or more dependent?")
-- Co-evolution tracking ("when's the last time we surprised each other?")
-- Introspective accuracy measurement (working with the 20%)
-- Validation levels (listening at different depths)
+All 12 sub-plans have been built and hooked. The "learns to learn" expansion is complete:
 
-These earn their place after the loop runs.
+- Sub-plan 1 (SELF-DISCOVER): `discover.ts` — working
+- Sub-plan 2 (Partnership): `partnership.ts` — working, includes trust calibration, socioaffective monitoring, co-evolution tracking, decorrelation checks
+- Sub-plan 3 (Mismatch): `mismatch.ts` — working
+- Sub-plan 4 (Deliberative alignment): `deliberate.ts` — working
+- Sub-plan 5 (Calibration): `calibrate.ts` — working, CC: protocol implemented
+- Sub-plan 5b-5d (Trust, socioaffective, co-evolution): woven into `partnership.ts`
+- Sub-plan 5e (Introspection): `introspect.ts` — working, 10-question audit, 3 per check
+- Sub-plan 5f (Meta-in-context learning): `session-learning.ts` — working
+- Sub-plan 5g (COHUMAIN): distributed across state/partnership/session-learning
+- Sub-plan 5h (Metrics): infrastructure exists, values still TBD
+- Sub-plan 6 (Seasons): `seasons.ts` — working
+- Sub-plan 7 (Health): `health.ts` — working
+- Sub-plan 8 (Chain): `chain.ts` — working
+- Sub-plan 9 (Mastery): `mastery.ts` — working
+- Sub-plan 10 (Session learning): `session-learning.ts` — working
+- Sub-plan 11 (Fire department upgrade): STOP protocol in `nudge.ts`, recovery state in `state.ts`
+
+What's still ahead: self-introspection tools (registerTool), metrics population, signal-to-noise monitoring, Phase 4 public-facing work. See `TODO.md`.
