@@ -347,6 +347,12 @@ export default {
             sessionWinters.push(winterReading);
             api.logger.debug?.(`${PLUGIN_ID}: winter: ${winterReading.lesson}`);
           }
+
+          // Track SELF-DISCOVER accuracy: did the module selection help?
+          if (lastDiscoverReading && lastDiscoverReading.complexity !== "low") {
+            const hit = autumnReading.alignment >= 0.6;
+            state.recordDiscoveryOutcome(hit);
+          }
         }
 
         // TURN SNAPSHOT: micro-state for correlation analysis
@@ -1119,8 +1125,8 @@ export default {
           chains: sessionChains,
           corrections: getRecentCorrections(20),
           blindSpots: [...getBlindSpots()],
-          discoveryHits: 0, // TODO: track in state
-          discoveryMisses: 0,
+          discoveryHits: state.discoveryHits,
+          discoveryMisses: state.discoveryMisses,
         });
         // Compute metrics snapshot
         const metrics = computeMetrics({

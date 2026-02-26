@@ -63,6 +63,15 @@ export let disagreementTracker = new DisagreementTracker();
 // always passed false. Now it's real.
 export let breathing = false;
 
+// SELF-DISCOVER accuracy tracking
+export let discoveryHits = 0;
+export let discoveryMisses = 0;
+
+export function recordDiscoveryOutcome(hit: boolean): void {
+  if (hit) discoveryHits++;
+  else discoveryMisses++;
+}
+
 // Bullshit tracking
 export let bullshitEventCount = 0;
 const _bullshitEvents: Array<{ source: string; types: string[]; score: number; turn: number }> = [];
