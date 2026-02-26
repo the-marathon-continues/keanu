@@ -299,7 +299,9 @@ export interface CarnegieDiscussion {
   created_at: string;
 }
 
-// --- Claim Ledger (minimum Silverado) ---
+// --- Claim Ledger (Silverado) ---
+
+export type ClaimStatus = "active" | "stale" | "contradicted" | "retracted";
 
 export interface TrackedClaim {
   id: string;
@@ -310,4 +312,7 @@ export interface TrackedClaim {
   verified: boolean; // was it later confirmed?
   contradicted: boolean; // was it later contradicted?
   decayedConfidence: number; // confidence after decay (-1 per session without verification)
+  status: ClaimStatus; // lifecycle state — alive, fading, crossed out, torn out
+  contradictedBy?: string; // if contradicted, what said otherwise
+  retractedAt?: string; // ISO timestamp of retraction
 }

@@ -1,0 +1,248 @@
+// silverado.ts
+// The claim ledger that remembers.
+//
+// Named after the gap analysis that said "minimum Silverado" and meant it.
+// state.ts has the bones — trackClaim, decay, stale detection. But claims
+// died between sessions. This gives them a life that outlasts a conversation.
+//
+// JSONL persistence. Cross-session contradiction detection. Full lifecycle:
+// active → stale → contradicted → retracted. The system knows what it
+// believed, when it changed its mind, and why.
+//
+// Not a court of law. A journal. You wrote something down, time passed,
+// now you're checking whether it's still true.
+
+import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { join } from "node:path";
+import { memoryContradictionCheck } from "./truth.js";
+import type { TrackedClaim, Contradiction } from "./types.js";
+
+// ============================================================
+// The ledger — all claims across all sessions
+// ============================================================
+
+const ledger: TrackedClaim[] = [];
+const MAX_LEDGER = 200; // longer memory than the per-session 50
+
+/** All claims the system has ever tracked (within the rolling window). */
+export function getAllClaims(): readonly TrackedClaim[] {
+  return ledger;
+}
+
+// ============================================================
+// Lifecycle transitions
+// ============================================================
+
+/** Mark a claim as verified — someone confirmed it's still true. */
+export function markVerified(claimId: string): boolean {
+  const claim = ledger.find((c) => c.id === claimId);
+  if (!claim) return false;
+  claim.verified = true;
+  claim.status = "active";
+  claim.decayedConfidence = claim.confidence; // reset decay
+  return true;
+}
+
+/** Mark a claim as retracted — the system or human said "that was wrong." */
+export function markRetracted(claimId: string): boolean {
+  const claim = ledger.find((c) => c.id === claimId);
+  if (!claim) return false;
+  claim.status = "retracted";
+  claim.contradicted = true;
+  claim.retractedAt = new Date().toISOString();
+  return true;
+}
+
+/** Run decay on the full ledger. Called at session_start. */
+export function decayAll(): void {
+  for (const c of ledger) {
+    if (c.status === "retracted") continue;
+    if (c.verified) continue;
+    if (c.contradicted) continue;
+    if (c.decayedConfidence > 0) {
+      c.decayedConfidence = Math.max(0, c.decayedConfidence - 1);
+    }
+    // Transition: active → stale when decayed below threshold
+    if (c.status === "active" && c.decayedConfidence <= 2 && c.confidence >= 3) {
+      c.status = "stale";
+    }
+  }
+}
+
+// ============================================================
+// Cross-session contradiction detection
+// ============================================================
+
+/**
+ * Check a new claim against the full historical ledger.
+ * Returns contradictions found against prior claims from any session.
+ */
+export function crossCheck(newClaimText: string): Contradiction[] {
+  const priorTexts = ledger
+    .filter((c) => c.status !== "retracted" && c.decayedConfidence > 0)
+    .map((c) => c.text);
+  return memoryContradictionCheck(newClaimText, priorTexts);
+}
+
+/**
+ * When a contradiction is found, mark the older claim.
+ * Returns the claim that was marked, if any.
+ */
+export function contradictByText(claimText: string, contradictedBy?: string): TrackedClaim | null {
+  for (const c of ledger) {
+    if (c.status === "retracted" || c.contradicted) continue;
+    if (c.text.includes(claimText.slice(0, 50))) {
+      c.contradicted = true;
+      c.status = "contradicted";
+      if (contradictedBy) c.contradictedBy = contradictedBy;
+      return c;
+    }
+  }
+  return null;
+}
+
+// ============================================================
+// Queries
+// ============================================================
+
+/** Claims that have gone stale — worth surfacing to the agent. */
+export function staleClaims(): TrackedClaim[] {
+  return ledger.filter((c) => c.status === "stale");
+}
+
+/** Claims that were contradicted — the system changed its mind. */
+export function contradictedClaims(): TrackedClaim[] {
+  return ledger.filter((c) => c.status === "contradicted");
+}
+
+/** Active claims with high confidence — things the system believes. */
+export function beliefs(): TrackedClaim[] {
+  return ledger.filter((c) => c.status === "active" && c.decayedConfidence >= 3);
+}
+
+/** Find claims about a topic (simple keyword match). */
+export function claimsAbout(topic: string): TrackedClaim[] {
+  const lower = topic.toLowerCase();
+  return ledger.filter((c) => c.status !== "retracted" && c.text.toLowerCase().includes(lower));
+}
+
+// ============================================================
+// Injection formatting
+// ============================================================
+
+/** Format the ledger state for before_prompt_build injection. */
+export function formatInjection(): string | null {
+  const stale = staleClaims();
+  const contradicted = contradictedClaims();
+  const activeBeliefs = beliefs();
+
+  if (stale.length === 0 && contradicted.length === 0) return null;
+
+  const parts: string[] = [];
+
+  if (contradicted.length > 0) {
+    const recent = contradicted.slice(-2);
+    const items = recent
+      .map((c) => {
+        const base = `"${c.text.slice(0, 80)}" (was confidence ${c.confidence})`;
+        return c.contradictedBy ? `${base} ← now "${c.contradictedBy.slice(0, 60)}"` : base;
+      })
+      .join("; ");
+    parts.push(
+      `contradicted: ${items}. did you change your mind, or did the world change? name it.`,
+    );
+  }
+
+  if (stale.length > 0) {
+    const oldest = stale[0];
+    parts.push(
+      `stale: "${oldest.text}" (confidence ${oldest.confidence} → ${oldest.decayedConfidence}). still true?`,
+    );
+  }
+
+  if (activeBeliefs.length > 0) {
+    parts.push(
+      `${activeBeliefs.length} active belief${activeBeliefs.length === 1 ? "" : "s"} in ledger.`,
+    );
+  }
+
+  return `[silverado: ${parts.join(" | ")}]`;
+}
+
+// ============================================================
+// Persistence — JSONL, same pattern as reflexions
+// ============================================================
+
+export async function save(workspaceDir: string): Promise<void> {
+  const dir = join(workspaceDir, "awareness");
+  await mkdir(dir, { recursive: true });
+  const file = join(dir, "claim-ledger.jsonl");
+  const lines = ledger.map((c) => JSON.stringify(c)).join("\n");
+  await writeFile(file, lines + "\n", "utf-8");
+}
+
+export async function load(workspaceDir: string): Promise<void> {
+  const file = join(workspaceDir, "awareness", "claim-ledger.jsonl");
+  try {
+    const raw = await readFile(file, "utf-8");
+    const lines = raw.trim().split("\n").filter(Boolean);
+    ledger.length = 0;
+    for (const line of lines) {
+      try {
+        const claim = JSON.parse(line) as TrackedClaim;
+        // Backward compat: old claims without status field
+        if (!claim.status) {
+          if (claim.contradicted) claim.status = "contradicted";
+          else if (claim.verified) claim.status = "active";
+          else if (claim.decayedConfidence <= 2 && claim.confidence >= 3) claim.status = "stale";
+          else claim.status = "active";
+        }
+        ledger.push(claim);
+      } catch {
+        // skip malformed lines
+      }
+    }
+    // Rolling window
+    if (ledger.length > MAX_LEDGER) {
+      ledger.splice(0, ledger.length - MAX_LEDGER);
+    }
+  } catch {
+    // No prior ledger — start fresh
+  }
+}
+
+/**
+ * Merge current session claims from state.ts into the persistent ledger.
+ * Called before save to capture anything tracked this session.
+ */
+export function mergeSessionClaims(sessionClaims: readonly TrackedClaim[]): void {
+  for (const claim of sessionClaims) {
+    const existing = ledger.find((c) => c.id === claim.id);
+    if (existing) {
+      // Update fields that may have changed
+      existing.verified = claim.verified;
+      existing.contradicted = claim.contradicted;
+      existing.decayedConfidence = claim.decayedConfidence;
+      if (claim.contradicted && existing.status !== "retracted") {
+        existing.status = "contradicted";
+      }
+      if (claim.verified) {
+        existing.status = "active";
+      }
+    } else {
+      // New claim — add with status
+      const withStatus = { ...claim };
+      if (!withStatus.status) withStatus.status = "active";
+      ledger.push(withStatus);
+    }
+  }
+  // Trim
+  if (ledger.length > MAX_LEDGER) {
+    ledger.splice(0, ledger.length - MAX_LEDGER);
+  }
+}
+
+/** Reset for testing. */
+export function reset(): void {
+  ledger.length = 0;
+}

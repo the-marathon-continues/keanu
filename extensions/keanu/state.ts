@@ -525,6 +525,7 @@ export function trackClaim(text: string, confidence: number, session: string): T
     verified: false,
     contradicted: false,
     decayedConfidence: confidence,
+    status: "active",
   };
   claimLedger.push(claim);
   if (claimLedger.length > MAX_CLAIMS) claimLedger.splice(0, claimLedger.length - MAX_CLAIMS);
@@ -537,6 +538,10 @@ export function decayUnverifiedClaims(): void {
     if (!c.verified && !c.contradicted && c.decayedConfidence > 0) {
       c.decayedConfidence = Math.max(0, c.decayedConfidence - 1);
     }
+    // Lifecycle transition: active → stale when confidence fades
+    if (c.status === "active" && c.decayedConfidence <= 2 && c.confidence >= 3) {
+      c.status = "stale";
+    }
   }
 }
 
@@ -548,10 +553,12 @@ export function staleClaims(): TrackedClaim[] {
 }
 
 /** Mark a claim as contradicted when mastery detects a matching correction. */
-export function contradictClaim(claimText: string): void {
+export function contradictClaim(claimText: string, contradictedBy?: string): void {
   for (const c of claimLedger) {
     if (!c.contradicted && c.text.includes(claimText.slice(0, 50))) {
       c.contradicted = true;
+      c.status = "contradicted";
+      if (contradictedBy) c.contradictedBy = contradictedBy;
     }
   }
 }

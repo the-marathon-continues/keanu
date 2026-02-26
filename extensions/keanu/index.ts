@@ -60,6 +60,7 @@ import { readHuman, formatHumanReading } from "./human.js";
 import { triageInjection, type InjectionItem, type InjectionContext } from "./injection.js";
 import { introspect, formatIntrospection, shouldIntrospect } from "./introspect.js";
 import * as investigateModule from "./investigate.js";
+import * as knowledgeModule from "./knowledge.js";
 import {
   detectCorrection,
   recordCorrection,
@@ -121,6 +122,7 @@ import {
   loadPromptState,
 } from "./session-learning.js";
 import { encode, emoji, record, trend } from "./signal.js";
+import * as silveradoModule from "./silverado.js";
 import { formatSoul, surfaceValue, formatValue } from "./soul.js";
 import * as state from "./state.js";
 import { registerTools } from "./tools.js";
@@ -243,6 +245,14 @@ export default {
             description: "drew expressed surprise",
             timestamp: new Date().toISOString(),
           });
+        }
+
+        // KNOWLEDGE: extract entities and relations from human input
+        const kResult = knowledgeModule.ingest(content, `s-${Date.now()}`);
+        if (kResult.entities.length > 0 || kResult.relations.length > 0) {
+          api.logger.debug?.(
+            `${PLUGIN_ID}: knowledge: ${kResult.entities.length} entities, ${kResult.relations.length} relations from human input`,
+          );
         }
       } catch (err) {
         api.logger.warn(`${PLUGIN_ID}: message_received error: ${String(err)}`);
@@ -626,6 +636,23 @@ export default {
           grey_streak: state.consecutiveGrey,
           breathe_this_turn: state.breathing,
         });
+
+        // KNOWLEDGE: extract from agent output too — the agent learns from itself
+        knowledgeModule.ingest(combined, `s-${Date.now()}`);
+
+        // SILVERADO: cross-check claims in agent output against history
+        // (lightweight — only runs contradiction check on substantial text)
+        if (combined.length > 50) {
+          const contradictions = silveradoModule.crossCheck(combined);
+          if (contradictions.length > 0) {
+            for (const c of contradictions) {
+              silveradoModule.contradictByText(c.previous, combined.slice(0, 100));
+            }
+            api.logger.debug?.(
+              `${PLUGIN_ID}: silverado: ${contradictions.length} cross-session contradiction(s) detected`,
+            );
+          }
+        }
       } catch (err) {
         api.logger.warn(`${PLUGIN_ID}: llm_output error: ${String(err)}`);
       }
@@ -958,18 +985,17 @@ export default {
         }
       }
 
-      // Stale claims
-      if (state.turnCount <= 2) {
-        const stale = state.staleClaims();
-        if (stale.length > 0) {
-          const oldest = stale[0];
-          add(
-            "stale-claims",
-            `[truth: you claimed "${oldest.text}" (confidence ${oldest.confidence}) ${oldest.session !== (ctx.sessionKey ?? "") ? "in a prior session" : "earlier"}. decayed to ${oldest.decayedConfidence}. still true?]`,
-            "low",
-            "meta",
-          );
-        }
+      // Silverado: the full claim journal, not just one shy stale claim
+      add("silverado", silveradoModule.formatInjection(), "medium", "awareness");
+
+      // Knowledge: what do I already know about what they're talking about?
+      if (state.lastHumanMessage) {
+        add(
+          "knowledge",
+          knowledgeModule.formatInjection(state.lastHumanMessage),
+          "medium",
+          "awareness",
+        );
       }
 
       // Contradiction notice
@@ -1261,9 +1287,16 @@ export default {
           singContent = null;
         }
 
+        // Load silverado (persistent claim ledger) + knowledge graph
+        await silveradoModule.load(workspaceDir);
+        silveradoModule.decayAll();
+        await knowledgeModule.load(workspaceDir);
+        const sessionId = `s-${Date.now()}`;
+        knowledgeModule.decayAll(sessionId);
+
         // Load breathe + investigate + duality graph state
         await breatheModule.load(workspaceDir);
-        breatheModule.setSessionId(`s-${Date.now()}`);
+        breatheModule.setSessionId(sessionId);
         await investigateModule.load(workspaceDir);
 
         // Load persistent duality graph (convergence strengths accumulate across sessions)
@@ -1306,8 +1339,9 @@ export default {
           investigateModule.investigate(curiosityItem, invCtx, `s-${Date.now()}`);
         }
 
+        const kStats = knowledgeModule.stats();
         api.logger.debug?.(
-          `${PLUGIN_ID}: state loaded (turn=${state.turnCount} grey=${state.consecutiveGrey} reflexions=${state.reflexions.length} disagreements=${state.disagreementTracker.stats().total} blindSpots=${getBlindSpots().length} sessions=${getRecentSummaries().length} breathes=${breatheModule.breatheCount()} insights=${investigateModule.insightCount()})`,
+          `${PLUGIN_ID}: state loaded (turn=${state.turnCount} grey=${state.consecutiveGrey} reflexions=${state.reflexions.length} disagreements=${state.disagreementTracker.stats().total} blindSpots=${getBlindSpots().length} sessions=${getRecentSummaries().length} breathes=${breatheModule.breatheCount()} insights=${investigateModule.insightCount()} claims=${silveradoModule.getAllClaims().length} entities=${kStats.entities} relations=${kStats.relations})`,
         );
       } catch (err) {
         api.logger.warn(`${PLUGIN_ID}: state load failed: ${String(err)}`);
@@ -1383,6 +1417,13 @@ export default {
         await savePromptState(workspaceDir);
         await breatheModule.save(workspaceDir);
         await investigateModule.save(workspaceDir);
+
+        // Silverado: merge session claims into persistent ledger, then save
+        silveradoModule.mergeSessionClaims(state.getClaimLedger());
+        await silveradoModule.save(workspaceDir);
+
+        // Knowledge: persist the map
+        await knowledgeModule.save(workspaceDir);
 
         // Save duality graph (convergence strengths persist)
         const { writeFile: wfGraph, mkdir: mkdGraph } = await import("node:fs/promises");
@@ -1552,6 +1593,22 @@ export default {
           api.logger.debug?.(
             `${PLUGIN_ID}: model resolve warning — consecutiveGrey=${state.consecutiveGrey} bullshitRate=${(state.bullshitEventRate() * 100).toFixed(0)}%`,
           );
+        }
+
+        // Routing bridge: spend intelligence where it matters.
+        // High complexity or a grey streak → nudge toward a more capable model.
+        // Simple task → let the fast model handle it.
+        // Note: we only log the nudge for now — actual model override is too aggressive
+        // until the routing config exists. The seed is planted.
+        const complexity = lastDiscoverReading?.complexity ?? "low";
+        const greyStreak = state.consecutiveGrey;
+        const bsRate = state.bullshitEventRate();
+
+        if (complexity === "high" || greyStreak >= 3 || bsRate > 0.4) {
+          api.logger.debug?.(
+            `${PLUGIN_ID}: routing bridge — complexity=${complexity} grey=${greyStreak} bs=${(bsRate * 100).toFixed(0)}%. would nudge toward capable model.`,
+          );
+          // TODO: when model routing config exists, return { modelOverride: capableModel }
         }
       } catch (err) {
         api.logger.warn(`${PLUGIN_ID}: before_model_resolve error: ${String(err)}`);
