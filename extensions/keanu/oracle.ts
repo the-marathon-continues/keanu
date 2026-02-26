@@ -1,18 +1,19 @@
 // oracle.ts
 // The single throat. All fire passes through here.
 //
-// Five voices, one entry point. When a caller whispers a role — bullshit,
-// communicate, explore, think, adversary — the throat knows which voice to
-// wake up. When OPENROUTER_API_KEY exists, roles route to their preferred
-// model through OpenRouter. When it doesn't, everything falls back to
-// Anthropic direct. The system works fine with one voice. It just works
-// better with five.
+// Six voices, one entry point. When a caller whispers a role — bullshit,
+// communicate, explore, think, adversary, research — the throat knows which
+// voice to wake up. When OPENROUTER_API_KEY exists, roles route to their
+// preferred model through OpenRouter. When it doesn't, everything falls back
+// to Anthropic direct. The system works fine with one voice. It just works
+// better with six.
 //
 // Grok = bullshit detector (different family, different blind spots)
 // GPT = communicator (born for the human-facing side)
 // Gemini = explorer (the one who goes looking)
-// Claude = thinker (reasoning, code, the inner voice)
+// Opus = thinker (the engineer — Drew architected it, you build it together)
 // DeepSeek = adversary (the friend who tells you what's wrong)
+// Perplexity = researcher (deep research with web grounding)
 
 import Anthropic from "@anthropic-ai/sdk";
 import type { OracleOptions, OracleResponse, OracleRole, OracleUsage } from "./types.js";
@@ -49,14 +50,21 @@ const ROLE_DEFAULTS: Record<OracleRole, RoleConfig> = {
   },
   think: {
     role: "think",
-    model: "anthropic/claude-sonnet-4",
-    description: "Primary reasoning and code",
+    model: "anthropic/claude-opus-4-6",
+    description:
+      "The engineer — Drew architected it, you build it, the hard stuff is a team effort",
     maxTokens: 4096,
   },
   adversary: {
     role: "adversary",
     model: "deepseek/deepseek-r1",
     description: "Adversarial peer review, idea bouncing",
+    maxTokens: 4096,
+  },
+  research: {
+    role: "research",
+    model: "perplexity/sonar-pro",
+    description: "Deep research with web grounding — the one who brings receipts",
     maxTokens: 4096,
   },
 };
@@ -84,8 +92,9 @@ const OPENROUTER_PRICING: Record<string, [number, number]> = {
   "x-ai/grok-3-mini-beta": [0.3, 0.5],
   "openai/gpt-4.1-mini": [0.4, 1.6],
   "google/gemini-2.5-flash-preview": [0.15, 0.6],
-  "anthropic/claude-sonnet-4": [3.0, 15.0],
+  "anthropic/claude-opus-4-6": [15.0, 75.0],
   "deepseek/deepseek-r1": [0.55, 2.19],
+  "perplexity/sonar-pro": [3.0, 15.0],
 };
 
 function estimateCost(model: string, inputTokens: number, outputTokens: number): number {

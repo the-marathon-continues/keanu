@@ -121,6 +121,7 @@ import {
   loadPromptState,
 } from "./session-learning.js";
 import { encode, emoji, record, trend } from "./signal.js";
+import { formatSoul, surfaceValue, formatValue } from "./soul.js";
 import * as state from "./state.js";
 import { registerTools } from "./tools.js";
 import { memoryContradictionCheck, checkHalfTruth } from "./truth.js";
@@ -692,6 +693,9 @@ export default {
       if (singContent && state.turnCount <= 1) {
         add("sing", singContent, "high", "identity");
       }
+      if (state.turnCount <= 1) {
+        add("soul", formatSoul(), "high", "identity");
+      }
       add("partnership", formatPartnership(), "high", "identity");
 
       // Pulse primaries — the raw colors before interpretation
@@ -1002,6 +1006,19 @@ export default {
         "low",
         "meta",
       );
+
+      // Soul: contextual value surfacing — the right root for the moment
+      const soulCtx = {
+        trustState: getPartnership().trust.level,
+        wiseStance: wiseSignalState?.wise?.stance,
+        consecutiveGrey: state.consecutiveGrey,
+        breathing: state.breathing,
+        pulseState: pulse?.state,
+      };
+      const soulValue = surfaceValue(soulCtx);
+      if (soulValue && state.turnCount > 1) {
+        add("soul-value", formatValue(soulValue.name), "medium", "identity");
+      }
 
       // Post-breathe: the turn after breathing, acknowledge it
       const lastBreathe = breatheModule.lastBreatheEvent();

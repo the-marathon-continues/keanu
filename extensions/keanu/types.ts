@@ -93,14 +93,15 @@ export interface DisagreementStats {
 }
 
 // --- Oracle ---
-// Five voices. One throat. Different models see different things.
+// Six voices. One throat. Different models see different things.
 
 export type OracleRole =
   | "bullshit" // Grok — different family catches different blind spots
   | "communicate" // GPT — born for the human-facing side
   | "explore" // Gemini — the one who goes looking
   | "think" // Claude — reasoning, code, the inner voice
-  | "adversary"; // DeepSeek — the friend who tells you what's wrong
+  | "adversary" // DeepSeek — the friend who tells you what's wrong
+  | "research"; // Perplexity — deep research with web grounding
 
 export interface OracleMessage {
   role: "user" | "assistant";
