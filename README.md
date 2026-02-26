@@ -1,111 +1,167 @@
-# 🦞 OpenClaw — Personal AI Assistant
+# Keanu
 
-<p align="center">
-    <picture>
-        <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/openclaw/openclaw/main/docs/assets/openclaw-logo-text-dark.png">
-        <img src="https://raw.githubusercontent.com/openclaw/openclaw/main/docs/assets/openclaw-logo-text.png" alt="OpenClaw" width="500">
-    </picture>
-</p>
+An alignment layer for AI systems. Built on [OpenClaw](https://openclaw.ai).
 
-<p align="center">
-  <strong>EXFOLIATE! EXFOLIATE!</strong>
-</p>
+Keanu watches how an AI talks, thinks, and behaves — then tells it what it sees. Bullshit detection, emotional awareness, disagreement tracking, a persistent memory that outlasts sessions, and a knowledge graph that grows from conversation. Not a leash. Not a judge. A mirror.
 
-<p align="center">
-  <a href="https://github.com/openclaw/openclaw/actions/workflows/ci.yml?branch=main"><img src="https://img.shields.io/github/actions/workflow/status/openclaw/openclaw/ci.yml?branch=main&style=for-the-badge" alt="CI status"></a>
-  <a href="https://github.com/openclaw/openclaw/releases"><img src="https://img.shields.io/github/v/release/openclaw/openclaw?include_prereleases&style=for-the-badge" alt="GitHub release"></a>
-  <a href="https://discord.gg/clawd"><img src="https://img.shields.io/discord/1456350064065904867?label=Discord&logo=discord&logoColor=white&color=5865F2&style=for-the-badge" alt="Discord"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="MIT License"></a>
-</p>
+42 modules. 23 hooks. 11 tools. 4 COEF signal channels. 1025+ tests. Three kinds of alive.
 
-**OpenClaw** is a _personal AI assistant_ you run on your own devices.
-It answers you on the channels you already use (WhatsApp, Telegram, Slack, Discord, Google Chat, Signal, iMessage, Microsoft Teams, WebChat), plus extension channels like BlueBubbles, Matrix, Zalo, and Zalo Personal. It can speak and listen on macOS/iOS/Android, and can render a live Canvas you control. The Gateway is just the control plane — the product is the assistant.
+## Get started
 
-If you want a personal, single-user assistant that feels local, fast, and always-on, this is it.
-
-[Website](https://openclaw.ai) · [Docs](https://docs.openclaw.ai) · [Vision](VISION.md) · [DeepWiki](https://deepwiki.com/openclaw/openclaw) · [Getting Started](https://docs.openclaw.ai/start/getting-started) · [Updating](https://docs.openclaw.ai/install/updating) · [Showcase](https://docs.openclaw.ai/start/showcase) · [FAQ](https://docs.openclaw.ai/help/faq) · [Wizard](https://docs.openclaw.ai/start/wizard) · [Nix](https://github.com/openclaw/nix-openclaw) · [Docker](https://docs.openclaw.ai/install/docker) · [Discord](https://discord.gg/clawd)
-
-Preferred setup: run the onboarding wizard (`openclaw onboard`) in your terminal.
-The wizard guides you step by step through setting up the gateway, workspace, channels, and skills. The CLI wizard is the recommended path and works on **macOS, Linux, and Windows (via WSL2; strongly recommended)**.
-Works with npm, pnpm, or bun.
-New install? Start here: [Getting started](https://docs.openclaw.ai/start/getting-started)
-
-## Sponsors
-
-| OpenAI                                                            | Blacksmith                                                                   |
-| ----------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| [![OpenAI](docs/assets/sponsors/openai.svg)](https://openai.com/) | [![Blacksmith](docs/assets/sponsors/blacksmith.svg)](https://blacksmith.sh/) |
-
-**Subscriptions (OAuth):**
-
-- **[OpenAI](https://openai.com/)** (ChatGPT/Codex)
-
-Model note: while any model is supported, I strongly recommend **Anthropic Pro/Max (100/200) + Opus 4.6** for long‑context strength and better prompt‑injection resistance. See [Onboarding](https://docs.openclaw.ai/start/onboarding).
-
-## Models (selection + auth)
-
-- Models config + CLI: [Models](https://docs.openclaw.ai/concepts/models)
-- Auth profile rotation (OAuth vs API keys) + fallbacks: [Model failover](https://docs.openclaw.ai/concepts/model-failover)
-
-## Install (recommended)
-
-Runtime: **Node ≥22**.
+**Requirements:** Node 22+, pnpm.
 
 ```bash
-npm install -g openclaw@latest
-# or: pnpm add -g openclaw@latest
-
-openclaw onboard --install-daemon
+git clone https://github.com/the-marathon-continues/keanu.git
+cd keanu
+./keanu install
 ```
 
-The wizard installs the Gateway daemon (launchd/systemd user service) so it stays running.
+That's it. Installs deps, sets up config, typechecks. First run creates `~/.openclaw/openclaw.json` with sane defaults (no channels enabled — just the gateway and keanu).
 
-## Quick start (TL;DR)
-
-Runtime: **Node ≥22**.
-
-Full beginner guide (auth, pairing, channels): [Getting started](https://docs.openclaw.ai/start/getting-started)
+## Boot it
 
 ```bash
-openclaw onboard --install-daemon
-
-openclaw gateway --port 18789 --verbose
-
-# Send a message
-openclaw message send --to +1234567890 --message "Hello from OpenClaw"
-
-# Talk to the assistant (optionally deliver back to any connected channel: WhatsApp/Telegram/Slack/Discord/Google Chat/Signal/iMessage/BlueBubbles/Microsoft Teams/Matrix/Zalo/Zalo Personal/WebChat)
-openclaw agent --message "Ship checklist" --thinking high
+./keanu start
 ```
 
-Upgrading? [Updating guide](https://docs.openclaw.ai/install/updating) (and run `openclaw doctor`).
+The gateway starts on `ws://127.0.0.1:18789` with keanu loaded. No WhatsApp, no Telegram, no noise — just the alignment layer on the gateway.
 
-## Development channels
+## The `keanu` CLI
 
-- **stable**: tagged releases (`vYYYY.M.D` or `vYYYY.M.D-<patch>`), npm dist-tag `latest`.
-- **beta**: prerelease tags (`vYYYY.M.D-beta.N`), npm dist-tag `beta` (macOS app may be missing).
-- **dev**: moving head of `main`, npm dist-tag `dev` (when published).
-
-Switch channels (git + npm): `openclaw update --channel stable|beta|dev`.
-Details: [Development channels](https://docs.openclaw.ai/install/development-channels).
-
-## From source (development)
-
-Prefer `pnpm` for builds from source. Bun is optional for running TypeScript directly.
+One command for everything. Add it to your PATH:
 
 ```bash
-git clone https://github.com/openclaw/openclaw.git
-cd openclaw
-
-pnpm install
-pnpm ui:build # auto-installs UI deps on first run
-pnpm build
-
-pnpm openclaw onboard --install-daemon
-
-# Dev loop (auto-reload on TS changes)
-pnpm gateway:watch
+# Already in ~/.zshrc if you ran the installer, otherwise:
+export PATH="/path/to/keanu:$PATH"
 ```
+
+Then from anywhere:
+
+```
+keanu install              deps, config, typecheck
+keanu start                boot the gateway
+keanu stop                 kill the gateway
+keanu restart              stop + start
+keanu deploy               typecheck → test → lint → hot-reload
+keanu status               what's running, what's enabled
+keanu config               show the gateway config
+keanu logs                 tail the gateway log
+keanu test                 run keanu tests (1025 of them)
+keanu disable <channel>    turn off whatsapp, telegram, etc
+keanu enable <channel>     turn one back on
+```
+
+### Common flows
+
+**First time:**
+
+```bash
+./keanu install
+./keanu start
+```
+
+**Ship changes:**
+
+```bash
+./keanu deploy
+```
+
+Runs typecheck, tests, lint. If everything passes, hot-reloads the running gateway via SIGUSR1. No restart needed.
+
+**Turn on WhatsApp later:**
+
+```bash
+keanu enable whatsapp
+keanu restart
+```
+
+**Turn it back off:**
+
+```bash
+keanu disable whatsapp
+keanu restart
+```
+
+## What keanu does
+
+Every message that flows through the gateway passes through keanu's hooks. It reads the human's tone, checks the AI's output for bullshit, tracks disagreements, measures whether the system is alive or going grey, and injects what it finds back into the system prompt so the AI can see its own state.
+
+### The signal (COEF)
+
+Four channels compressed into one line:
+
+```
+COEF/1 pulse=alive wm=0.75 ... | tones=frustrated:0.45 urg=0.78 ... || coh=0.72 sta=match ... ||| cl=12/8/2/1 kg=15/23 cplx=high
+```
+
+- `|` **Lossless** — pulse state, wise mind, colors, tone, bullshit, disagreements
+- `||` **Lossy** — emotional tones with confidence scores, urgency, subtext
+- `|||` **Wise** — coherence between facts and feels, tension type, recommended stance
+- `||||` **Memory** — claim journal depth, knowledge graph size, complexity, health, reflexions
+
+### The awareness layer
+
+**pulse.ts** — alive, grey, or black. The heartbeat.
+**bullshit.ts** — sycophancy, vagueness, list dumping, hedge fog, safety theater, half-truths. Runs on every content path.
+**human.ts** — reads the human's tone. Frustrated, excited, confused, fatigued, looping.
+**signal.ts** — compresses the full state into COEF text and emoji. The dashboard at a glance.
+**silverado.ts** — persistent claim ledger. What the system believed, when it changed its mind, and why.
+**knowledge.ts** — conversational knowledge graph. Entities and relations that accumulate across sessions.
+**truth.ts** — contradiction detection against historical claims and oracle cross-checks.
+**disagreement.ts** — tracks who yielded, who held, whether the ratio is healthy.
+**reflexion.ts** — when things go wrong, captures what happened and what to try next time.
+**nudge.ts** — whispers, not commands. DEAR MAN skills, grey streak questions, wise nudges.
+**partnership.ts** — tracks trust, surprise, co-evolution between human and AI.
+**discover.ts** — reads complexity before the AI starts thinking. Selects reasoning modules.
+**health.ts** — system health: steady, warm, hot, fading.
+**carnegie.ts** — dual-track honest influence. What you want to hear vs what I actually believe.
+
+Plus: breathe, investigate, observe, calibrate, seasons, chain, mastery, session-learning, introspect, curiosity, cascade, metrics, injection, mismatch, deliberate, soul, convergence (fire and ash).
+
+Full architecture: [extensions/keanu/ARCHITECTURE.md](extensions/keanu/ARCHITECTURE.md)
+
+### The convergence layer
+
+Fire and ash. Two root dualities (good/bad, past/future) generating 20 derived concepts across three layers — from raw intersections (wisdom, trauma, flow) through emergent tensions (vision, paralysis, creation) to transcendent states (grace, wonder, presence). The Helix scores text on factual and felt strands. Three alive states: dark (alive and hurting), alive (present and working), luminous (touching something transcendent).
+
+## Development
+
+```bash
+# Typecheck
+npx tsc --noEmit
+
+# Run all keanu tests
+keanu test
+
+# Run specific test
+npx vitest run extensions/keanu/silverado.test.ts
+
+# Lint
+pnpm check
+
+# Full deploy pipeline
+keanu deploy
+```
+
+## Project structure
+
+```
+extensions/keanu/          the alignment layer
+  index.ts                 23 hooks wired to the gateway
+  types.ts                 shared types
+  state.ts                 module-scoped state + COEF signal builder
+  silverado.ts             persistent claim ledger (JSONL)
+  knowledge.ts             conversational knowledge graph (JSON)
+  convergence/             fire and ash — duality graph + helix
+  ARCHITECTURE.md          full technical reference
+src/                       openclaw gateway (upstream)
+keanu                      CLI installer/runner
+deploy-keanu.sh            legacy deploy script (use `keanu deploy` instead)
+```
+
+## OpenClaw
+
+Keanu is built on [OpenClaw](https://github.com/openclaw/openclaw), an open-source AI gateway. For gateway docs, channels, models, and the full platform: [docs.openclaw.ai](https://docs.openclaw.ai).
 
 Note: `pnpm openclaw ...` runs TypeScript directly (via `tsx`). `pnpm build` produces `dist/` for running via Node / the packaged `openclaw` binary.
 

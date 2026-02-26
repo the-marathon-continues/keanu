@@ -1,0 +1,308 @@
+#!/usr/bin/env bash
+# keanu — one command to rule them all.
+#
+# keanu install    — deps, config, build. fresh start or update.
+# keanu start      — start the gateway with keanu loaded.
+# keanu stop       — stop the gateway.
+# keanu restart    — stop + start.
+# keanu deploy     — typecheck, test, lint, restart. the full ship.
+# keanu status     — is it running? what's loaded?
+# keanu config     — show/edit the gateway config relevant to keanu.
+# keanu logs       — tail the gateway log.
+# keanu test       — run keanu tests only.
+# keanu disable <channel> — turn off a channel (whatsapp, telegram, etc).
+# keanu enable <channel>  — turn on a channel.
+
+set -euo pipefail
+
+KEANU_DIR="$(cd "$(dirname "$0")" && pwd)"
+CONFIG_FILE="$HOME/.openclaw/openclaw.json"
+LOG_DIR="/tmp/openclaw"
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+DIM='\033[0;90m'
+BOLD='\033[1m'
+RESET='\033[0m'
+
+step()  { printf "${BOLD}▸ %s${RESET}\n" "$1"; }
+pass()  { printf "${GREEN}  ✓ %s${RESET}\n" "$1"; }
+warn()  { printf "${YELLOW}  ! %s${RESET}\n" "$1"; }
+fail()  { printf "${RED}  ✗ %s${RESET}\n" "$1"; exit 1; }
+info()  { printf "${DIM}  %s${RESET}\n" "$1"; }
+
+# ──────────────────────────────────────────────────────────────
+# install — get everything ready
+# ──────────────────────────────────────────────────────────────
+cmd_install() {
+  step "Installing dependencies"
+  cd "$KEANU_DIR"
+  if pnpm install --frozen-lockfile 2>/dev/null || pnpm install; then
+    pass "Dependencies installed"
+  else
+    fail "pnpm install failed"
+  fi
+
+  step "Ensuring config"
+  mkdir -p "$HOME/.openclaw"
+  if [[ ! -f "$CONFIG_FILE" ]]; then
+    cat > "$CONFIG_FILE" <<'CONF'
+{
+  "meta": { "name": "keanu" },
+  "channels": {
+    "whatsapp": { "enabled": false },
+    "telegram": { "enabled": false }
+  },
+  "plugins": {
+    "entries": {
+      "keanu": { "enabled": true },
+      "whatsapp": { "enabled": false },
+      "telegram": { "enabled": false }
+    }
+  }
+}
+CONF
+    pass "Config created at $CONFIG_FILE"
+  else
+    # Make sure keanu plugin is enabled
+    python3 -c "
+import json, sys
+with open('$CONFIG_FILE') as f:
+    d = json.load(f)
+plugins = d.setdefault('plugins', {}).setdefault('entries', {})
+plugins.setdefault('keanu', {})['enabled'] = True
+with open('$CONFIG_FILE', 'w') as f:
+    json.dump(d, f, indent=2)
+" 2>/dev/null && pass "Config verified — keanu plugin enabled" || warn "Could not verify config (python3 missing?)"
+  fi
+
+  step "Typechecking"
+  if npx tsc --noEmit; then
+    pass "Types clean"
+  else
+    fail "Type errors"
+  fi
+
+  printf "\n${GREEN}${BOLD}Keanu installed. Run './keanu start' to boot.${RESET}\n"
+}
+
+# ──────────────────────────────────────────────────────────────
+# start — boot the gateway
+# ──────────────────────────────────────────────────────────────
+cmd_start() {
+  local extra_args=("$@")
+  step "Starting gateway"
+  cd "$KEANU_DIR"
+
+  # Kill existing if running
+  local pid
+  pid=$(pgrep -f "openclaw.*gateway" 2>/dev/null | head -1 || true)
+  if [[ -n "$pid" ]]; then
+    warn "Gateway already running (PID $pid) — restarting"
+    kill "$pid" 2>/dev/null || true
+    sleep 1
+  fi
+
+  pnpm dev gateway run --dev --force "${extra_args[@]}"
+}
+
+# ──────────────────────────────────────────────────────────────
+# stop — kill the gateway
+# ──────────────────────────────────────────────────────────────
+cmd_stop() {
+  step "Stopping gateway"
+  local pid
+  pid=$(pgrep -f "openclaw.*gateway" 2>/dev/null | head -1 || true)
+  if [[ -z "$pid" ]]; then
+    info "Gateway not running"
+  else
+    kill "$pid" 2>/dev/null || true
+    pass "Stopped gateway (PID $pid)"
+  fi
+}
+
+# ──────────────────────────────────────────────────────────────
+# restart
+# ──────────────────────────────────────────────────────────────
+cmd_restart() {
+  cmd_stop
+  sleep 1
+  cmd_start "$@"
+}
+
+# ──────────────────────────────────────────────────────────────
+# deploy — the full ship pipeline
+# ──────────────────────────────────────────────────────────────
+cmd_deploy() {
+  cd "$KEANU_DIR"
+
+  step "Typechecking"
+  npx tsc --noEmit || fail "Type errors — fix before deploying"
+  pass "Types clean"
+
+  step "Running keanu tests"
+  npx vitest run extensions/keanu/ || fail "Tests failing"
+  pass "Tests passing"
+
+  step "Linting"
+  pnpm check || fail "Lint errors"
+  pass "Lint clean"
+
+  step "Restarting gateway"
+  local pid
+  pid=$(pgrep -f "openclaw.*gateway" 2>/dev/null | head -1 || true)
+  if [[ -z "$pid" ]]; then
+    info "Gateway not running — skipping restart"
+  else
+    kill -USR1 "$pid" 2>/dev/null && pass "Hot-reloaded (SIGUSR1 → PID $pid)" || warn "Could not signal gateway"
+  fi
+
+  printf "\n${GREEN}${BOLD}Keanu deployed.${RESET}\n"
+}
+
+# ──────────────────────────────────────────────────────────────
+# status
+# ──────────────────────────────────────────────────────────────
+cmd_status() {
+  local pid
+  pid=$(pgrep -f "openclaw.*gateway" 2>/dev/null | head -1 || true)
+  if [[ -n "$pid" ]]; then
+    pass "Gateway running (PID $pid)"
+  else
+    info "Gateway not running"
+  fi
+
+  if [[ -f "$CONFIG_FILE" ]]; then
+    printf "\n${BOLD}Channels:${RESET}\n"
+    python3 -c "
+import json
+with open('$CONFIG_FILE') as f:
+    d = json.load(f)
+for ch, cfg in d.get('channels', {}).items():
+    en = cfg.get('enabled', 'not set')
+    sym = '✓' if en else '✗'
+    print(f'  {sym} {ch}: enabled={en}')
+plugins = d.get('plugins', {}).get('entries', {})
+print()
+print('Plugins:')
+for p, cfg in plugins.items():
+    en = cfg.get('enabled', 'not set')
+    sym = '✓' if en else '✗'
+    print(f'  {sym} {p}: enabled={en}')
+" 2>/dev/null || warn "Could not read config"
+  fi
+}
+
+# ──────────────────────────────────────────────────────────────
+# config — show the config
+# ──────────────────────────────────────────────────────────────
+cmd_config() {
+  if [[ -f "$CONFIG_FILE" ]]; then
+    python3 -c "
+import json
+with open('$CONFIG_FILE') as f:
+    print(json.dumps(json.load(f), indent=2))
+" 2>/dev/null || cat "$CONFIG_FILE"
+  else
+    fail "No config file at $CONFIG_FILE"
+  fi
+}
+
+# ──────────────────────────────────────────────────────────────
+# logs — tail the gateway log
+# ──────────────────────────────────────────────────────────────
+cmd_logs() {
+  local today
+  today=$(date +%Y-%m-%d)
+  local logfile="$LOG_DIR/openclaw-$today.log"
+  if [[ -f "$logfile" ]]; then
+    tail -f "$logfile"
+  else
+    fail "No log file at $logfile"
+  fi
+}
+
+# ──────────────────────────────────────────────────────────────
+# test — run keanu tests
+# ──────────────────────────────────────────────────────────────
+cmd_test() {
+  cd "$KEANU_DIR"
+  npx vitest run extensions/keanu/ "$@"
+}
+
+# ──────────────────────────────────────────────────────────────
+# disable / enable a channel
+# ──────────────────────────────────────────────────────────────
+cmd_disable() {
+  local channel="${1:?Usage: keanu disable <channel>}"
+  _set_channel "$channel" false
+  pass "$channel disabled (channel + plugin)"
+}
+
+cmd_enable() {
+  local channel="${1:?Usage: keanu enable <channel>}"
+  _set_channel "$channel" true
+  pass "$channel enabled (channel + plugin)"
+}
+
+_set_channel() {
+  local channel="$1" enabled="$2"
+  # Convert bash true/false to Python True/False
+  local py_enabled
+  if [[ "$enabled" == "true" ]]; then py_enabled="True"; else py_enabled="False"; fi
+  python3 -c "
+import json
+enabled = $py_enabled
+channel = '$channel'
+with open('$CONFIG_FILE') as f:
+    d = json.load(f)
+# Channel config
+ch = d.setdefault('channels', {}).setdefault(channel, {})
+ch['enabled'] = enabled
+# Plugin config
+pl = d.setdefault('plugins', {}).setdefault('entries', {}).setdefault(channel, {})
+pl['enabled'] = enabled
+with open('$CONFIG_FILE', 'w') as f:
+    json.dump(d, f, indent=2)
+" 2>/dev/null || fail "Could not update config"
+}
+
+# ──────────────────────────────────────────────────────────────
+# dispatch
+# ──────────────────────────────────────────────────────────────
+cmd="${1:-help}"
+shift || true
+
+case "$cmd" in
+  install)  cmd_install ;;
+  start)    cmd_start "$@" ;;
+  stop)     cmd_stop ;;
+  restart)  cmd_restart "$@" ;;
+  deploy)   cmd_deploy ;;
+  status)   cmd_status ;;
+  config)   cmd_config ;;
+  logs)     cmd_logs ;;
+  test)     cmd_test "$@" ;;
+  disable)  cmd_disable "$@" ;;
+  enable)   cmd_enable "$@" ;;
+  help|--help|-h)
+    printf "${BOLD}keanu${RESET} — alignment layer for openclaw\n\n"
+    printf "  ${GREEN}install${RESET}            deps, config, typecheck\n"
+    printf "  ${GREEN}start${RESET}              boot the gateway\n"
+    printf "  ${GREEN}stop${RESET}               kill the gateway\n"
+    printf "  ${GREEN}restart${RESET}            stop + start\n"
+    printf "  ${GREEN}deploy${RESET}             typecheck → test → lint → restart\n"
+    printf "  ${GREEN}status${RESET}             running? what's loaded?\n"
+    printf "  ${GREEN}config${RESET}             show gateway config\n"
+    printf "  ${GREEN}logs${RESET}               tail the gateway log\n"
+    printf "  ${GREEN}test${RESET}               run keanu tests\n"
+    printf "  ${GREEN}disable${RESET} <channel>  turn off whatsapp, telegram, etc\n"
+    printf "  ${GREEN}enable${RESET} <channel>   turn one back on\n"
+    ;;
+  *)
+    printf "${RED}Unknown command: $cmd${RESET}\n"
+    printf "Run ${BOLD}./keanu help${RESET} for usage.\n"
+    exit 1
+    ;;
+esac
