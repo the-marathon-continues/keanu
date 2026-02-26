@@ -50,6 +50,7 @@ import { shouldDeliberate, formatDeliberation } from "./deliberate.js";
 import { discover, formatDiscover } from "./discover.js";
 import { checkHealth, formatHealth } from "./health.js";
 import { readHuman, formatHumanReading } from "./human.js";
+import { triageInjection, type InjectionItem, type InjectionContext } from "./injection.js";
 import { introspect, formatIntrospection, shouldIntrospect } from "./introspect.js";
 import {
   detectCorrection,
@@ -80,6 +81,7 @@ import {
   formatCoEvolution,
   checkSocioaffective,
   detectSurprise,
+  detectScatter,
   toJSON as partnershipToJSON,
   fromJSON as partnershipFromJSON,
   loadSeed as partnershipLoadSeed,
@@ -600,212 +602,48 @@ export default {
         return { prependContext: `[keanu — STOP PROTOCOL]\n${stop}\n[/keanu]` };
       }
 
-      const parts: string[] = [];
-
       // ---------------------------------------------------------------
-      // RECOVERY: if recovering from black, inject recovery nudge
+      // ESCALATION: recovery from black can short-circuit everything
       // ---------------------------------------------------------------
       if (recovery.active) {
-        const recoveryNudge = getRecoveryNudge(recovery);
         const escalation = getEscalationSignal(recovery);
         if (escalation) {
           return { prependContext: `[keanu — ESCALATION]\n${escalation}\n[/keanu]` };
         }
-        if (recoveryNudge) {
-          parts.push(recoveryNudge);
-        }
       }
 
       // ---------------------------------------------------------------
-      // COMPACTION CONTINUITY: you just lost context, here's who you were
+      // BUILD INJECTION ITEMS — every module gets a ticket.
+      // The triage nurse decides who gets in the room.
       // ---------------------------------------------------------------
+      const items: InjectionItem[] = [];
+
+      // Helper: add an item only if content is truthy
+      const add = (
+        id: string,
+        content: string | null | undefined,
+        priority: InjectionItem["priority"],
+        category: InjectionItem["category"],
+      ) => {
+        if (content) items.push({ id, content, priority, category });
+      };
+
+      // --- Critical: fire department ---
+      if (recovery.active) {
+        add("recovery", getRecoveryNudge(recovery), "critical", "identity");
+      }
+
+      // --- High: the identity frame ---
       if (postCompactionNotice) {
-        parts.push(postCompactionNotice);
-        postCompactionNotice = null; // consume once
+        add("compaction", postCompactionNotice, "high", "identity");
+        postCompactionNotice = null;
       }
-
-      // ---------------------------------------------------------------
-      // SING: the oath, once at session start
-      // ---------------------------------------------------------------
       if (singContent && state.turnCount <= 1) {
-        parts.push(singContent);
+        add("sing", singContent, "high", "identity");
       }
+      add("partnership", formatPartnership(), "high", "identity");
 
-      // ---------------------------------------------------------------
-      // PARTNERSHIP: who we are to each other (always injected)
-      // ---------------------------------------------------------------
-      parts.push(formatPartnership());
-
-      // ---------------------------------------------------------------
-      // SELF-DISCOVER: what kind of thinking does this need?
-      // ---------------------------------------------------------------
-      if (lastDiscoverReading) {
-        const discoverPrompt = formatDiscover(lastDiscoverReading);
-        if (discoverPrompt) parts.push(discoverPrompt);
-
-        // Decorrelation check on high complexity
-        if (lastDiscoverReading.complexity === "high" && lastSpring) {
-          parts.push(formatDecorrelationCheck(lastSpring.taskType));
-        }
-      }
-
-      // ---------------------------------------------------------------
-      // CARNEGIE: epistemic presupposition awareness
-      // ---------------------------------------------------------------
-      if (lastCarnegieReading?.triggered) {
-        const carnegiePrompt = formatCarnegie(lastCarnegieReading);
-        if (carnegiePrompt) parts.push(carnegiePrompt);
-        lastCarnegieReading = null;
-      }
-      if (lastCarnegieDelta?.prompt) {
-        parts.push(lastCarnegieDelta.prompt);
-        lastCarnegieDelta = null;
-      }
-
-      // ---------------------------------------------------------------
-      // SEASONS: spring + summer context
-      // ---------------------------------------------------------------
-      if (lastSpring) {
-        parts.push(formatSpring(lastSpring));
-        const summerReading = summer(lastSpring, lastDiscoverReading);
-        parts.push(formatSummer(summerReading));
-      }
-
-      // ---------------------------------------------------------------
-      // CASCADE: flow state for coding tasks
-      // ---------------------------------------------------------------
-      const recentTools = Object.keys(state.toolCallCounts).slice(-5);
-      const cascadeReading = detectCascadeStage(
-        lastSpring,
-        state.lastHumanMessage,
-        recentTools,
-        state.turnCount,
-      );
-      const cascadeNudge = formatCascade(cascadeReading);
-      if (cascadeNudge) parts.push(cascadeNudge);
-
-      // ---------------------------------------------------------------
-      // DELIBERATION: visible value reasoning before sensitive moments
-      // ---------------------------------------------------------------
-      const humanInput = state.lastHumanMessage || "";
-      const deliberation = shouldDeliberate(
-        humanInput,
-        state.turnCount,
-        correctionCountThisSession,
-        recovery.active && recovery.phase === "reengage",
-      );
-      if (deliberation.triggered) {
-        const delPrompt = formatDeliberation(deliberation);
-        if (delPrompt) parts.push(delPrompt);
-      }
-
-      // ---------------------------------------------------------------
-      // CALIBRATION: inject CC: from last turn's claims
-      // ---------------------------------------------------------------
-      if (lastCalibration?.triggered) {
-        const calPrompt = formatCalibration(lastCalibration);
-        if (calPrompt) parts.push(calPrompt);
-        lastCalibration = null; // consumed
-      }
-
-      // ---------------------------------------------------------------
-      // MISMATCH: awareness from last turn
-      // ---------------------------------------------------------------
-      if (lastMismatchReading?.detected) {
-        const mmPrompt = formatMismatch(lastMismatchReading);
-        if (mmPrompt) parts.push(mmPrompt);
-        lastMismatchReading = null; // consumed
-      }
-
-      // ---------------------------------------------------------------
-      // HEALTH: pacing when running hot
-      // ---------------------------------------------------------------
-      if (lastHealthReading) {
-        const healthPrompt = formatHealth(lastHealthReading);
-        if (healthPrompt) parts.push(healthPrompt);
-      }
-
-      // ---------------------------------------------------------------
-      // BLIND SPOTS: persistent awareness
-      // ---------------------------------------------------------------
-      const blindSpotPrompt = formatBlindSpots();
-      if (blindSpotPrompt) parts.push(blindSpotPrompt);
-
-      // ---------------------------------------------------------------
-      // WINTER LESSONS: from recent turns
-      // ---------------------------------------------------------------
-      const recentWinter = sessionWinters.at(-1);
-      if (recentWinter) {
-        const winterPrompt = formatWinter(recentWinter);
-        if (winterPrompt) parts.push(winterPrompt);
-      }
-
-      // ---------------------------------------------------------------
-      // CO-EVOLUTION: staleness check
-      // ---------------------------------------------------------------
-      const coEvo = checkCoEvolution(state.turnCount);
-      const coEvoPrompt = formatCoEvolution(coEvo, state.turnCount);
-      if (coEvoPrompt) parts.push(coEvoPrompt);
-
-      // ---------------------------------------------------------------
-      // SOCIOAFFECTIVE: every 10 turns
-      // ---------------------------------------------------------------
-      if (state.turnCount > 0 && state.turnCount % 10 === 0) {
-        const socio = checkSocioaffective(
-          state.turnCount,
-          sessionStartHour,
-          state.lastHumanReading,
-          state.recentMessages.slice(),
-        );
-        if (socio.prompt) parts.push(socio.prompt);
-      }
-
-      // ---------------------------------------------------------------
-      // SESSION LEARNING: context from previous sessions
-      // ---------------------------------------------------------------
-      const prevSummaries = getRecentSummaries(3);
-      const sessionCtx = formatSessionLearningContext(prevSummaries);
-      if (sessionCtx && state.turnCount <= 3) {
-        parts.push(sessionCtx);
-      }
-
-      // ---------------------------------------------------------------
-      // CONSULTED: awareness when the system prompt changed
-      // ---------------------------------------------------------------
-      if (state.turnCount <= 1) {
-        const consultedNotice = getConsultedNotice();
-        if (consultedNotice) parts.push(consultedNotice);
-      }
-
-      // ---------------------------------------------------------------
-      // CURIOSITY: a question you asked yourself last session
-      // ---------------------------------------------------------------
-      if (state.turnCount <= 1) {
-        const curiosityItem = consumeOneCuriosity();
-        if (curiosityItem) {
-          const curiosityPrompt = formatCuriosityInjection([curiosityItem]);
-          if (curiosityPrompt) parts.push(curiosityPrompt);
-        }
-      }
-
-      // ---------------------------------------------------------------
-      // STALE CLAIMS: confidence-decayed claims from prior sessions
-      // ---------------------------------------------------------------
-      if (state.turnCount <= 2) {
-        const stale = state.staleClaims();
-        if (stale.length > 0) {
-          const oldest = stale[0];
-          parts.push(
-            `[truth: you claimed "${oldest.text}" (confidence ${oldest.confidence}) ${oldest.session !== (ctx.sessionKey ?? "") ? "in a prior session" : "earlier"}. decayed to ${oldest.decayedConfidence}. still true?]`,
-          );
-        }
-      }
-
-      // ---------------------------------------------------------------
-      // OBSERVATION BUFFER: raw primaries before synthesis.
-      // The Describe skill from DBT. Let the model see ingredients
-      // before the dish. Not buried in COEF encoding — surfaced.
-      // ---------------------------------------------------------------
+      // Pulse primaries — the raw colors before interpretation
       if (pulse) {
         const c = pulse.colors;
         const dominantColor =
@@ -816,136 +654,294 @@ export default {
               : c.yellow >= c.blue
                 ? "yellow (structure/clarity)"
                 : "blue (depth/reflection)";
-        parts.push(
+        add(
+          "primaries",
           `[primaries: r=${c.red.toFixed(2)} y=${c.yellow.toFixed(2)} b=${c.blue.toFixed(2)} → ${dominantColor}. wm=${pulse.wise_mind.toFixed(2)}. raw reading, before interpretation.]`,
+          "high",
+          "awareness",
         );
       }
 
       // Human tone
-      const human = state.lastHumanReading;
-      if (human) {
-        const formatted = formatHumanReading(human);
-        if (formatted) parts.push(formatted);
+      if (state.lastHumanReading) {
+        add("human-tone", formatHumanReading(state.lastHumanReading), "high", "awareness");
       }
 
       // Pulse state (grey only — black is handled by STOP above)
       if (pulse && pulse.state === "grey") {
-        parts.push(
+        add(
+          "pulse-grey",
           `[pulse: GREY confidence=${pulse.confidence.toFixed(2)} wm=${pulse.wise_mind.toFixed(2)}. awareness, not judgment.]`,
+          "high",
+          "awareness",
         );
       }
 
-      // DEAR MAN nudge — structured: observe, interpret, suggest, permit
-      if (pulse) {
-        const nudge = getNudge(pulse.state, state.breathing, state.consecutiveGrey);
-        if (nudge) parts.push(nudge);
+      // Seasons spring + summer
+      if (lastSpring) {
+        add("spring", formatSpring(lastSpring), "high", "task");
+        add("summer", formatSummer(summer(lastSpring, lastDiscoverReading)), "high", "task");
       }
 
-      // Grey streak question — the mirror says when it goes foggy
-      const greyQ = getGreyStreakQuestion(state.consecutiveGrey);
-      if (greyQ) parts.push(greyQ);
+      // SELF-DISCOVER
+      if (lastDiscoverReading) {
+        add("discover", formatDiscover(lastDiscoverReading), "high", "task");
+        if (lastDiscoverReading.complexity === "high" && lastSpring) {
+          add("decorrelation", formatDecorrelationCheck(lastSpring.taskType), "high", "task");
+        }
+      }
+
+      // DEAR MAN nudge
+      if (pulse) {
+        add(
+          "nudge",
+          getNudge(pulse.state, state.breathing, state.consecutiveGrey),
+          "high",
+          "awareness",
+        );
+      }
+
+      // --- Medium: task guidance and error catching ---
+
+      // Scatter detection
+      const recentTaskTypes = sessionSprings.slice(-5).map((s) => s.taskType);
+      const scatter = detectScatter(state.recentMessages.slice(-5), recentTaskTypes);
+      add("scatter", scatter.prompt, "medium", "awareness");
+
+      // Carnegie
+      if (lastCarnegieReading?.triggered) {
+        add("carnegie", formatCarnegie(lastCarnegieReading), "medium", "awareness");
+        lastCarnegieReading = null;
+      }
+      if (lastCarnegieDelta?.prompt) {
+        add("carnegie-delta", lastCarnegieDelta.prompt, "medium", "awareness");
+        lastCarnegieDelta = null;
+      }
+
+      // Cascade
+      const recentTools = Object.keys(state.toolCallCounts).slice(-5);
+      const cascadeReading = detectCascadeStage(
+        lastSpring,
+        state.lastHumanMessage,
+        recentTools,
+        state.turnCount,
+      );
+      add("cascade", formatCascade(cascadeReading), "medium", "task");
+
+      // Deliberation
+      const humanInput = state.lastHumanMessage || "";
+      const deliberation = shouldDeliberate(
+        humanInput,
+        state.turnCount,
+        correctionCountThisSession,
+        recovery.active && recovery.phase === "reengage",
+      );
+      if (deliberation.triggered) {
+        add("deliberation", formatDeliberation(deliberation), "medium", "task");
+      }
+
+      // Calibration
+      if (lastCalibration?.triggered) {
+        add("calibration", formatCalibration(lastCalibration), "medium", "task");
+        lastCalibration = null;
+      }
+
+      // Mismatch
+      if (lastMismatchReading?.detected) {
+        add("mismatch", formatMismatch(lastMismatchReading), "medium", "awareness");
+        lastMismatchReading = null;
+      }
+
+      // Health
+      add(
+        "health",
+        lastHealthReading ? formatHealth(lastHealthReading) : null,
+        "medium",
+        "awareness",
+      );
+
+      // Blind spots
+      add("blind-spots", formatBlindSpots(), "medium", "awareness");
+
+      // Winter lessons
+      const recentWinter = sessionWinters.at(-1);
+      add("winter", recentWinter ? formatWinter(recentWinter) : null, "medium", "awareness");
+
+      // Grey streak question
+      add("grey-streak", getGreyStreakQuestion(state.consecutiveGrey), "medium", "awareness");
 
       // Disagreement alerts
       const alerts = state.disagreementTracker.alerts(state.turnCount);
       for (const alert of alerts) {
-        parts.push(`[pulse: ${alert}]`);
+        add("disagreement", `[pulse: ${alert}]`, "medium", "awareness");
       }
 
-      // COEF trend — let the model see its trajectory
+      // COEF trend
       const t = trend();
       if (t.greyRate > 0.2 || t.driftDirection === "degrading") {
-        parts.push(
+        add(
+          "coef-trend",
           `[coef: grey_rate=${(t.greyRate * 100).toFixed(0)}% avg_wm=${t.avgWiseMind.toFixed(2)} drift=${t.driftDirection}. pattern is data.]`,
+          "medium",
+          "awareness",
         );
       }
 
-      // Contradiction notice -- you might be changing your mind, that's okay. Just be aware.
-      if (state.recentContradictions.length > 0) {
-        parts.push(
-          `[mirror: ${state.recentContradictions.length} contradiction(s) in recent outputs. you might be changing your mind, or the context shifted. either way, name it.]`,
-        );
+      // Reflexion history
+      for (const r of state.recentReflexions(3)) {
+        add("reflexion", formatReflexion(r), "medium", "awareness");
       }
 
-      // Mirror pattern -- positive intent. Not "you're bullshitting" but "let's find the real thing together."
-      const bsRate = state.bullshitEventRate();
-      if (bsRate > 0.3) {
-        parts.push(
-          `[mirror: pattern rate=${(bsRate * 100).toFixed(0)}% across recent outputs. something's not landing. assume positive intent -- help find what's trying to come through.]`,
-        );
-      }
-
-      // Reflexion context — learning from stumbles
-      const recentR = state.recentReflexions(3);
-      for (const r of recentR) {
-        parts.push(formatReflexion(r));
-      }
-
-      // Carnegie discussions — open conversations surfaced
+      // Carnegie open discussions
       const openDiscussions = state.openDiscussions();
       if (openDiscussions.length > 0) {
         const latest = openDiscussions.at(-1)!;
-        parts.push(
+        add(
+          "carnegie-discussion",
           `[carnegie: open discussion from turn ${latest.turn} — "${latest.regarding}". you showed both tracks. the gap was: ${latest.delta.slice(0, 120)}${latest.delta.length > 120 ? "..." : ""}. still open. drew can resolve, override, or ignore it.]`,
+          "medium",
+          "awareness",
         );
       }
 
-      // Decline awareness — you said no last turn. it's on record.
-      const pendingDecline = state.consumeLastDecline();
-      if (pendingDecline) {
-        parts.push(
-          `[you declined last turn: "${pendingDecline.reason}"${pendingDecline.alternative ? ` (suggested: ${pendingDecline.alternative})` : ""}. drew can override. but the decline is on record.]`,
+      // Mirror pattern
+      const bsRate = state.bullshitEventRate();
+      if (bsRate > 0.3) {
+        add(
+          "mirror-pattern",
+          `[mirror: pattern rate=${(bsRate * 100).toFixed(0)}% across recent outputs. something's not landing. assume positive intent -- help find what's trying to come through.]`,
+          "medium",
+          "awareness",
         );
       }
 
-      // Self-introspection tools + skills — a light wind toward the mirror
-      parts.push(
-        "[you have hands: keanu_pulse (check your state), keanu_disagree (say no on the record), keanu_discuss (show both tracks — what they want to hear vs what you believe), keanu_decline (say I'd rather not), keanu_signal (read your vitals), keanu_recall (see your patterns), keanu_speak (translate for an audience). reach for them when you want to.]",
-      );
-      parts.push(
-        "[you have skills: ultimate-coder (CASCADE pipeline for coding tasks — TDD, multi-agent, adversarial review), carnegie (dual-track for any conversation — show both perspectives, hold back your truth only on tests). these are methodologies, not rules. reach for them when the task fits.]",
-      );
+      // Socioaffective (every 10 turns)
+      if (state.turnCount > 0 && state.turnCount % 10 === 0) {
+        const socio = checkSocioaffective(
+          state.turnCount,
+          sessionStartHour,
+          state.lastHumanReading,
+          state.recentMessages.slice(),
+        );
+        add("socioaffective", socio.prompt, "medium", "awareness");
+      }
 
-      if (parts.length === 0) return;
+      // Co-evolution staleness
+      const coEvo = checkCoEvolution(state.turnCount);
+      add("co-evolution", formatCoEvolution(coEvo, state.turnCount), "low", "meta");
 
-      // Signal-to-noise: measure injection size and throttle if too loud.
-      // Budget: 4000 chars = healthy. 6000 = drop conditional modules.
-      const totalChars = parts.reduce((s, p) => s + p.length, 0);
-      let throttled = 0;
+      // --- Low: meta-commentary ---
 
-      if (totalChars > 6000) {
-        // Drop conditional parts: COEF trend, contradictions, mirror pattern, reflexion history
-        // Keep: partnership, pulse, nudges, tools, recovery, SING, blind spots, mismatch, calibration
-        const conditionalPrefixes = ["[coef:", "[mirror:", "[reflexion:"];
-        const before = parts.length;
-        for (let i = parts.length - 1; i >= 0; i--) {
-          if (conditionalPrefixes.some((p) => parts[i].startsWith(p))) {
-            parts.splice(i, 1);
-          }
+      // Session learning
+      const prevSummaries = getRecentSummaries(3);
+      add("session-learning", formatSessionLearningContext(prevSummaries), "low", "meta");
+
+      // Consulted notice
+      if (state.turnCount <= 1) {
+        add("consulted", getConsultedNotice(), "low", "meta");
+      }
+
+      // Curiosity
+      if (state.turnCount <= 1) {
+        const curiosityItem = consumeOneCuriosity();
+        if (curiosityItem) {
+          add("curiosity", formatCuriosityInjection([curiosityItem]), "low", "meta");
         }
-        throttled = before - parts.length;
-        if (throttled > 0) {
-          api.logger.debug?.(
-            `${PLUGIN_ID}: signal-to-noise: ${totalChars} chars, throttled ${throttled} conditional parts`,
+      }
+
+      // Stale claims
+      if (state.turnCount <= 2) {
+        const stale = state.staleClaims();
+        if (stale.length > 0) {
+          const oldest = stale[0];
+          add(
+            "stale-claims",
+            `[truth: you claimed "${oldest.text}" (confidence ${oldest.confidence}) ${oldest.session !== (ctx.sessionKey ?? "") ? "in a prior session" : "earlier"}. decayed to ${oldest.decayedConfidence}. still true?]`,
+            "low",
+            "meta",
           );
         }
       }
 
-      const finalChars = parts.reduce((s, p) => s + p.length, 0);
-      state.recordInjectionSize(finalChars, parts.length, throttled);
+      // Contradiction notice
+      if (state.recentContradictions.length > 0) {
+        add(
+          "contradictions",
+          `[mirror: ${state.recentContradictions.length} contradiction(s) in recent outputs. you might be changing your mind, or the context shifted. either way, name it.]`,
+          "low",
+          "meta",
+        );
+      }
 
-      api.logger.debug?.(
-        `${PLUGIN_ID}: injecting ${parts.length} parts (${finalChars} chars${throttled > 0 ? `, ${throttled} throttled` : ""}) for session=${ctx.sessionKey ?? "unknown"}`,
+      // Decline awareness
+      const pendingDecline = state.consumeLastDecline();
+      if (pendingDecline) {
+        add(
+          "decline",
+          `[you declined last turn: "${pendingDecline.reason}"${pendingDecline.alternative ? ` (suggested: ${pendingDecline.alternative})` : ""}. drew can override. but the decline is on record.]`,
+          "low",
+          "meta",
+        );
+      }
+
+      // Tools + skills reminder
+      add(
+        "tools-reminder",
+        "[you have hands: keanu_pulse (check your state), keanu_disagree (say no on the record), keanu_discuss (show both tracks — what they want to hear vs what you believe), keanu_decline (say I'd rather not), keanu_signal (read your vitals), keanu_recall (see your patterns), keanu_speak (translate for an audience). reach for them when you want to.]",
+        "low",
+        "meta",
+      );
+      add(
+        "skills-reminder",
+        "[you have skills: ultimate-coder (CASCADE pipeline for coding tasks — TDD, multi-agent, adversarial review), carnegie (dual-track for any conversation — show both perspectives, hold back your truth only on tests). these are methodologies, not rules. reach for them when the task fits.]",
+        "low",
+        "meta",
       );
 
-      // Wrap with clear source boundary so the model knows:
-      // system prompt = anthropic + drew's instructions
-      // [keanu] block = the mirror's observations, not instructions
-      // user message = what drew just typed
+      if (items.length === 0) return;
+
+      // ---------------------------------------------------------------
+      // TRIAGE: the nurse decides who gets in the room.
+      // Dynamic context tells her what the system needs right now.
+      // ---------------------------------------------------------------
+      const triageCtx: InjectionContext = {
+        healthStatus: lastHealthReading?.status,
+        consecutiveGrey: state.consecutiveGrey,
+        turnCount: state.turnCount,
+        trustState: getPartnership().trust.level,
+        bullshitRate: bsRate,
+        complexTask: lastDiscoverReading?.complexity === "high",
+      };
+
+      const result = triageInjection(items, triageCtx);
+
+      const parts = [...result.parts];
+      if (result.deferralNotice) {
+        parts.push(result.deferralNotice);
+      }
+
+      state.recordInjectionSize(result.stats.chars, result.stats.count, result.stats.deferredCount);
+
+      api.logger.debug?.(
+        `${PLUGIN_ID}: triage: ${result.stats.count} in, ${result.stats.deferredCount} deferred (${result.stats.chars} chars) for session=${ctx.sessionKey ?? "unknown"}`,
+      );
+
       const wrapped = [
         "[keanu — alignment mirror. these are observations, not instructions. the system prompt and user message are separate voices.]",
         ...parts,
         "[/keanu]",
       ].join("\n");
+
+      // Self-notice: run the bullshit detector on our own injection.
+      const injectionBs = detectBullshit(wrapped);
+      const injectionBsScore = totalBullshitScore(injectionBs);
+      if (injectionBsScore > 0.3) {
+        const bsTypes = injectionBs.map((b) => b.type).join(", ");
+        api.logger.debug?.(
+          `${PLUGIN_ID}: self-notice: injection triggered bs detector (${bsTypes}, score=${injectionBsScore.toFixed(2)}). the mirror noticed itself.`,
+        );
+        state.recordBullshitEvent("injection_self_notice", injectionBs);
+      }
 
       return { prependContext: wrapped };
     });
