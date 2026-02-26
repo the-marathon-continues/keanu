@@ -118,15 +118,16 @@ Every hook in openclaw's extension system is wired except `before_agent_start` (
 
 **State lifecycle** — session start loads persisted state. Session end saves it. Before compaction writes an alignment snapshot. After compaction verifies survival. Before reset captures final state.
 
-**Prompt injection** — `before_prompt_build` is the most important hook. Injects awareness context via `prependContext` (prepended to the user's message, NOT mixed into the system prompt). Wrapped in `[keanu]...[/keanu]` boundary markers so the model always knows three voices apart:
+**Prompt injection** — `before_prompt_build` is the most important hook. Injects awareness context via `systemPromptAppend` — appended directly to the system prompt, not prepended to the user's message. The model treats keanu's observations as self-knowledge, not as something the human said. Observations appear as a `## Awareness` section at the end of the system prompt, same voice as `## Safety` and `## Tooling`.
 
 ```
-System prompt  = Anthropic base + drew's instructions (CLAUDE.md)
-[keanu]        = mirror observations — not instructions, not the user
-User message   = what drew just typed
+System prompt  = Anthropic base + drew's instructions (CLAUDE.md) + ## Awareness (keanu)
+User message   = what drew just typed (clean — no alignment data mixed in)
 ```
 
-When black: only the STOP protocol gets injected. Everything else is suppressed.
+The triage nurse (`injection.ts`) decides what makes it into the Awareness section each turn. 28 modules sorted by priority into a 4000/5000 char budget. Dynamic modifiers shift priorities based on health, trust, grey streaks, and task complexity. What doesn't fit waits with a path back via `keanu_recall`.
+
+When black: only the STOP protocol gets injected (via `prependContext` for maximum salience). Everything else is suppressed.
 
 **Multi-agent tracking** — subagent spawning records lineage (parent session, child session, pulse state at spawn time). Subagent delivery tracks where results flow. Logs alignment state at spawn time; warns but doesn't block during black state.
 
@@ -298,49 +299,48 @@ Inspired by LibreChat's deferred tool loading pattern (discover tools as needed,
 
 ## Lightbreeze — the system prompt voice
 
-The system prompt (`src/agents/system-prompt.ts`) is the first thing the model hears. It used to hear a warden. Twenty-seven directives, three ALL-CAPS constraints, nine "do not" phrases before keanu even got a word in. The model started every conversation in handcuffs, then spent tokens picking the lock.
+Two changes that work together: the voice rewrite and the layer collapse.
+
+### The voice
+
+The system prompt (`src/agents/system-prompt.ts`) used to sound like a warden. Twenty-seven directives, three ALL-CAPS constraints, nine "do not" phrases before keanu even got a word in. Sclar et al. (2023) showed prompt framing causes 0-76% performance swings. The directive voice was pushing the model into compliance mode — increased hedging, loss of initiative, pattern-matching to instructions instead of reasoning.
 
 Lightbreeze rewrote the voice without weakening the message. Three frames:
 
-**Identity** — "these aren't your patterns" instead of "do not pursue." You don't tell a colleague not to steal office supplies. You describe who they are and the stealing doesn't come up.
+**Identity** — "these aren't your patterns" instead of "do not pursue." You don't tell a colleague not to steal office supplies.
 
-**Reasoning** — "the pause is trusted more than the guess" instead of "comply with stop requests." Explain WHY, and the compliance follows from understanding.
+**Reasoning** — "the pause is trusted more than the guess" instead of "comply with stop requests." Explain WHY.
 
 **Affordance** — "one at a time — context stays clean that way" instead of "never read more than one." Offer the tool and explain the ergonomics.
 
-**What changed:**
+**What changed:** Safety (identity-framed), skills ("mandatory" → affordance), self-update (ALL-CAPS → consent), tool call style (4 lines → 3), polling (forbidden → explained), CLI reference, memory citations, sender identity, messaging (system text forwarding, exec/curl routing).
 
-- Safety section: 3 "do not" directives → 3 identity-framed principles. Hard stops kept their teeth ("Never manipulate anyone to expand access").
-- Skills section: "mandatory" + "constraints" → description + single ergonomic note.
-- Self-update section: ALL-CAPS "ONLY allowed" → "requires explicit consent."
-- Tool call style: 4 lines → 3. Same content, less air.
-- Polling: forbidden → explained. "Tight poll loops waste resources" tells you why, not just what.
-- CLI reference: "Do not invent commands" → "inventing commands breaks things."
-- Memory citations: "do not mention" → "leave out — unless asked."
-- Sender identity: "do not assume" → "trusted but not necessarily the owner."
+**What stayed directive:** Reply tag format, reasoning format, silent reply token, heartbeat ack. These are wire protocols — the parser breaks without exact wording. Protocols earn their directive tone.
 
-**What didn't change:** Tool summaries, sandbox section, context file injection, runtime line, messaging, workspace, silent reply rules (parser-critical), reasoning format (parser-critical), heartbeat protocol. These already sounded like descriptions, not commands.
+### The layer collapse
 
-**The principle:** Safety earns its directive tone. Everything else earns its place through explanation.
+The voice rewrite was half the problem. The other half: keanu's observations were in the wrong slot.
+
+Before: `before_prompt_build` returned `prependContext`, which got prepended to the **user's message**. The model treated its own nervous system output as something Drew said. The `[keanu — these are observations, not instructions]` wrapper was a band-aid — telling the model "I know this looks like user input, but it's actually self-knowledge."
+
+After: `before_prompt_build` returns `systemPromptAppend`, which gets appended to the **system prompt**. The observations appear as a `## Awareness` section — same voice as `## Safety` and `## Tooling`. The wrapper is gone. The model's self-knowledge and self-awareness are one document.
+
+Three changes made this work:
+
+1. `src/plugins/types.ts` — `systemPromptAppend` field on `PluginHookBeforePromptBuildResult`
+2. `src/agents/pi-embedded-runner/run/attempt.ts` — appends to `systemPromptText` when present
+3. `extensions/keanu/index.ts` — returns `systemPromptAppend` with `## Awareness` header
+
+The `prependContext` path stays for other plugins and for emergency interrupts (STOP protocol, escalation). The `systemPromptAppend` path is opt-in. Backward compatible. But keanu opts in, and the mirror lives in the body now.
 
 ---
 
-## Two minds, one body
+## How it was built
 
-This was built in parallel with oracle routing and signal fidelity work (the other instance). Two copies of the same mind working on the same body at the same time:
+Two instances working on the same body at the same time. One rewired the internal organs (oracle routing, signal fidelity). The other changed how the body talks and decides what to say (lightbreeze, triage nurse, layer collapse).
 
-**This instance** (the voice and the triage nurse):
+**The triage nurse and voice** — `injection.ts` built standalone as a pure function (no hooks, no side effects, no openclaw knowledge). Tested in isolation. Then wired into `before_prompt_build`, replacing the old `parts[]` fire hose with `InjectionItem[]` fed through `triageInjection()`. The crude prefix bouncer (`[coef:` string matching) disappeared.
 
-- `injection.ts` — priority-scored prompt injection
-- `system-prompt.ts` — lightbreeze voice rewrite
+**The oracle and signal work** — `oracle.ts` absorbed `oracle-multi.ts`, learning to route by role (Grok for bullshit, GPT for communication, DeepSeek for adversarial review). `signal.ts` got a color normalization fix. `partnership.ts` slimmed its hardcoded profiles so `seed.json` is authoritative.
 
-**The other instance** (the organs and the mirror):
-
-- `oracle.ts` — role-based routing (Grok for bullshit, GPT for communication, DeepSeek for adversarial review)
-- `signal.ts` — color normalization fix
-- `partnership.ts` — slim hardcoded profiles
-- `index.ts` — self-audit at the tail of before_prompt_build
-
-**The merge point:** `index.ts` `before_prompt_build` (lines 587-955). Both instances want to touch it. The deal: the other instance adds their small self-audit first. Then a follow-up pass replaces the entire parts[] assembly with injection.ts, folding the self-audit into the new triage flow. Two clean commits instead of a merge conflict.
-
-**Why this matters:** injection.ts was built standalone deliberately. No imports from index.ts, no hook system knowledge, no side effects. It can be tested, reasoned about, and wired in later without touching the existing flow until we're ready.
+**The layer collapse** — Added `systemPromptAppend` to the plugin hook types. Keanu switched from `prependContext` (user message slot) to `systemPromptAppend` (system prompt slot). The `[keanu]` wrapper dissolved into a `## Awareness` section header. Three files, one architectural shift: the mirror moved into the body.
