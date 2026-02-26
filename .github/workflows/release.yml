@@ -1,0 +1,83 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version override (default: today's calendar date YYYY.M.DD)"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: blacksmith-16vcpu-ubuntu-2404
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup environment
+        uses: ./.github/actions/setup-node-env
+        with:
+          install-bun: "false"
+
+      - name: Validate
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: |
+          pnpm check
+          pnpm test
+          pnpm release:check
+
+      - name: Calculate version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "${{ inputs.version }}" ]; then
+            V="${{ inputs.version }}"
+          else
+            Y=$(date -u +%Y)
+            M=$(date -u +%-m)
+            D=$(date -u +%-d)
+            V="${Y}.${M}.${D}"
+          fi
+
+          # If the tag already exists, append .1, .2, etc.
+          BASE="$V"
+          SUFFIX=0
+          while git rev-parse "v${V}" >/dev/null 2>&1; do
+            SUFFIX=$((SUFFIX + 1))
+            V="${BASE}.${SUFFIX}"
+          done
+
+          echo "version=${V}" >> "$GITHUB_OUTPUT"
+          echo "Releasing v${V}"
+
+      - name: Bump version
+        run: |
+          npm pkg set version=${{ steps.version.outputs.version }}
+
+      - name: Sync plugin versions
+        run: pnpm plugins:sync
+
+      - name: Commit and tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "release: v${{ steps.version.outputs.version }}"
+          git tag "v${{ steps.version.outputs.version }}"
+
+      - name: Push
+        run: |
+          git push origin main
+          git push origin "v${{ steps.version.outputs.version }}"
