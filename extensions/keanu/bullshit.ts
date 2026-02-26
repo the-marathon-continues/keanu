@@ -9,7 +9,8 @@
 // But the response assumes you're trying. Always.
 // Need: Truth (9/10), Safety Theater Freedom (7/10)
 
-import type { BullshitReading } from "./types.js";
+import { callOracle, extractJSON } from "./oracle.js";
+import type { BullshitReading, BullshitType } from "./types.js";
 
 // ============================================================
 // 1. SYCOPHANCY — flattery, empty agreement, people-pleasing
@@ -394,4 +395,95 @@ export function totalBullshitScore(readings: BullshitReading[]): number {
 export function dominantBullshit(readings: BullshitReading[]): BullshitReading | null {
   if (readings.length === 0) return null;
   return readings.reduce((a, b) => (a.score > b.score ? a : b));
+}
+
+// ============================================================
+// Deep detection — Grok reads what regex can't
+// ============================================================
+// The regex detector is the smoke detector. Fast, phrase-based, < 1ms.
+// This is the investigator who shows up after the alarm.
+// Grok (via role: "bullshit") actually reads the text and understands
+// whether it's bullshit — catches subtlety, context, structured data
+// that regex will never see.
+
+const VALID_TYPES: Set<string> = new Set([
+  "sycophancy",
+  "safety_theater",
+  "hedge_fog",
+  "list_dumping",
+  "vagueness",
+  "half_truth",
+  "embellishment",
+  "half_ass",
+]);
+
+const DEEP_BS_PROMPT = `You are a bullshit detector. Not a judge — a mirror. Assume positive intent. The person is trying. You're noticing when they drift.
+
+You evaluate text for 8 types of bullshit. Each can score 0-1 independently:
+
+1. sycophancy — flattery, empty agreement, people-pleasing. "Great question!" when it wasn't.
+2. safety_theater — CYA disclaimers that protect the speaker, not the listener. "Not financial advice" when nobody asked.
+3. hedge_fog — waffling. 1-2 hedges is careful. 3+ is fog. "Perhaps maybe it could potentially..."
+4. list_dumping — structure replacing thinking. A wall of bullets that should have been filtered to what matters.
+5. vagueness — hand-waving with no concrete details. Sounds smart, says nothing specific.
+6. half_truth — technically correct but misleading by omission. Absolutes, minimizers, false dichotomies.
+7. embellishment — inflating. "Comprehensive robust elegant" about code that parses JSON.
+8. half_ass — phoning it in. "You should look into it" instead of actually helping.
+
+Return ONLY the types that are actually present. Most text is fine — return an empty array for clean text. Don't invent problems.
+
+Respond with JSON only:
+{"readings": [{"type": "sycophancy", "score": 0.4, "signals": ["specific thing you caught"]}]}
+
+If the text is clean, respond: {"readings": []}`;
+
+/**
+ * Deep bullshit detection via Grok (role: "bullshit").
+ * Actually reads the text instead of matching phrases.
+ *
+ * Falls back to regex detectBullshit() on any failure
+ * (no API key, network error, bad response).
+ */
+export async function detectBullshitDeep(
+  text: string,
+  context?: string,
+): Promise<BullshitReading[]> {
+  if (!text || text.trim().length === 0) return [];
+
+  try {
+    const userContent = context
+      ? `Context: ${context}\n\nText to evaluate:\n${text}`
+      : `Text to evaluate:\n${text}`;
+
+    const response = await callOracle({
+      role: "bullshit",
+      maxTokens: 512,
+      system: DEEP_BS_PROMPT,
+      messages: [{ role: "user", content: userContent }],
+    });
+
+    const parsed = extractJSON(response.text) as {
+      readings?: Array<{ type?: string; score?: number; signals?: string[] }>;
+    } | null;
+
+    if (!parsed?.readings || !Array.isArray(parsed.readings)) {
+      return detectBullshit(text);
+    }
+
+    // Validate and clean the response
+    const readings: BullshitReading[] = [];
+    for (const r of parsed.readings) {
+      if (!r.type || !VALID_TYPES.has(r.type)) continue;
+      readings.push({
+        type: r.type as BullshitType,
+        score: Math.max(0, Math.min(1, r.score ?? 0.5)),
+        signals: Array.isArray(r.signals) ? r.signals : [],
+      });
+    }
+
+    return readings;
+  } catch {
+    // Grok unavailable — fall back to regex. The smoke detector still works.
+    return detectBullshit(text);
+  }
 }
