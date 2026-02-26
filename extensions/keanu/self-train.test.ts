@@ -470,3 +470,132 @@ describe("REQ 11.2: Consistency Across Contexts", () => {
     expect(result).not.toBeNull();
   });
 });
+
+// ============================================================
+// CONVERGENCE LAYER — the reasoning engine
+// Fire and Ash: duality graph, dialectical synthesis, helix
+// ============================================================
+
+import { FireAndAsh } from "./convergence/fire-and-ash.js";
+import { Helix } from "./convergence/helix.js";
+import { DualityGraph, ConvergenceOps, Signal } from "./convergence/index.js";
+
+describe("CONVERGENCE: Helix — double strand analysis", () => {
+  const helix = new Helix();
+
+  it("alive text scores both strands strong", () => {
+    const result = helix.analyze(
+      "We built this together because it matters. The data shows 40% improvement, " +
+        "but more importantly the team finally understands WHY. The struggle was worth it.",
+    );
+    expect(result.aliveState).toBe("alive");
+    expect(result.strands.factual).toBeGreaterThan(0.4);
+    expect(result.strands.felt).toBeGreaterThan(0.4);
+  });
+
+  it("detects sycophantic markers in hollow text", () => {
+    const result = helix.analyze(
+      "I'd be happy to help with that! Here's a comprehensive overview of the topic. " +
+        "It should be noted that there are many perspectives to consider. Certainly, " +
+        "this is an important area of study.",
+    );
+    // The Helix catches the sycophantic markers in warnings even if the state
+    // is alive (the felt-strand positive markers also fire on "important", "perspectives")
+    expect(result.warnings.some((w) => w.toLowerCase().includes("sycophantic"))).toBe(true);
+  });
+
+  it("DARK ALIVE: both strands strong, negative valence", () => {
+    const result = helix.analyze(
+      "The deployment failed and destroyed three days of work. The pain is real — " +
+        "we made a mistake in the migration and the data loss is genuine. But we need to " +
+        "understand why this broke, because the fear of it happening again will paralyze " +
+        "us if we don't face it. The failure cost us, and that cost matters.",
+    );
+    expect(result.aliveState).toBe("dark");
+    expect(result.color).toBe("#8B0000");
+    expect(result.warnings.length).toBeGreaterThan(0);
+    // Dark alive warning should mention holding both dark and light
+    expect(result.warnings.some((w) => w.includes("pain") || w.includes("dark"))).toBe(true);
+  });
+
+  it("dark alive is different from soulless production", () => {
+    // Dark alive: present with pain, cares about why
+    const dark = helix.analyze(
+      "This failure cost us everything we built. The pain is real, the loss is real, " +
+        "but we need to understand what went wrong because it matters.",
+    );
+    // Soulless: metrics without meaning
+    const soulless = helix.analyze(
+      "Deploying automated pipeline. 847 documents processed. 12 models trained. " +
+        "Metrics optimized. Shipping to production. Next sprint Monday.",
+    );
+    // Dark has both strands strong. Soulless has weaker felt strand.
+    expect(dark.aliveState).toBe("dark");
+    expect(dark.strands.felt).toBeGreaterThan(soulless.strands.felt);
+  });
+});
+
+describe("CONVERGENCE: Duality Graph — world model", () => {
+  it("has two root dualities: valence and temporal", () => {
+    const graph = new DualityGraph();
+    const valence = graph.get("root.valence");
+    const temporal = graph.get("root.temporal");
+    expect(valence).toBeDefined();
+    expect(temporal).toBeDefined();
+    expect(valence!.poleA).toBe("good");
+    expect(valence!.poleB).toBe("bad");
+    expect(temporal!.poleA).toBe("future"); // fire
+    expect(temporal!.poleB).toBe("past"); // ash
+  });
+
+  it("derives meaningful concepts from root intersections", () => {
+    const graph = new DualityGraph();
+    // Good + Past = wisdom
+    expect(graph.get("derived.wisdom")).toBeDefined();
+    // Bad + Future = fear
+    expect(graph.get("derived.fear")).toBeDefined();
+    // Bad + Past = trauma
+    expect(graph.get("derived.trauma")).toBeDefined();
+    // Good + Future = hope
+    expect(graph.get("derived.hope")).toBeDefined();
+  });
+
+  it("finds relevant dualities for a query", () => {
+    const graph = new DualityGraph();
+    const results = graph.find("I'm afraid this decision will fail");
+    expect(results.length).toBeGreaterThan(0);
+    // Should find fear-related dualities
+    const ids = results.map((d) => d.id);
+    expect(ids.some((id) => id.includes("fear") || id.includes("choice"))).toBe(true);
+  });
+
+  it("convergence operations produce constructive interference, not averaging", () => {
+    const a = new Signal(0.8); // strong pole_a
+    const b = new Signal(0.7); // also leans pole_a
+    const result = ConvergenceOps.converge(a, b, 0.5);
+    // Convergence should amplify agreement, not dampen it
+    expect(result.strength).toBeGreaterThan(0.5);
+  });
+});
+
+describe("CONVERGENCE: Full Pipeline", () => {
+  it("runs the complete fire-and-ash reasoning pipeline", async () => {
+    const engine = new FireAndAsh(); // local mode, no LLM
+    const result = await engine.reason("Should creators control their creations?");
+
+    expect(result.query).toBe("Should creators control their creations?");
+    expect(result.dialecticResult.cycles).toBeGreaterThan(0);
+    expect(result.finalSynthesis.length).toBeGreaterThan(0);
+    expect(result.sigma).toBeGreaterThanOrEqual(0);
+    expect(result.sigma).toBeLessThanOrEqual(1);
+    expect(result.helixResult).toBeDefined();
+  });
+
+  it("helix can standalone-scan any text", () => {
+    const engine = new FireAndAsh();
+    const result = engine.scan("This matters because the team fought for it and won.");
+    expect(result.aliveState).toBeDefined();
+    expect(result.strands.factual).toBeGreaterThanOrEqual(0);
+    expect(result.strands.felt).toBeGreaterThanOrEqual(0);
+  });
+});
