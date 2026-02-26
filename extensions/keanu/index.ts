@@ -82,6 +82,7 @@ import {
   detectSurprise,
   toJSON as partnershipToJSON,
   fromJSON as partnershipFromJSON,
+  loadSeed as partnershipLoadSeed,
 } from "./partnership.js";
 import { checkPulse } from "./pulse.js";
 import { reflect, formatReflexion } from "./reflexion.js";
@@ -1076,14 +1077,16 @@ export default {
         await loadCuriosity(workspaceDir);
         await loadPromptState(workspaceDir);
 
-        // Load partnership model
+        // Load identity seed first (the foundation), then overlay persisted state
+        await partnershipLoadSeed();
+
         try {
           const { readFile: rf } = await import("node:fs/promises");
           const { join: pjoin } = await import("node:path");
           const partRaw = await rf(pjoin(workspaceDir, "awareness", "partnership.json"), "utf-8");
           partnershipFromJSON(JSON.parse(partRaw));
         } catch {
-          // No prior partnership data, use seed.
+          // No prior partnership data — seed stands alone.
         }
 
         // Claim ledger: decay unverified claims, note stale ones for injection

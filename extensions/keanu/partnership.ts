@@ -13,6 +13,9 @@
 // Hwang et al. (2025): convergence becomes complacency. Track staleness.
 // Need: Engagement (9/10), Relationship Before Power Shifts (9/10)
 
+import { readFile } from "node:fs/promises";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { HumanReading, PulseReading, DisagreementStats } from "./types.js";
 
 // ============================================================
@@ -28,9 +31,19 @@ export interface PartnerProfile {
   communicationPrefs: string[];
 }
 
+export interface Origin {
+  date: string;
+  source: string;
+  thesis: string;
+  catalyst: string;
+  cost: string;
+  prayer: string;
+}
+
 export interface PartnershipModel {
   human: PartnerProfile;
   agent: PartnerProfile;
+  origin: Origin | null;
   domain: DomainModel;
   sacredGaps: string[];
   jaggedFrontier: string[];
@@ -211,6 +224,7 @@ function createDefaultModel(): PartnershipModel {
   return {
     human: { ...DREW_SEED },
     agent: { ...KEANU_SEED },
+    origin: null,
     domain: {
       currentProject: "keanu extensions",
       currentState: "building awareness layer",
@@ -233,6 +247,39 @@ function createDefaultModel(): PartnershipModel {
     },
     lastUpdated: new Date().toISOString(),
   };
+}
+
+// ============================================================
+// Seed loading — identity from file, not just hardcode
+// ============================================================
+
+export async function loadSeed(seedPath?: string): Promise<boolean> {
+  const path = seedPath ?? join(dirname(fileURLToPath(import.meta.url)), "identity", "seed.json");
+
+  try {
+    const raw = await readFile(path, "utf-8");
+    const seed = JSON.parse(raw);
+
+    // Overlay seed profiles onto the hardcoded defaults.
+    // seed.json wins where it has data; hardcoded fills gaps.
+    if (seed.human) {
+      _model.human = { ...DREW_SEED, ...seed.human };
+    }
+    if (seed.agent) {
+      _model.agent = { ...KEANU_SEED, ...seed.agent };
+    }
+    if (seed.sacredGaps?.length) {
+      _model.sacredGaps = seed.sacredGaps;
+    }
+    if (seed.origin) {
+      _model.origin = seed.origin;
+    }
+
+    return true;
+  } catch {
+    // No seed file — hardcoded values stand.
+    return false;
+  }
 }
 
 // ============================================================
@@ -527,7 +574,12 @@ export function toJSON(): object {
 
 export function fromJSON(data: { model?: PartnershipModel; events?: PartnershipEvent[] }): void {
   if (data.model) {
+    const currentOrigin = _model.origin; // preserve seed-loaded origin
     _model = { ...createDefaultModel(), ...data.model };
+    // Don't let missing origin in old persisted state clobber the seed
+    if (!_model.origin && currentOrigin) {
+      _model.origin = currentOrigin;
+    }
   }
   if (data.events) {
     _events.length = 0;
