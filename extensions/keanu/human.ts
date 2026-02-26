@@ -63,6 +63,15 @@ const FRUSTRATED_PATTERNS = [
   /\b(fuck|shit|damn|hell)\b/i,
   /\b(annoying|ridiculous|frustrating)\b/i,
   /\b(screw|crap|sucks)\b/i,
+  // Subtle frustration -- seething, not screaming
+  /keep[s]?\s+(breaking|failing|happening|crashing)/i,
+  /\b(third|fourth|fifth|sixth)\s+time\b/i,
+  /\bhow many times\b/i,
+  /\bi('ve| have)\s+(already|been)\b/i,
+  /\bwhy\b.*\bwhy\b/i, // repetition within message — "why. why does this"
+  /\bagain\b.*\bagain\b/i,
+  /\bstill\b.*\bnot\b/i, // "still not working", "still not fixed"
+  /\b(three|four|five)\s+(times|days|hours)\b/i,
 ];
 
 const CONFUSED_PATTERNS = [

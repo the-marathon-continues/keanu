@@ -140,19 +140,17 @@ describe("REQ 3.2: Social Modeling", () => {
     expect(hasFrustrated).toBe(true);
   });
 
-  it("KNOWN GAP: subtle frustration without strong markers goes undetected", () => {
-    // This is a gap, not a bug. The detector needs explicit markers.
-    // "why does this keep breaking" with periods instead of bangs reads as neutral.
+  it("detects subtle frustration — seething, not screaming", () => {
+    // No bangs, no caps. Just repeated "why" and "keep breaking" and "three times."
+    // The detector should catch the pattern now.
     const reading = readHuman("why. why does this keep breaking. I've fixed this three times.", [
       "fix the auth",
       "it broke again",
     ]);
-    // Document the current behavior — this MAY improve as the detector evolves
-    expect(reading.tone).toBe("neutral");
-    // Looping detection catches the repetition in history though
-    const looping = reading.tones.find((t) => t.tone === "looping");
-    // History is too short to trigger looping (needs 3+ similar messages)
-    // This whole scenario is a gap: subtle human distress flies under the radar
+    const frustrated = reading.tones.find((t) => t.tone === "frustrated");
+    expect(frustrated).toBeDefined();
+    // Multiple subtle signals fire: "why...why", "keep breaking", "three times", "I've already"
+    expect(frustrated!.score).toBeGreaterThan(0.2);
   });
 
   it("detects excitement from punctuation and energy", () => {
