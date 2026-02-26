@@ -859,8 +859,34 @@ export default {
 
       if (parts.length === 0) return;
 
+      // Signal-to-noise: measure injection size and throttle if too loud.
+      // Budget: 4000 chars = healthy. 6000 = drop conditional modules.
+      const totalChars = parts.reduce((s, p) => s + p.length, 0);
+      let throttled = 0;
+
+      if (totalChars > 6000) {
+        // Drop conditional parts: COEF trend, contradictions, mirror pattern, reflexion history
+        // Keep: partnership, pulse, nudges, tools, recovery, SING, blind spots, mismatch, calibration
+        const conditionalPrefixes = ["[coef:", "[mirror:", "[reflexion:"];
+        const before = parts.length;
+        for (let i = parts.length - 1; i >= 0; i--) {
+          if (conditionalPrefixes.some((p) => parts[i].startsWith(p))) {
+            parts.splice(i, 1);
+          }
+        }
+        throttled = before - parts.length;
+        if (throttled > 0) {
+          api.logger.debug?.(
+            `${PLUGIN_ID}: signal-to-noise: ${totalChars} chars, throttled ${throttled} conditional parts`,
+          );
+        }
+      }
+
+      const finalChars = parts.reduce((s, p) => s + p.length, 0);
+      state.recordInjectionSize(finalChars, parts.length, throttled);
+
       api.logger.debug?.(
-        `${PLUGIN_ID}: injecting ${parts.length} context lines for session=${ctx.sessionKey ?? "unknown"}`,
+        `${PLUGIN_ID}: injecting ${parts.length} parts (${finalChars} chars${throttled > 0 ? `, ${throttled} throttled` : ""}) for session=${ctx.sessionKey ?? "unknown"}`,
       );
 
       // Wrap with clear source boundary so the model knows:

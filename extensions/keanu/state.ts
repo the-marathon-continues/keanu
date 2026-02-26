@@ -20,6 +20,7 @@ import type {
   ReflexionTrigger,
   SignalState,
   CarnegieDiscussion,
+  TrackedClaim,
 } from "./types.js";
 
 // ============================================================
@@ -103,6 +104,27 @@ export function recordTurnSnapshot(snapshot: TurnSnapshot): void {
   turnSnapshots.push(snapshot);
   if (turnSnapshots.length > MAX_SNAPSHOTS)
     turnSnapshots.splice(0, turnSnapshots.length - MAX_SNAPSHOTS);
+}
+
+// Injection size tracking (before_prompt_build)
+export const injectionSizeTrend: Array<{
+  turn: number;
+  charCount: number;
+  partCount: number;
+  throttled: number; // how many parts were dropped
+}> = [];
+const MAX_INJECTION_ENTRIES = 50;
+
+export function recordInjectionSize(charCount: number, partCount: number, throttled: number): void {
+  injectionSizeTrend.push({ turn: turnCount, charCount, partCount, throttled });
+  if (injectionSizeTrend.length > MAX_INJECTION_ENTRIES)
+    injectionSizeTrend.splice(0, injectionSizeTrend.length - MAX_INJECTION_ENTRIES);
+}
+
+export function avgInjectionSize(): number {
+  const recent = injectionSizeTrend.slice(-10);
+  if (recent.length === 0) return 0;
+  return recent.reduce((s, e) => s + e.charCount, 0) / recent.length;
 }
 
 // Prompt size tracking (llm_input)
@@ -451,6 +473,58 @@ export function lastCarnegieDiscussion(): CarnegieDiscussion | null {
 
 export function openDiscussions(): CarnegieDiscussion[] {
   return carnegieDiscussions.filter((d) => d.resolution === "open");
+}
+
+// ============================================================
+// Claim ledger — minimum Silverado
+// ============================================================
+
+const claimLedger: TrackedClaim[] = [];
+const MAX_CLAIMS = 50;
+
+export function trackClaim(text: string, confidence: number, session: string): TrackedClaim {
+  const claim: TrackedClaim = {
+    id: `cl-${turnCount}-${Date.now().toString(36)}`,
+    text: text.slice(0, 200),
+    confidence,
+    turn: turnCount,
+    session,
+    verified: false,
+    contradicted: false,
+    decayedConfidence: confidence,
+  };
+  claimLedger.push(claim);
+  if (claimLedger.length > MAX_CLAIMS) claimLedger.splice(0, claimLedger.length - MAX_CLAIMS);
+  return claim;
+}
+
+/** Decay all unverified claims by 1 confidence level. Called at session_start. */
+export function decayUnverifiedClaims(): void {
+  for (const c of claimLedger) {
+    if (!c.verified && !c.contradicted && c.decayedConfidence > 0) {
+      c.decayedConfidence = Math.max(0, c.decayedConfidence - 1);
+    }
+  }
+}
+
+/** Claims that have decayed to low confidence — worth surfacing. */
+export function staleClaims(): TrackedClaim[] {
+  return claimLedger.filter(
+    (c) => !c.verified && !c.contradicted && c.decayedConfidence <= 2 && c.confidence >= 3,
+  );
+}
+
+/** Mark a claim as contradicted when mastery detects a matching correction. */
+export function contradictClaim(claimText: string): void {
+  for (const c of claimLedger) {
+    if (!c.contradicted && c.text.includes(claimText.slice(0, 50))) {
+      c.contradicted = true;
+    }
+  }
+}
+
+export function getClaimLedger(): readonly TrackedClaim[] {
+  return claimLedger;
 }
 
 export async function loadReflexions(workspaceDir: string): Promise<void> {

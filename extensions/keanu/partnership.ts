@@ -473,6 +473,51 @@ export function detectSurprise(humanMessage: string): boolean {
 }
 
 // ============================================================
+// Validation depth assessment (Linehan levels 1-6)
+// ============================================================
+// Depth depends on how well the partnership model knows this person.
+// Not a guess — based on data: trust state, repair count, session count,
+// co-evolution freshness.
+
+export function assessValidationDepth(sessionCount: number): 1 | 2 | 3 | 4 | 5 | 6 {
+  const trust = _model.trust;
+  const coEvo = _model.coEvolution;
+
+  // Level 6: radically genuine. 10+ sessions, trust tested, co-evolution fresh,
+  // multiple repairs (trust broken and rebuilt = stronger)
+  if (
+    sessionCount >= 10 &&
+    trust.level === "tested" &&
+    coEvo.staleness === "fresh" &&
+    trust.repairCount >= 2
+  ) {
+    return 6;
+  }
+
+  // Level 5: valid in current context. Trust tested or rebuilt,
+  // co-evolution not stale, meaningful history
+  if (
+    sessionCount >= 5 &&
+    (trust.level === "tested" || trust.level === "rebuilding") &&
+    coEvo.staleness !== "stale"
+  ) {
+    return 5;
+  }
+
+  // Level 4: understanding given history. 3+ sessions worth of data,
+  // trust not strained
+  if (sessionCount >= 3 && trust.level !== "strained") {
+    return 4;
+  }
+
+  // Levels 1-3 are always available (detection-based, no relationship needed)
+  // Level 3: reading between lines (bullshit detection + empathy patterns)
+  // Level 2: accurate reflection (tone detection)
+  // Level 1: paying attention (presence)
+  return 3;
+}
+
+// ============================================================
 // Persistence
 // ============================================================
 

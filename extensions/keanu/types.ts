@@ -33,12 +33,22 @@ export interface ToneReading {
   skill?: string; // DBT skill suggestion: what might actually help
 }
 
+export type ValidationDepth = 1 | 2 | 3 | 4 | 5 | 6;
+// Linehan's 6 levels:
+// 1 = paying attention
+// 2 = accurate reflection
+// 3 = reading between lines
+// 4 = understanding given history
+// 5 = valid in current context
+// 6 = radically genuine
+
 export interface HumanReading {
   tone: HumanTone; // dominant tone (backward compat, COEF uses this)
   tones: ToneReading[]; // ALL detected tones, sorted by score desc. even small ones.
   confidence: number;
   signals: string[];
   bullshit: BullshitReading[];
+  validationDepth?: ValidationDepth; // Linehan depth — how deeply we can understand this person
 }
 
 // --- Bullshit Detection (universal — applies to agent AND human) ---
@@ -236,4 +246,17 @@ export interface CarnegieDiscussion {
   context: DiscussionContext; // detected or explicit
   resolution: "open" | "converged" | "agreed_to_differ";
   created_at: string;
+}
+
+// --- Claim Ledger (minimum Silverado) ---
+
+export interface TrackedClaim {
+  id: string;
+  text: string; // the claim
+  confidence: number; // 1-5 at time of making
+  turn: number;
+  session: string;
+  verified: boolean; // was it later confirmed?
+  contradicted: boolean; // was it later contradicted?
+  decayedConfidence: number; // confidence after decay (-1 per session without verification)
 }

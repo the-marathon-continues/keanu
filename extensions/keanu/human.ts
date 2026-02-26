@@ -8,6 +8,8 @@
 // Need: Engagement (9/10)
 
 import { detectBullshit } from "./bullshit.js";
+import { assessValidationDepth } from "./partnership.js";
+import { getRecentSummaries } from "./session-learning.js";
 import type { HumanReading, HumanTone, ToneReading } from "./types.js";
 
 // --- Empathy map with DBT skill suggestions ---
@@ -208,12 +210,17 @@ export function readHuman(input: string, history: string[]): HumanReading {
     signals.push(`human_bs:${bs.type}:${bs.score.toFixed(2)}`);
   }
 
+  // Validation depth — how deeply we understand this person based on partnership history
+  const sessionCount = getRecentSummaries(50).length;
+  const validationDepth = assessValidationDepth(sessionCount);
+
   return {
     tone: dominantTone,
     tones,
     confidence: Math.min(1, confidence),
     signals,
     bullshit,
+    validationDepth,
   };
 }
 
@@ -249,6 +256,18 @@ export function formatHumanReading(reading: HumanReading): string | null {
     const bsTypes = reading.bullshit.map((b) => b.type).join(", ");
     parts.push(`mirror=[${bsTypes} -- assume they're trying, help them get there]`);
   }
+
+  // Surface validation depth when above baseline (level 3)
+  const depth = reading.validationDepth ?? 3;
+  const depthLabel =
+    depth >= 6
+      ? "depth 6 — radically genuine"
+      : depth >= 5
+        ? "depth 5 — valid in context"
+        : depth >= 4
+          ? "depth 4 — understanding given history"
+          : null;
+  if (depthLabel) parts.push(depthLabel);
 
   return `[pulse: human ${parts.join(". ")}. confidence=${reading.confidence.toFixed(2)}. positive intent, partnership.]`;
 }
