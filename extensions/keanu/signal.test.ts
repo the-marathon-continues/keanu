@@ -877,3 +877,249 @@ describe("diff", () => {
     expect(changes.some((c) => c.startsWith("bs:"))).toBe(true);
   });
 });
+
+// ─── lossy channel roundtrip ────────────────────────────────────────────────
+
+describe("lossy channel roundtrip", () => {
+  it("roundtrips multi-tone lossy state", async () => {
+    const { encode, decode } = await import("./signal.js");
+    const state = makeState({
+      lossy: {
+        tones: [
+          { tone: "frustrated", score: 0.45 },
+          { tone: "excited", score: 0.24 },
+        ],
+        urgency: 0.78,
+        subtext: "anger is information",
+        confidence: 0.72,
+      },
+    });
+    const decoded = decode(encode(state));
+
+    expect(decoded.lossy).toBeDefined();
+    expect(decoded.lossy!.tones).toHaveLength(2);
+    expect(decoded.lossy!.tones[0].tone).toBe("frustrated");
+    expect(decoded.lossy!.tones[0].score).toBeCloseTo(0.45, 2);
+    expect(decoded.lossy!.tones[1].tone).toBe("excited");
+    expect(decoded.lossy!.urgency).toBeCloseTo(0.78, 2);
+    expect(decoded.lossy!.confidence).toBeCloseTo(0.72, 2);
+  });
+
+  it("handles missing lossy gracefully", async () => {
+    const { encode, decode } = await import("./signal.js");
+    const state = makeState(); // no lossy
+    const decoded = decode(encode(state));
+    expect(decoded.lossy).toBeUndefined();
+  });
+
+  it("preserves subtext with spaces", async () => {
+    const { encode, decode } = await import("./signal.js");
+    const state = makeState({
+      lossy: {
+        tones: [{ tone: "confused", score: 0.6 }],
+        urgency: 0.5,
+        subtext: "anger is information",
+        confidence: 0.65,
+      },
+    });
+    const decoded = decode(encode(state));
+    expect(decoded.lossy!.subtext).toBe("anger is information");
+  });
+
+  it("encodes lossy after single pipe separator", async () => {
+    const { encode } = await import("./signal.js");
+    const state = makeState({
+      lossy: {
+        tones: [{ tone: "excited", score: 0.6 }],
+        urgency: 0.35,
+        confidence: 0.7,
+      },
+    });
+    const signal = encode(state);
+    expect(signal).toContain(" | ");
+    expect(signal).not.toContain(" || ");
+    expect(signal).toContain("urg=0.35");
+  });
+});
+
+// ─── wise channel roundtrip ─────────────────────────────────────────────────
+
+describe("wise channel roundtrip", () => {
+  it("roundtrips full wise state with tension", async () => {
+    const { encode, decode } = await import("./signal.js");
+    const state = makeState({
+      lossy: {
+        tones: [{ tone: "frustrated", score: 0.45 }],
+        urgency: 0.8,
+        confidence: 0.72,
+      },
+      wise: {
+        coherence: 0.75,
+        tension: "stuck",
+        stance: "confront",
+        read: "they feel the sycophancy. something real is broken.",
+        confidence: 0.68,
+      },
+    });
+    const decoded = decode(encode(state));
+
+    expect(decoded.wise).toBeDefined();
+    expect(decoded.wise!.coherence).toBeCloseTo(0.75, 2);
+    expect(decoded.wise!.tension).toBe("stuck");
+    expect(decoded.wise!.stance).toBe("confront");
+    expect(decoded.wise!.confidence).toBeCloseTo(0.68, 2);
+    expect(decoded.wise!.read).toContain("sycophancy");
+  });
+
+  it("handles null tension", async () => {
+    const { encode, decode } = await import("./signal.js");
+    const state = makeState({
+      lossy: {
+        tones: [{ tone: "neutral", score: 0.3 }],
+        urgency: 0.3,
+        confidence: 0.5,
+      },
+      wise: {
+        coherence: 0.8,
+        tension: null,
+        stance: "hold",
+        read: "steady state",
+        confidence: 0.7,
+      },
+    });
+    const signal = encode(state);
+    expect(signal).not.toContain("ten=");
+    const decoded = decode(signal);
+    expect(decoded.wise!.tension).toBeNull();
+  });
+
+  it("truncates read to 80 chars", async () => {
+    const { encode, decode } = await import("./signal.js");
+    const longRead = "a".repeat(120);
+    const state = makeState({
+      wise: {
+        coherence: 0.5,
+        tension: null,
+        stance: "hold",
+        read: longRead,
+        confidence: 0.5,
+      },
+    });
+    const decoded = decode(encode(state));
+    expect(decoded.wise!.read.length).toBeLessThanOrEqual(80);
+  });
+
+  it("encodes wise after double pipe separator", async () => {
+    const { encode } = await import("./signal.js");
+    const state = makeState({
+      lossy: {
+        tones: [{ tone: "frustrated", score: 0.4 }],
+        urgency: 0.6,
+        confidence: 0.7,
+      },
+      wise: {
+        coherence: 0.6,
+        tension: "storm",
+        stance: "match",
+        read: "intense but alive",
+        confidence: 0.72,
+      },
+    });
+    const signal = encode(state);
+    expect(signal).toContain(" | ");
+    expect(signal).toContain(" || ");
+    expect(signal).toContain("sta=match");
+    expect(signal).toContain("ten=storm");
+  });
+});
+
+// ─── three-channel backward compat ──────────────────────────────────────────
+
+describe("three-channel backward compat", () => {
+  it("decodes old signals without lossy or wise", async () => {
+    const { decode } = await import("./signal.js");
+    const old = "COEF/1 pulse=alive wm=0.42 c=r0.30/y0.50/b0.20 ht=neutral bs=- da=4/2/2/0.50 t=7";
+    const decoded = decode(old);
+    expect(decoded.pulse).toBe("alive");
+    expect(decoded.lossy).toBeUndefined();
+    expect(decoded.wise).toBeUndefined();
+  });
+
+  it("decodes two-channel signals without wise", async () => {
+    const { encode, decode } = await import("./signal.js");
+    const state = makeState({
+      lossy: {
+        tones: [{ tone: "excited", score: 0.6 }],
+        urgency: 0.35,
+        confidence: 0.7,
+      },
+    });
+    const decoded = decode(encode(state));
+    expect(decoded.lossy).toBeDefined();
+    expect(decoded.wise).toBeUndefined();
+  });
+
+  it("diff detects wise stance changes", async () => {
+    const { encode, diff } = await import("./signal.js");
+    const prev = encode(
+      makeState({
+        wise: { coherence: 0.5, tension: null, stance: "hold", read: "steady", confidence: 0.5 },
+      }),
+    );
+    const curr = encode(
+      makeState({
+        wise: {
+          coherence: 0.5,
+          tension: "stuck",
+          stance: "confront",
+          read: "broken",
+          confidence: 0.5,
+        },
+      }),
+    );
+    const changes = diff(prev, curr);
+    expect(changes.some((c) => c.startsWith("wise_stance:"))).toBe(true);
+    expect(changes.some((c) => c.startsWith("wise_tension:"))).toBe(true);
+  });
+
+  it("diff detects lossy urgency shifts", async () => {
+    const { encode, diff } = await import("./signal.js");
+    const prev = encode(
+      makeState({
+        lossy: { tones: [{ tone: "neutral", score: 0.3 }], urgency: 0.3, confidence: 0.5 },
+      }),
+    );
+    const curr = encode(
+      makeState({
+        lossy: { tones: [{ tone: "frustrated", score: 0.8 }], urgency: 0.8, confidence: 0.7 },
+      }),
+    );
+    const changes = diff(prev, curr);
+    expect(changes.some((c) => c.startsWith("urg:"))).toBe(true);
+    expect(changes.some((c) => c.startsWith("lossy_tone:"))).toBe(true);
+  });
+
+  it("diff detects lossy appearing", async () => {
+    const { encode, diff } = await import("./signal.js");
+    const prev = encode(makeState());
+    const curr = encode(
+      makeState({
+        lossy: { tones: [{ tone: "excited", score: 0.5 }], urgency: 0.4, confidence: 0.6 },
+      }),
+    );
+    const changes = diff(prev, curr);
+    expect(changes).toContain("lossy:appeared");
+  });
+
+  it("diff detects wise appearing", async () => {
+    const { encode, diff } = await import("./signal.js");
+    const prev = encode(makeState());
+    const curr = encode(
+      makeState({
+        wise: { coherence: 0.7, tension: null, stance: "hold", read: "ok", confidence: 0.6 },
+      }),
+    );
+    const changes = diff(prev, curr);
+    expect(changes).toContain("wise:appeared");
+  });
+});

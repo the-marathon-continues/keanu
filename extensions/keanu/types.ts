@@ -172,6 +172,45 @@ export interface HalfTruthResult {
 
 // --- COEF Signal ---
 
+// Lossy channel: emotion, urgency, subtext. Confidence-scored, not hash-verified.
+// The color name, not the barcode. Measured differently because it IS different.
+// Hashes for facts, scores for feels.
+export interface LossyChannel {
+  tones: Array<{ tone: HumanTone; score: number }>; // all detected, not just winner
+  urgency: number; // 0-1, composite from tone intensity + pattern signals
+  subtext?: string; // what's between the lines, when detectable
+  confidence: number; // how sure we are about the lossy read overall
+}
+
+// Wise channel: the synthesis. What do facts + feels mean together?
+// Neither channel alone gets here. The barcode says WHAT. The emotion says HOW.
+// The wise channel says WHY and THEREFORE.
+export interface WiseChannel {
+  coherence: number; // 0-1: how well lossless + lossy agree. high = aligned, low = contradiction
+  tension: WiseTension | null; // when channels disagree, what's the shape of the disagreement
+  stance: WiseStance; // what should the system DO with this synthesis
+  read: string; // the one-line synthesis: what does this mean when you hold both together
+  confidence: number; // meta-confidence: how sure are we about the synthesis itself
+}
+
+// Tension shapes: when facts and feels point different directions
+export type WiseTension =
+  | "mask" // feels calm but facts say grey/black. performing okayness.
+  | "storm" // feels intense but facts say alive. passion not crisis.
+  | "stuck" // feels frustrated + facts show looping/capture. something real is broken.
+  | "disconnect" // feels nothing but facts show problems. numbing or fatigue.
+  | "surge" // feels excited but facts show drift. momentum without direction.
+  | null;
+
+// What should the system do with the synthesis
+export type WiseStance =
+  | "hold" // stay present, don't change anything. steady state.
+  | "match" // match their energy. they're alive, be alive back.
+  | "slow" // ease off. they need space, not speed.
+  | "redirect" // the energy is real but aimed wrong. channel it.
+  | "confront" // something's off and both channels see it. name it.
+  | "ground"; // high emotion + grey facts. come back to earth together.
+
 export interface SignalState {
   pulse: AliveState;
   wiseMind: number;
@@ -185,6 +224,8 @@ export interface SignalState {
   consecutiveGrey?: number;
   alerts?: string[];
   lastTool?: string;
+  lossy?: LossyChannel; // channel 2: the color name
+  wise?: WiseChannel; // channel 3: what the barcode + color name mean together
 }
 
 // --- Reflexion ---

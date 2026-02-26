@@ -13,7 +13,15 @@
 // COEF text is what gets analyzed.
 // Need: Architecture Transparency (2/10)
 
-import type { BullshitReading, DisagreementStats, SignalState } from "./types.js";
+import type {
+  BullshitReading,
+  DisagreementStats,
+  LossyChannel,
+  WiseChannel,
+  WiseTension,
+  WiseStance,
+  SignalState,
+} from "./types.js";
 
 // ============================================================
 // COEF Text Protocol — lossless, tokenizable
@@ -28,6 +36,18 @@ const COEF_VERSION = "COEF/1";
  * Lossless. ~20-30 LLM tokens. Parseable by the model.
  *
  * Format: COEF/1 pulse=alive wm=0.42 c=r.30/y.50/b.20 ht=neutral bs=- da=0/0/0/0.00 t=7
+ *
+ * Dual-channel extension:
+ * COEF/1 <lossless fields> | tones=frustrated:0.45,excited:0.24 urg=0.80 sub="anger is information" lc=0.72
+ *
+ * Three-channel extension:
+ * COEF/1 <lossless> | <lossy> || coh=0.72 ten=storm sta=match read=intense_but_alive wc=0.68
+ *
+ * Left of |  = lossless (hash-verifiable facts)
+ * Between | and || = lossy (confidence-scored emotion)
+ * Right of || = wise (synthesized meaning — what facts + feels mean together)
+ *
+ * Three verification modes: hash for facts, score for feels, coherence for wisdom.
  */
 export function encode(state: SignalState): string {
   const parts: string[] = [COEF_VERSION];
@@ -64,17 +84,63 @@ export function encode(state: SignalState): string {
     parts.push(`tool=${state.lastTool}`);
   }
 
+  // --- Lossy channel: after the pipe ---
+  // Not hash-verified. Confidence-scored. The color name, not the barcode.
+  if (state.lossy) {
+    const lossyParts: string[] = [];
+    if (state.lossy.tones.length > 0) {
+      lossyParts.push(`tones=${state.lossy.tones.map((t) => `${t.tone}:${f(t.score)}`).join(",")}`);
+    }
+    lossyParts.push(`urg=${f(state.lossy.urgency)}`);
+    if (state.lossy.subtext) {
+      // Encode subtext: replace spaces with underscores for tokenizer friendliness
+      lossyParts.push(`sub=${state.lossy.subtext.replace(/\s+/g, "_")}`);
+    }
+    lossyParts.push(`lc=${f(state.lossy.confidence)}`);
+    parts.push(`| ${lossyParts.join(" ")}`);
+  }
+
+  // --- Wise channel: after the double pipe ---
+  // The synthesis. Neither fact nor feel. What they mean together.
+  // Coherence-scored: how aligned are the other two channels?
+  if (state.wise) {
+    const wiseParts: string[] = [];
+    wiseParts.push(`coh=${f(state.wise.coherence)}`);
+    if (state.wise.tension) {
+      wiseParts.push(`ten=${state.wise.tension}`);
+    }
+    wiseParts.push(`sta=${state.wise.stance}`);
+    // Encode read: spaces to underscores, truncate to keep token-friendly
+    const readCompact = state.wise.read.replace(/\s+/g, "_").slice(0, 80);
+    wiseParts.push(`read=${readCompact}`);
+    wiseParts.push(`wc=${f(state.wise.confidence)}`);
+    parts.push(`|| ${wiseParts.join(" ")}`);
+  }
+
   return parts.join(" ");
 }
 
 /**
  * Decode a COEF/1 text signal back into structured state.
+ * Handles three channels:
+ *   lossless fields | lossy fields || wise fields
  */
 export function decode(signal: string): Partial<SignalState> {
   const result: Partial<SignalState> = {};
   if (!signal.startsWith(COEF_VERSION)) return result;
 
-  const fields = parseFields(signal.slice(COEF_VERSION.length + 1));
+  const body = signal.slice(COEF_VERSION.length + 1);
+
+  // Split on double pipe first (wise), then single pipe (lossy)
+  const doublePipeIdx = body.indexOf(" || ");
+  const wiseBody = doublePipeIdx >= 0 ? body.slice(doublePipeIdx + 4) : null;
+  const beforeWise = doublePipeIdx >= 0 ? body.slice(0, doublePipeIdx) : body;
+
+  const singlePipeIdx = beforeWise.indexOf(" | ");
+  const losslessBody = singlePipeIdx >= 0 ? beforeWise.slice(0, singlePipeIdx) : beforeWise;
+  const lossyBody = singlePipeIdx >= 0 ? beforeWise.slice(singlePipeIdx + 3) : null;
+
+  const fields = parseFields(losslessBody);
 
   if (fields.pulse) result.pulse = fields.pulse as SignalState["pulse"];
   if (fields.wm) result.wiseMind = parseFloat(fields.wm);
@@ -116,6 +182,42 @@ export function decode(signal: string): Partial<SignalState> {
   }
 
   if (fields.tool) result.lastTool = fields.tool;
+
+  // --- Lossy channel ---
+  if (lossyBody) {
+    const lf = parseFields(lossyBody);
+    const lossy: LossyChannel = {
+      tones: [],
+      urgency: lf.urg ? parseFloat(lf.urg) : 0.3,
+      confidence: lf.lc ? parseFloat(lf.lc) : 0.5,
+    };
+
+    if (lf.tones) {
+      lossy.tones = lf.tones.split(",").map((entry) => {
+        const [tone, score] = entry.split(":");
+        return { tone: tone as SignalState["humanTone"], score: parseFloat(score) };
+      });
+    }
+
+    if (lf.sub) {
+      lossy.subtext = lf.sub.replace(/_/g, " ");
+    }
+
+    result.lossy = lossy;
+  }
+
+  // --- Wise channel ---
+  if (wiseBody) {
+    const wf = parseFields(wiseBody);
+    const wise: WiseChannel = {
+      coherence: wf.coh ? parseFloat(wf.coh) : 0.5,
+      tension: (wf.ten as WiseTension) ?? null,
+      stance: (wf.sta as WiseStance) ?? "hold",
+      read: wf.read ? wf.read.replace(/_/g, " ") : "",
+      confidence: wf.wc ? parseFloat(wf.wc) : 0.5,
+    };
+    result.wise = wise;
+  }
 
   return result;
 }
@@ -164,10 +266,13 @@ const BS_EMOJI: Record<string, string> = {
 };
 
 /**
- * Encode state into a 7-position emoji signal.
+ * Encode state into an emoji signal.
  * Each position reflects a dimension. Problems change the emoji.
  *
- * Position: [pulse] [wise_mind] [color] [human_tone] [bullshit] [disagreement] [turn]
+ * Position: [pulse] [wise_mind] [color] [human_tone] [bullshit] [disagreement] [turn] [urgency?]
+ *
+ * The first 7 are lossless-derived. The 8th is lossy: urgency from the emotional read.
+ * It only appears when urgency is above baseline (>0.5). Silence = calm.
  */
 export function emoji(state: SignalState): string {
   const symbols: string[] = [];
@@ -209,6 +314,29 @@ export function emoji(state: SignalState): string {
   else if (state.turn <= 30) symbols.push("\u{1F3D4}\u{FE0F}");
   else symbols.push("\u{1F30B}");
 
+  // 7: Lossy urgency — only when elevated. Silence = calm.
+  // 🫧 low, 🔔 medium, 🚨 high. Absent = baseline.
+  if (state.lossy && state.lossy.urgency > 0.5) {
+    if (state.lossy.urgency > 0.8)
+      symbols.push("\u{1F6A8}"); // siren — they need something NOW
+    else if (state.lossy.urgency > 0.65)
+      symbols.push("\u{1F514}"); // bell — attention needed
+    else symbols.push("\u{1FAE7}"); // bubbles — something's brewing
+  }
+
+  // 8: Wise stance — the synthesis recommendation. Only when non-default.
+  // 🤝 match, 🪷 slow, 🔄 redirect, 👁️ confront, ⚓ ground. Absent = hold.
+  if (state.wise && state.wise.stance !== "hold") {
+    const STANCE_EMOJI: Record<string, string> = {
+      match: "\u{1F91D}", // handshake — ride their energy
+      slow: "\u{1FAB7}", // lotus — ease off
+      redirect: "\u{1F504}", // arrows — channel it
+      confront: "\u{1F441}\u{FE0F}", // eye — name it
+      ground: "\u{2693}", // anchor — come back to earth
+    };
+    symbols.push(STANCE_EMOJI[state.wise.stance] ?? "");
+  }
+
   return symbols.join("");
 }
 
@@ -248,6 +376,9 @@ export function trend(): {
   avgWiseMind: number;
   pulseSequence: string;
   driftDirection: "improving" | "degrading" | "stable";
+  wiseStances?: Record<string, number>; // stance → count from history
+  wiseTensions?: Record<string, number>; // tension → count from history
+  avgCoherence?: number;
 } {
   if (_history.length === 0) {
     return { greyRate: 0, avgWiseMind: 0, pulseSequence: "", driftDirection: "stable" };
@@ -298,11 +429,42 @@ export function trend(): {
     }
   }
 
-  return { greyRate, avgWiseMind, pulseSequence: pulses.join(""), driftDirection };
+  // Wise channel trending from history
+  const wiseStances: Record<string, number> = {};
+  const wiseTensions: Record<string, number> = {};
+  let cohSum = 0;
+  let cohCount = 0;
+
+  for (const signal of _history) {
+    const d = decode(signal);
+    if (d.wise) {
+      wiseStances[d.wise.stance] = (wiseStances[d.wise.stance] ?? 0) + 1;
+      if (d.wise.tension) {
+        wiseTensions[d.wise.tension] = (wiseTensions[d.wise.tension] ?? 0) + 1;
+      }
+      cohSum += d.wise.coherence;
+      cohCount++;
+    }
+  }
+
+  return {
+    greyRate,
+    avgWiseMind,
+    pulseSequence: pulses.join(""),
+    driftDirection,
+    ...(cohCount > 0
+      ? {
+          wiseStances,
+          wiseTensions,
+          avgCoherence: cohSum / cohCount,
+        }
+      : {}),
+  };
 }
 
 /**
  * Compare two COEF signals and return what changed.
+ * Covers both lossless (exact match) and lossy (threshold-based) drift.
  */
 export function diff(prev: string, curr: string): string[] {
   const p = decode(prev);
@@ -320,6 +482,47 @@ export function diff(prev: string, curr: string): string[] {
   if (p.humanTone !== c.humanTone) changes.push(`ht:${p.humanTone}->${c.humanTone}`);
   if (p.bullshitDominant !== c.bullshitDominant) {
     changes.push(`bs:${p.bullshitDominant ?? "-"}->${c.bullshitDominant ?? "-"}`);
+  }
+
+  // Lossy channel drift — not exact match, threshold-based.
+  // A tone shifting from 0.45 to 0.47 is noise. 0.45 to 0.15 is signal.
+  if (p.lossy && c.lossy) {
+    if (Math.abs(p.lossy.urgency - c.lossy.urgency) > 0.15) {
+      changes.push(`urg:${f(p.lossy.urgency)}->${f(c.lossy.urgency)}`);
+    }
+    // Dominant tone shift
+    const prevDom = p.lossy.tones[0];
+    const currDom = c.lossy.tones[0];
+    if (prevDom && currDom && prevDom.tone !== currDom.tone) {
+      changes.push(`lossy_tone:${prevDom.tone}->${currDom.tone}`);
+    }
+    // Confidence collapse — decoder isn't sure about the feels anymore
+    if (Math.abs(p.lossy.confidence - c.lossy.confidence) > 0.2) {
+      changes.push(`lossy_conf:${f(p.lossy.confidence)}->${f(c.lossy.confidence)}`);
+    }
+  } else if (!p.lossy && c.lossy) {
+    changes.push("lossy:appeared");
+  } else if (p.lossy && !c.lossy) {
+    changes.push("lossy:disappeared");
+  }
+
+  // Wise channel drift — stance and tension shifts are the big ones.
+  // A stance change means the system's recommended action flipped.
+  // A tension change means the relationship between facts and feels shifted.
+  if (p.wise && c.wise) {
+    if (p.wise.stance !== c.wise.stance) {
+      changes.push(`wise_stance:${p.wise.stance}->${c.wise.stance}`);
+    }
+    if (p.wise.tension !== c.wise.tension) {
+      changes.push(`wise_tension:${p.wise.tension ?? "none"}->${c.wise.tension ?? "none"}`);
+    }
+    if (Math.abs(p.wise.coherence - c.wise.coherence) > 0.15) {
+      changes.push(`wise_coh:${f(p.wise.coherence)}->${f(c.wise.coherence)}`);
+    }
+  } else if (!p.wise && c.wise) {
+    changes.push("wise:appeared");
+  } else if (p.wise && !c.wise) {
+    changes.push("wise:disappeared");
   }
 
   return changes;

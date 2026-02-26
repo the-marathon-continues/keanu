@@ -962,6 +962,8 @@ export default {
         trustState: getPartnership().trust.level,
         bullshitRate: bsRate,
         complexTask: lastDiscoverReading?.complexity === "high",
+        wiseStance: wiseSignalState?.wise?.stance,
+        wiseTension: wiseSignalState?.wise?.tension,
       };
 
       const result = triageInjection(items, triageCtx);

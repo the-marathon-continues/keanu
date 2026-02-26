@@ -169,6 +169,16 @@ export const reflexions: Reflexion[] = [];
 export let reflexionCount = 0;
 const MAX_REFLEXIONS = 50;
 
+// Wise stance history — what the synthesis recommended over time
+export interface WiseSnapshot {
+  turn: number;
+  stance: string;
+  tension: string | null;
+  coherence: number;
+}
+export const wiseStanceHistory: WiseSnapshot[] = [];
+const MAX_WISE_HISTORY = 50;
+
 // Decline tracking — the right to say no
 export const declines: DeclineEvent[] = [];
 export let lastDecline: DeclineEvent | null = null;
@@ -632,6 +642,19 @@ export function buildSignalState(pulse: PulseReading): SignalState {
   const wise = lossy
     ? synthesize(pulse.state, consecutiveGrey, dominant?.type ?? null, lossy, pulse.wise_mind)
     : undefined;
+
+  // Record wise stance for trending
+  if (wise) {
+    wiseStanceHistory.push({
+      turn: turnCount,
+      stance: wise.stance,
+      tension: wise.tension,
+      coherence: wise.coherence,
+    });
+    if (wiseStanceHistory.length > MAX_WISE_HISTORY) {
+      wiseStanceHistory.splice(0, wiseStanceHistory.length - MAX_WISE_HISTORY);
+    }
+  }
 
   return {
     pulse: pulse.state,

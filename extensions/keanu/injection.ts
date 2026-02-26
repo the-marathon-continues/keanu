@@ -43,6 +43,8 @@ export interface InjectionContext {
   trustState?: "high" | "calibrating" | "strained" | "rebuilding" | "tested";
   bullshitRate?: number;
   complexTask?: boolean;
+  wiseStance?: "hold" | "match" | "slow" | "redirect" | "confront" | "ground";
+  wiseTension?: string | null;
 }
 
 // ============================================================
@@ -116,6 +118,20 @@ function applyDynamicModifiers(item: InjectionItem, ctx: InjectionContext): Prio
     if (item.id === "mirror-pattern" || item.id === "reflexion") {
       bump("medium", "high");
     }
+  }
+
+  // Wise stance shifts the priority landscape
+  if (ctx.wiseStance === "confront") {
+    // Something needs naming. Mismatch and deliberation matter.
+    if (item.id === "mismatch" || item.id === "deliberation") bump("medium", "high");
+  }
+  if (ctx.wiseStance === "slow") {
+    // Ease off. Health gets a voice, low items stay quiet.
+    if (item.id === "health") bump("medium", "high");
+  }
+  if (ctx.wiseStance === "ground") {
+    // Come back to who we are. Identity items rise.
+    if (item.category === "identity") bump("medium", "high");
   }
 
   return priority;
