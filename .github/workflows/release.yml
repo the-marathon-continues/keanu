@@ -81,3 +81,49 @@ jobs:
         run: |
           git push origin main
           git push origin "v${{ steps.version.outputs.version }}"
+
+      - name: Create release tarball
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.version.outputs.version }}"
+          TARBALL="keanu-v${VERSION}.tar.gz"
+
+          # Pack what the installer needs — no node_modules, no .git, no test infra
+          tar -czf "$TARBALL" \
+            --exclude='node_modules' \
+            --exclude='.git' \
+            --exclude='*.test.ts' \
+            --exclude='*.test.tsx' \
+            --exclude='apps' \
+            --exclude='vendor' \
+            --exclude='.github' \
+            extensions/ \
+            src/ \
+            dist/ \
+            skills/ \
+            assets/ \
+            docs/ \
+            keanu \
+            install.sh \
+            deploy-keanu.sh \
+            package.json \
+            pnpm-lock.yaml \
+            pnpm-workspace.yaml \
+            tsconfig.json \
+            vitest.config.ts \
+            vitest.extensions.config.ts \
+            LICENSE \
+            README.md \
+            CLAUDE.md
+
+          echo "tarball=$TARBALL" >> "$GITHUB_ENV"
+          echo "Created $TARBALL ($(du -h "$TARBALL" | cut -f1))"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${{ steps.version.outputs.version }}" \
+            "${{ env.tarball }}" \
+            --generate-notes \
+            --title "keanu v${{ steps.version.outputs.version }}"
