@@ -378,7 +378,6 @@ describe("introspect — prompt format when flagged", () => {
     // Try all rotations until something flags, then check format
     const ctx = makeContext({
       turnCount: 20,
-      disagreements: makeStats({ total: 0 }), // triggers 'capture'
       humanWasTerse: true,
       avgOutputLength: 800, // triggers 'role_mismatch' and 'ladder'
       recentBullshit: [
