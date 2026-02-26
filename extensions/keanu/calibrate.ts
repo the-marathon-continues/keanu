@@ -184,3 +184,22 @@ export function checkCalibration(
 export function formatCalibration(reading: CalibrationReading): string | null {
   return reading.prompt;
 }
+
+/**
+ * Store triggered claims in the ledger for cross-session tracking.
+ * Called after checkCalibration when triggered = true.
+ * Confidence defaults to 3 (middle) since we can't know true confidence from regex.
+ */
+export function trackCalibrationClaims(
+  reading: CalibrationReading,
+  sessionId: string,
+  trackClaim: (text: string, confidence: number, session: string) => void,
+): void {
+  if (!reading.triggered || reading.claims.length === 0) return;
+  // Default confidence: recommendations get 3, external state gets 2, absolutes get 4
+  const confidence =
+    reading.reason === "external_state" ? 2 : reading.reason === "absolute_language" ? 4 : 3;
+  for (const claim of reading.claims.slice(0, 3)) {
+    trackClaim(claim, confidence, sessionId);
+  }
+}

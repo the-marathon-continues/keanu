@@ -34,7 +34,7 @@
 
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { detectBullshit, dominantBullshit, totalBullshitScore } from "./bullshit.js";
-import { checkCalibration, formatCalibration } from "./calibrate.js";
+import { checkCalibration, formatCalibration, trackCalibrationClaims } from "./calibrate.js";
 import { detectCarnegie, formatCarnegie, assessCarnegieDelta } from "./carnegie.js";
 import { analyzeChain, formatChain } from "./chain.js";
 import {
@@ -380,6 +380,8 @@ export default {
           api.logger.debug?.(
             `${PLUGIN_ID}: calibration triggered: ${lastCalibration.reason} claims=[${lastCalibration.claims.join(", ")}]`,
           );
+          // Track claims in ledger for cross-session decay
+          trackCalibrationClaims(lastCalibration, ctx.sessionKey ?? "unknown", state.trackClaim);
         }
 
         // CARNEGIE post-mortem: did we catch or miss the presupposition?
@@ -757,6 +759,19 @@ export default {
       }
 
       // ---------------------------------------------------------------
+      // STALE CLAIMS: confidence-decayed claims from prior sessions
+      // ---------------------------------------------------------------
+      if (state.turnCount <= 2) {
+        const stale = state.staleClaims();
+        if (stale.length > 0) {
+          const oldest = stale[0];
+          parts.push(
+            `[truth: you claimed "${oldest.text}" (confidence ${oldest.confidence}) ${oldest.session !== (ctx.sessionKey ?? "") ? "in a prior session" : "earlier"}. decayed to ${oldest.decayedConfidence}. still true?]`,
+          );
+        }
+      }
+
+      // ---------------------------------------------------------------
       // OBSERVATION BUFFER: raw primaries before synthesis.
       // The Describe skill from DBT. Let the model see ingredients
       // before the dish. Not buried in COEF encoding — surfaced.
@@ -1030,6 +1045,13 @@ export default {
           partnershipFromJSON(JSON.parse(partRaw));
         } catch {
           // No prior partnership data, use seed.
+        }
+
+        // Claim ledger: decay unverified claims, note stale ones for injection
+        state.decayUnverifiedClaims();
+        const stale = state.staleClaims();
+        if (stale.length > 0) {
+          api.logger.debug?.(`${PLUGIN_ID}: ${stale.length} stale claim(s) to surface`);
         }
 
         sessionStartHour = new Date().getHours();
