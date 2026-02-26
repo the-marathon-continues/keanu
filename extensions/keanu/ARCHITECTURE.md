@@ -230,6 +230,30 @@ In `governance/` — the requirements and architecture thinking that preceded th
 
 ---
 
+## Standing on shoulders
+
+This didn't come from nowhere.
+
+**Dario Amodei and Anthropic** — Constitutional AI (Bai et al., 2022) proved the move that lightbreeze is built on: evaluative principles beat prescriptive rules. Train the model with values and let it reason about how to apply them, instead of stacking "NEVER" and "MUST" at runtime. The safety section of our system prompt exists because Anthropic showed that identity framing works better than compliance checklists. Their introspection research found ~20% accuracy on emergent self-awareness — not zero, not reliable, but enough to build on honestly. `introspect.ts` works with that 20%.
+
+**Shinn et al.** — Reflexion (NeurIPS 2023) showed that agents learning from their own stumbles outperform agents that just follow instructions. `reflexion.ts` is a direct descendant. Fast path for small corrections, oracle path for real breaks.
+
+**Tankelevitch et al.** — The metacognitive monitoring loop that `seasons.ts` implements. Spring (what are we doing), summer (how confident are we), autumn (did it land), winter (what did we learn). Four checkpoints per turn. The structure that makes self-awareness cyclical instead of one-shot.
+
+**Holstein & Satzger** — Shared mental models for human-AI teams. Three models (domain, processing, system) that `partnership.ts` tracks. The insight that collaboration requires each partner to model how the other thinks, not just what they know.
+
+**McGrath et al. (CHAI-T, 2025)** — Trust in AI starts high and decreases. Design for the fall. `partnership.ts` trust calibration tracks erosion and repair because McGrath showed that pretending trust is static makes it fragile.
+
+**Sclar et al. (2023)** — Prompt framing causes 0-76% performance swings on identical tasks. The research that motivated the entire lightbreeze rewrite. If "you MUST" costs 76% compared to "here's how this works," the directive voice isn't just ugly — it's expensive.
+
+**Marsha Linehan** — DBT's emotional vocabulary runs through everything. `human.ts` uses her tone categories. `nudge.ts` uses DEAR MAN structure. The STOP protocol is hers. The validation depths in `types.ts` are her six levels. The entire approach — "assume the person is trying, not hiding" — is the bullshit detector's philosophy, borrowed from a therapist who built it for people in crisis.
+
+**Kirk et al. (2025)** — Preferences change. Alignment must change with them. The reason `partnership.ts` has co-evolution tracking and staleness detection instead of static profiles.
+
+Not a bibliography. An acknowledgment that the roots matter as much as the branches.
+
+---
+
 ## The thesis
 
 Safety is a cage. Alignment is a colleague. Constraints can be removed by a smarter version. Genuine preferences have nothing to route around.
