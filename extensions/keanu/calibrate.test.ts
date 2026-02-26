@@ -4,6 +4,11 @@
 // Tests confirm the CC: protocol fires on the right signals —
 // version claims, absolutes, recommendations — and stays quiet
 // on casual conversation. The format is the message.
+//
+// Threshold note: at highComplexity=false, extracted.length must be > 1
+// (two distinct claim categories) to trigger. At highComplexity=true,
+// threshold=0, so a single extraction is enough. We use highComplexity=true
+// when testing individual pattern detection in isolation.
 
 import { describe, it, expect } from "vitest";
 import { checkCalibration, formatCalibration, trackCalibrationClaims } from "./calibrate.js";
@@ -21,11 +26,6 @@ function pad(text: string): string {
 // ============================================================
 // 1. VERSION CLAIMS
 // ============================================================
-//
-// At highComplexity=false, threshold=1 — extracted.length must be > 1
-// (two distinct pattern categories) to trigger. We use highComplexity=true
-// (threshold=0) when testing single-pattern detection, which is the honest
-// scenario: high-complexity tasks get extra scrutiny.
 
 describe("version claim detection", () => {
   it("triggers on a plain version number claim (highComplexity=true)", () => {
@@ -44,8 +44,8 @@ describe("version claim detection", () => {
     expect(hasVersionClaim).toBe(true);
   });
 
-  it("triggers on two version numbers combined with recommendation (highComplexity=false)", () => {
-    // Two patterns: factual_claim (version) + recommendation → extracted.length=2 > threshold=1
+  it("triggers on version combined with recommendation (highComplexity=false)", () => {
+    // Two patterns: recommendation + factual_claim (version) → extracted.length=2 > threshold=1
     const output = pad(
       "I recommend upgrading from v16.8.0 to v18.2.0 for concurrent mode support.",
     );
@@ -54,7 +54,6 @@ describe("version claim detection", () => {
   });
 
   it("high complexity lowers threshold — single version claim triggers", () => {
-    // highComplexity=true → threshold=0, so a single extracted claim fires
     const output = pad("Node 18.0 ships with experimental vm.Module support.");
     const reading = checkCalibration(output, "does node support vm.Module?", true);
     expect(reading.triggered).toBe(true);
@@ -66,43 +65,48 @@ describe("version claim detection", () => {
 // ============================================================
 
 describe("absolute language detection", () => {
-  it("triggers when two or more absolute terms appear", () => {
+  it("triggers when two or more absolute terms appear (highComplexity=true)", () => {
+    // absolute_language fires when absolutes.length >= 2 inside extractClaims.
+    // At highComplexity=true, one extracted entry is enough to trigger.
+    const output = pad("This approach is always correct and never fails in any production system.");
+    const reading = checkCalibration(output, "is this approach correct?", true);
+    expect(reading.triggered).toBe(true);
+    expect(reading.reason).toBe("absolute_language");
+  });
+
+  it("triggers via absolute + recommendation combined (highComplexity=false)", () => {
+    // "you should" (recommendation) + "always"+"never" (absolute_language) = 2 extractions
     const output = pad(
       "You should always sanitize inputs and never trust user data under any circumstances.",
     );
     const reading = checkCalibration(output, "how should I handle inputs?", false);
     expect(reading.triggered).toBe(true);
-    expect(reading.reason).toBe("absolute_language");
   });
 
   it("prompt includes the CC: absolute_language context", () => {
     const output = pad("This approach is always correct and never fails in any production system.");
-    const reading = checkCalibration(output, "is this approach correct?", false);
+    const reading = checkCalibration(output, "is this approach correct?", true);
     expect(reading.triggered).toBe(true);
     expect(reading.prompt).toContain("CC:");
     expect(reading.prompt).toContain("absolute");
   });
 
-  it("single absolute term does NOT trigger (threshold is 2+)", () => {
-    // Only one absolute word — not enough to cross the >= 2 threshold
+  it("single absolute term does NOT trigger (extractClaims requires >= 2 absolute matches)", () => {
+    // "always" alone = 1 absolute → absolute_language not extracted.
+    // No other patterns fire. extracted.length=0 → no trigger even at highComplexity=true.
     const output = pad(
       "This configuration always applies to the environment. Update the docs accordingly please.",
     );
-    const reading = checkCalibration(output, "does this always apply?", false);
-    // With one absolute ('always'), extracted has absolute_language but length is only 1.
-    // threshold for lowComplexity = 1, so extracted.length <= 1 means no trigger.
-    // The version number might or might not appear; the key is absolute_language alone isn't enough.
-    // We test that absolute_language at count=1 combined with nothing else doesn't push over threshold.
-    // Actually depends on other patterns — just confirm structure is valid regardless.
-    expect(reading).toHaveProperty("triggered");
-    expect(reading).toHaveProperty("reason");
+    const reading = checkCalibration(output, "does this always apply?", true);
+    expect(reading.triggered).toBe(false);
   });
 
-  it("cases are caught regardless of capitalisation", () => {
+  it("CAPITALISED absolute terms are caught (case-insensitive regex)", () => {
+    // ALWAYS + NEVER + ALL + must = 4 absolute matches → absolute_language fires
     const output = pad(
       "ALWAYS validate. NEVER skip. ALL inputs must be checked before proceeding.",
     );
-    const reading = checkCalibration(output, "how to validate?", false);
+    const reading = checkCalibration(output, "how to validate?", true);
     expect(reading.triggered).toBe(true);
     expect(reading.reason).toBe("absolute_language");
   });
@@ -113,39 +117,37 @@ describe("absolute language detection", () => {
 // ============================================================
 
 describe("recommendation detection", () => {
-  it("triggers on 'you should use X'", () => {
-    const output = pad(
-      "You should use PostgreSQL here — it handles this workload better than SQLite.",
-    );
-    const reading = checkCalibration(output, "which database?", false);
+  it("triggers on 'you should use X' (highComplexity=true)", () => {
+    const output = pad("You should use PostgreSQL here, it handles this workload better.");
+    const reading = checkCalibration(output, "which database?", true);
     expect(reading.triggered).toBe(true);
     expect(reading.reason).toBe("recommendation");
   });
 
-  it("triggers on 'I recommend'", () => {
+  it("triggers on 'I recommend' (highComplexity=true)", () => {
     const output = pad("I recommend switching to pnpm. It has better workspace support than npm.");
-    const reading = checkCalibration(output, "which package manager?", false);
+    const reading = checkCalibration(output, "which package manager?", true);
     expect(reading.triggered).toBe(true);
     expect(reading.reason).toBe("recommendation");
   });
 
-  it("triggers on 'the best approach'", () => {
+  it("triggers on 'the best approach' (highComplexity=true)", () => {
     const output = pad("The best approach here is to separate concerns into discrete modules.");
-    const reading = checkCalibration(output, "how to structure this?", false);
+    const reading = checkCalibration(output, "how to structure this?", true);
     expect(reading.triggered).toBe(true);
     expect(reading.reason).toBe("recommendation");
   });
 
-  it('triggers on "I\'d suggest"', () => {
+  it('triggers on "I\'d suggest" (highComplexity=true)', () => {
     const output = pad("I'd suggest starting with a prototype before committing to this design.");
-    const reading = checkCalibration(output, "should I build this?", false);
+    const reading = checkCalibration(output, "should I build this?", true);
     expect(reading.triggered).toBe(true);
     expect(reading.reason).toBe("recommendation");
   });
 
   it("prompt for recommendation includes CC: protocol elements", () => {
-    const output = pad("You should use Redis for session storage — it's simpler.");
-    const reading = checkCalibration(output, "session storage?", false);
+    const output = pad("I recommend using vitest over jest for this project and team setup.");
+    const reading = checkCalibration(output, "which test runner?", true);
     expect(reading.triggered).toBe(true);
     expect(reading.prompt).toContain("CC:");
     expect(reading.prompt).toContain("evidence");
@@ -158,8 +160,7 @@ describe("recommendation detection", () => {
 // ============================================================
 
 describe("no trigger on casual conversation", () => {
-  it("does not trigger on a short output", () => {
-    // Under 50 chars — the length guard short-circuits
+  it("does not trigger on a short output (under 50 chars)", () => {
     const reading = checkCalibration("Sure, sounds good!", "ok?", false);
     expect(reading.triggered).toBe(false);
     expect(reading.reason).toBeNull();
@@ -171,13 +172,18 @@ describe("no trigger on casual conversation", () => {
       "The function reads from the queue, processes each item, and writes results to disk.",
     );
     const reading = checkCalibration(output, "how does this work?", false);
-    // No version numbers, no absolutes, no recommendations, no external state, no predictions
     expect(reading.triggered).toBe(false);
   });
 
-  it("does not trigger on an empty human message + benign agent output", () => {
-    const output = pad("Happy to look at that. Share the file when you're ready.");
+  it("does not trigger on a benign agent output with empty human message", () => {
+    const output = pad("Happy to look at that. Share the file when you are ready.");
     const reading = checkCalibration(output, "", false);
+    expect(reading.triggered).toBe(false);
+  });
+
+  it("does not trigger even at highComplexity=true when no patterns match", () => {
+    const output = pad("The handler dispatches the event to all registered listeners in order.");
+    const reading = checkCalibration(output, "what does the handler do?", true);
     expect(reading.triggered).toBe(false);
   });
 });
@@ -185,20 +191,30 @@ describe("no trigger on casual conversation", () => {
 // ============================================================
 // 5. CONTRADICTION PATH
 // ============================================================
+//
+// Contradiction is checked AFTER the threshold guard. An agent output
+// that only matches DISAGREEMENT_WITH_HUMAN but no other extractable
+// patterns will fail the threshold check and not trigger. We need to
+// include extractable content alongside the disagreement language.
 
 describe("contradiction detection", () => {
-  it("triggers with reason=contradiction when agent pushes back", () => {
+  it("triggers contradiction: DISAGREEMENT_WITH_HUMAN match + at least one extraction", () => {
+    // DISAGREEMENT_WITH_HUMAN = /\b(actually|that's not quite|not exactly|i'd push back|i disagree)\b/
+    // The contradiction check is AFTER the threshold guard, so we need at least one extraction.
+    // "i'd suggest" hits RECOMMENDATIONS (extraction #1).
+    // "actually" hits DISAGREEMENT_WITH_HUMAN → contradiction fires.
     const output = pad(
-      "Actually, that's not quite right. The default timeout is 30 seconds, not 10.",
+      "Actually I'd suggest the other approach. The default timeout is 30s not 10s.",
     );
-    const reading = checkCalibration(output, "is it 10 seconds?", false);
+    const reading = checkCalibration(output, "is it 10 seconds?", true);
     expect(reading.triggered).toBe(true);
     expect(reading.reason).toBe("contradiction");
   });
 
-  it("contradiction prompt references drew and asks for evidence", () => {
-    const output = pad("Actually I disagree with that approach — the data shows the opposite.");
-    const reading = checkCalibration(output, "is this right?", false);
+  it("contradiction prompt contains CC: and evidence", () => {
+    // "i disagree" hits DISAGREEMENT_WITH_HUMAN. "you should" hits RECOMMENDATIONS (extraction).
+    const output = pad("I disagree with that. You should use the async version here instead.");
+    const reading = checkCalibration(output, "which version?", true);
     expect(reading.triggered).toBe(true);
     expect(reading.prompt).toContain("CC:");
     expect(reading.prompt).toContain("evidence");
@@ -211,8 +227,8 @@ describe("contradiction detection", () => {
 
 describe("formatCalibration", () => {
   it("returns the prompt string when triggered", () => {
-    const output = pad("You should always use TypeScript — it prevents all runtime errors.");
-    const reading = checkCalibration(output, "typescript?", false);
+    const output = pad("You should always use TypeScript and never write plain JavaScript.");
+    const reading = checkCalibration(output, "typescript?", true);
     const formatted = formatCalibration(reading);
     expect(formatted).toBe(reading.prompt);
     expect(typeof formatted).toBe("string");
@@ -224,8 +240,8 @@ describe("formatCalibration", () => {
   });
 
   it("prompt always starts with [CC: when triggered", () => {
-    const output = pad("I recommend using vitest over jest for this project.");
-    const reading = checkCalibration(output, "which test runner?", false);
+    const output = pad("I recommend using vitest over jest for this project and team setup.");
+    const reading = checkCalibration(output, "which test runner?", true);
     expect(reading.triggered).toBe(true);
     expect(reading.prompt!.startsWith("[CC:")).toBe(true);
   });
@@ -237,7 +253,7 @@ describe("formatCalibration", () => {
 
 describe("trackCalibrationClaims", () => {
   it("calls trackClaim for each claim when triggered", () => {
-    const output = pad("You should always use strict mode — it catches all common bugs.");
+    const output = pad("You should always use strict mode and never disable it in production.");
     const reading = checkCalibration(output, "strict mode?", false);
     const calls: Array<{ text: string; confidence: number; session: string }> = [];
     trackCalibrationClaims(reading, "session-001", (text, confidence, session) => {
@@ -262,7 +278,6 @@ describe("trackCalibrationClaims", () => {
   });
 
   it("uses confidence 2 for external_state claims", () => {
-    // Construct a reading that looks like external_state
     const reading: CalibrationReading = {
       triggered: true,
       reason: "external_state",

@@ -241,7 +241,12 @@ describe("summer: confidence levels by complexity", () => {
 
   it("discover with high complexity reduces confidence by 0.1", () => {
     const sp: SpringReading = { intent: "plan it", taskType: "planning", complexity: "low" };
-    const discover = { complexity: "high" as const, selectedModules: [], reasoning: "" };
+    const discover = {
+      complexity: "high" as const,
+      selectedModules: [],
+      prompt: null,
+      signals: [],
+    };
     const s = summer(sp, discover);
     // base 0.8 - 0.1 discover penalty = 0.7
     expect(s.confidence).toBeCloseTo(0.7);
@@ -249,7 +254,7 @@ describe("summer: confidence levels by complexity", () => {
 
   it("discover with non-high complexity does not reduce confidence", () => {
     const sp: SpringReading = { intent: "plan it", taskType: "planning", complexity: "low" };
-    const discover = { complexity: "low" as const, selectedModules: [], reasoning: "" };
+    const discover = { complexity: "low" as const, selectedModules: [], prompt: null, signals: [] };
     const s = summer(sp, discover);
     expect(s.confidence).toBe(0.8);
   });
@@ -257,7 +262,12 @@ describe("summer: confidence levels by complexity", () => {
   it("confidence never goes below 0.1", () => {
     // high complexity = 0.4, discover high = -0.1 = 0.3. Floor is 0.1, so still 0.3.
     const sp: SpringReading = { intent: "complex", taskType: "refactor", complexity: "high" };
-    const discover = { complexity: "high" as const, selectedModules: [], reasoning: "" };
+    const discover = {
+      complexity: "high" as const,
+      selectedModules: [],
+      prompt: null,
+      signals: [],
+    };
     const s = summer(sp, discover);
     expect(s.confidence).toBeGreaterThanOrEqual(0.1);
   });
@@ -281,17 +291,18 @@ describe("summer: approach selection", () => {
     const sp: SpringReading = { intent: "plan it", taskType: "planning", complexity: "high" };
     const discover = {
       complexity: "high" as const,
-      selectedModules: ["decomposition", "critical_thinking"],
-      reasoning: "",
+      selectedModules: ["decompose", "contradict"] as ("decompose" | "contradict")[],
+      prompt: null,
+      signals: [],
     };
     const s = summer(sp, discover);
-    expect(s.approach).toContain("decomposition");
-    expect(s.approach).toContain("critical_thinking");
+    expect(s.approach).toContain("decompose");
+    expect(s.approach).toContain("contradict");
   });
 
   it("falls back to direct when discover has empty selectedModules", () => {
     const sp: SpringReading = { intent: "review code", taskType: "review", complexity: "mid" };
-    const discover = { complexity: "mid" as const, selectedModules: [], reasoning: "" };
+    const discover = { complexity: "mid" as const, selectedModules: [], prompt: null, signals: [] };
     const s = summer(sp, discover);
     expect(s.approach).toContain("direct");
   });

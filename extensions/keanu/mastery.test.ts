@@ -66,10 +66,13 @@ describe("detectCorrection — pattern matching", () => {
     expect(result!.category).toBe("misread_intent");
   });
 
-  it("returns a Correction on explicit negation 'no,'", () => {
-    const result = detectCorrection("No, that's the wrong file.", longOutput, "neutral");
+  it("returns a Correction on explicit negation 'no,' (long enough to skip short-msg branch)", () => {
+    // Short messages starting with "no" get caught by the short-frustrated branch as over_explain.
+    // Use a message long enough (>= 30 chars) to fall through to the pattern loop.
+    const msg = "No, that is definitely the wrong file to be editing right now.";
+    expect(msg.length).toBeGreaterThanOrEqual(30);
+    const result = detectCorrection(msg, longOutput, "neutral");
     expect(result).not.toBeNull();
-    // "no," matches the first CORRECTION_PATTERNS entry
     expect(result!.category).toBe("misread_intent");
   });
 
