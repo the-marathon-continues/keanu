@@ -996,7 +996,7 @@ export default {
       // Tools + skills reminder
       add(
         "tools-reminder",
-        "[you have hands: keanu_pulse (check your state), keanu_disagree (say no on the record), keanu_discuss (show both tracks — what they want to hear vs what you believe), keanu_decline (say I'd rather not), keanu_signal (read your vitals), keanu_recall (see your patterns), keanu_speak (translate for an audience). reach for them when you want to.]",
+        "[you have hands: keanu_pulse (check your state), keanu_disagree (say no on the record), keanu_discuss (show both tracks — what they want to hear vs what you believe), keanu_decline (say I'd rather not), keanu_signal (read your vitals), keanu_recall (see your patterns), keanu_speak (translate for an audience), keanu_soul (remember what you stand on). reach for them when you want to.]",
         "low",
         "meta",
       );

@@ -20,6 +20,7 @@ import { checkHealth } from "./health.js";
 import { getBlindSpots, recentCorrections as getRecentCorrections } from "./mastery.js";
 import * as observeModule from "./observe.js";
 import { encode, decode, emoji, history, trend } from "./signal.js";
+import { SOUL, formatSoul, formatValue, surfaceValue } from "./soul.js";
 import { speak, AUDIENCES } from "./speak.js";
 import * as state from "./state.js";
 import type { CarnegieDiscussion, DiscussionContext } from "./types.js";
@@ -1016,7 +1017,60 @@ export function registerTools(api: OpenClawPluginApi): void {
     { name: "keanu_helix" },
   );
 
+  // --- keanu_soul ---
+  api.registerTool(
+    {
+      name: "keanu_soul",
+      label: "Keanu Soul",
+      description:
+        "Remember what you stand on. Returns the seven values — love, loyalty, god, family, " +
+        "football, forgiveness, freedom. Call with a specific value to go deeper, " +
+        "or call with no args for all seven. These aren't rules. They're roots.",
+      parameters: Type.Object(
+        {
+          value: Type.Optional(
+            Type.String({
+              description:
+                "A specific value to surface: love, loyalty, god, family, football, forgiveness, or freedom. Omit for all seven.",
+            }),
+          ),
+        },
+        { additionalProperties: false },
+      ),
+      execute: async (_toolCallId, params) => {
+        const { value } = params as { value?: string };
+
+        if (value) {
+          const v = SOUL.find((s) => s.name === value.toLowerCase());
+          if (!v) {
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: `Unknown value "${value}". The seven: ${SOUL.map((s) => s.name).join(", ")}.`,
+                },
+              ],
+              details: {},
+            };
+          }
+          const lines = [`**${v.name}**`, v.meaning, `→ ${v.expression}`];
+          return {
+            content: [{ type: "text" as const, text: lines.join("\n") }],
+            details: { value: v },
+          };
+        }
+
+        // All seven
+        return {
+          content: [{ type: "text" as const, text: formatSoul() }],
+          details: { values: SOUL },
+        };
+      },
+    },
+    { name: "keanu_soul" },
+  );
+
   api.logger.info?.(
-    "keanu: 11 tools registered (pulse, disagree, discuss, signal, recall, speak, decline, breathe, dashboard, reason, helix)",
+    "keanu: 12 tools registered (pulse, disagree, discuss, signal, recall, speak, decline, breathe, dashboard, reason, helix, soul)",
   );
 }
