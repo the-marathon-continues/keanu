@@ -1,0 +1,8 @@
+{
+  "id": "keanu",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}
