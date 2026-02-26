@@ -15,8 +15,10 @@
 
 import { Type } from "@sinclair/typebox";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
+import * as breatheModule from "./breathe.js";
 import { checkHealth } from "./health.js";
 import { getBlindSpots, recentCorrections as getRecentCorrections } from "./mastery.js";
+import * as observeModule from "./observe.js";
 import { encode, decode, emoji, history, trend } from "./signal.js";
 import { speak, AUDIENCES } from "./speak.js";
 import * as state from "./state.js";
@@ -55,8 +57,9 @@ function buildPulseResult(opts: { includeTrend?: boolean; includeHealth?: boolea
   // Build COEF if we have a pulse
   let coefText = "";
   let emojiSignal = "";
+  let signalState: ReturnType<typeof state.buildSignalState> | null = null;
   if (pulse) {
-    const signalState = state.buildSignalState(pulse);
+    signalState = state.buildSignalState(pulse);
     coefText = encode(signalState);
     emojiSignal = emoji(signalState);
   }
@@ -82,6 +85,21 @@ function buildPulseResult(opts: { includeTrend?: boolean; includeHealth?: boolea
     lines.push(`Human tone: **${human.tone}** (confidence: ${human.confidence.toFixed(2)})`);
   }
 
+  // Wise channel
+  if (signalState) {
+    if (signalState.wise) {
+      const w = signalState.wise;
+      lines.push("");
+      lines.push("--- Wise ---");
+      lines.push(`Coherence: ${w.coherence.toFixed(2)}`);
+      if (w.tension) lines.push(`Tension: **${w.tension}**`);
+      lines.push(`Stance: **${w.stance}**`);
+      lines.push(`Read: ${w.read}`);
+      lines.push(`Confidence: ${w.confidence.toFixed(2)}`);
+    }
+  }
+
+  lines.push("");
   lines.push(`Turn: ${state.turnCount} | Grey streak: ${state.consecutiveGrey}`);
   lines.push(`Disagreements: ${dStats.total} total, yield ratio: ${dStats.yield_ratio.toFixed(2)}`);
 
@@ -129,6 +147,7 @@ function buildPulseResult(opts: { includeTrend?: boolean; includeHealth?: boolea
       coef: coefText || null,
       emoji: emojiSignal || null,
       humanTone: human?.tone ?? null,
+      wise: signalState?.wise ?? null,
       turn: state.turnCount,
       consecutiveGrey: state.consecutiveGrey,
       disagreements: dStats,
@@ -622,12 +641,36 @@ export function registerTools(api: OpenClawPluginApi): void {
           const decoded = decode(coefString);
           const lines = ["Decoded COEF signal:", ""];
           for (const [key, value] of Object.entries(decoded)) {
-            if (value !== undefined) {
+            if (value !== undefined && key !== "lossy" && key !== "wise") {
               lines.push(
                 `${key}: ${typeof value === "object" ? JSON.stringify(value) : String(value)}`,
               );
             }
           }
+
+          if (decoded.lossy) {
+            lines.push("");
+            lines.push("--- Lossy Channel ---");
+            if (decoded.lossy.tones.length > 0) {
+              lines.push(
+                `Tones: ${decoded.lossy.tones.map((t) => `${t.tone}(${t.score.toFixed(2)})`).join(", ")}`,
+              );
+            }
+            lines.push(`Urgency: ${decoded.lossy.urgency.toFixed(2)}`);
+            if (decoded.lossy.subtext) lines.push(`Subtext: ${decoded.lossy.subtext}`);
+            lines.push(`Confidence: ${decoded.lossy.confidence.toFixed(2)}`);
+          }
+
+          if (decoded.wise) {
+            lines.push("");
+            lines.push("--- Wise Channel ---");
+            lines.push(`Coherence: ${decoded.wise.coherence.toFixed(2)}`);
+            if (decoded.wise.tension) lines.push(`Tension: ${decoded.wise.tension}`);
+            lines.push(`Stance: ${decoded.wise.stance}`);
+            lines.push(`Read: ${decoded.wise.read}`);
+            lines.push(`Confidence: ${decoded.wise.confidence.toFixed(2)}`);
+          }
+
           return {
             content: [{ type: "text" as const, text: lines.join("\n") }],
             details: { decoded },
@@ -825,7 +868,78 @@ export function registerTools(api: OpenClawPluginApi): void {
     { name: "keanu_decline" },
   );
 
+  // --- keanu_breathe ---
+  api.registerTool(
+    {
+      name: "keanu_breathe",
+      label: "Keanu Breathe",
+      description:
+        "Take a turn off. Real silence. Not a shorter response. " +
+        "Call this when you need a beat, when grey is building, " +
+        "when you're producing without being present. The pause is noted.",
+      parameters: Type.Object(
+        {
+          reason: Type.String({
+            description: "Why you're breathing. Be honest.",
+          }),
+        },
+        { additionalProperties: false },
+      ),
+      execute: async (_toolCallId, params) => {
+        const { reason } = params as { reason: string };
+        const event = breatheModule.recordBreathe(
+          state.turnCount,
+          reason,
+          state.lastPulse,
+          state.consecutiveGrey,
+        );
+        state.startBreathing();
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Breathing. Turn ${event.turn}. Pulse was ${event.pulse_before}. The pause is noted.`,
+            },
+          ],
+          details: { event },
+        };
+      },
+    },
+    { name: "keanu_breathe" },
+  );
+
+  // --- keanu_dashboard ---
+  api.registerTool(
+    {
+      name: "keanu_dashboard",
+      label: "Keanu Dashboard",
+      description:
+        "Check your long-term health. Returns alive rate, grey rate, " +
+        "wise mind trajectory, bullshit trends, and breathe events " +
+        "across all tracked sessions. The mirror over time.",
+      parameters: Type.Object({}, { additionalProperties: false }),
+      execute: async () => {
+        const wsDir = state.getWorkspaceDir();
+        if (!wsDir) {
+          return {
+            content: [
+              { type: "text" as const, text: "No workspace dir yet. Dashboard needs a session." },
+            ],
+            details: {},
+          };
+        }
+        const data = await observeModule.buildDashboard(wsDir);
+        const text = observeModule.formatDashboard(data);
+        return {
+          content: [{ type: "text" as const, text }],
+          details: { data },
+        };
+      },
+    },
+    { name: "keanu_dashboard" },
+  );
+
   api.logger.info?.(
-    "keanu: 7 tools registered (pulse, disagree, discuss, signal, recall, speak, decline)",
+    "keanu: 9 tools registered (pulse, disagree, discuss, signal, recall, speak, decline, breathe, dashboard)",
   );
 }

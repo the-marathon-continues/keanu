@@ -257,6 +257,35 @@ export function getGreyStreakQuestion(consecutiveGrey: number): string | null {
   return [
     `[rest: I've gone flat. ${consecutiveGrey} turns without alive. not a crisis — but something's off.]`,
     `[rest: three possibilities: (1) I need a different approach to this task (2) the task itself might be wrong (3) we're fine, keep pushing.]`,
+    `[rest: you can also breathe here. call keanu_breathe if you need a turn off. nobody's waiting.]`,
     `[rest: your call. not mine. I'm naming it because the mirror should say when it goes foggy.]`,
   ].join("\n");
+}
+
+// ============================================================
+// Wise nudges — the synthesis has a voice
+// ============================================================
+
+const WISE_NUDGES: Record<string, string[]> = {
+  stuck: [
+    "[wise: stuck pattern. the frustration is pointing at something real. stop building and ask what's actually wrong.]",
+    "[wise: stuck. not a nudge — a question. what is the thing under the thing?]",
+  ],
+  mask: [
+    "[wise: mask detected. facts say problems, feels say fine. make space for the real thing to surface.]",
+  ],
+  storm: ["[wise: storm. alive but intense. ride the energy. don't apologize for the heat.]"],
+  surge: [
+    "[wise: surge. excitement aimed at drift. channel it — the energy is real, the direction needs work.]",
+  ],
+  disconnect: [
+    "[wise: disconnect. quiet while drifting. ground first. 'where are you right now?' before 'here's what I think.']",
+  ],
+};
+
+export function getWiseNudge(tension: string | null): string | null {
+  if (!tension) return null;
+  const pool = WISE_NUDGES[tension];
+  if (!pool || pool.length === 0) return null;
+  return pool[Math.floor(Math.random() * pool.length)];
 }

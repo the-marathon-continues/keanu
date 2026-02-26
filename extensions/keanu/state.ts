@@ -241,6 +241,20 @@ export function bullshitEventRate(): number {
   return recentEvents / recentTurns;
 }
 
+/** Top N bullshit types by frequency across all events. */
+export function recentBullshitTypes(n: number): string[] {
+  const freq: Record<string, number> = {};
+  for (const event of _bullshitEvents) {
+    for (const t of event.types) {
+      freq[t] = (freq[t] ?? 0) + 1;
+    }
+  }
+  return Object.entries(freq)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, n)
+    .map(([type]) => type);
+}
+
 /** Recent bullshit events — the agent gets to see its own patterns. */
 export function recentBullshitEvents(
   n = 20,
@@ -601,6 +615,24 @@ export function buildSignalState(pulse: PulseReading): SignalState {
 
   const dominant = dominantBullshit(bsReadings);
 
+  // --- Lossy channel: emotion, urgency, subtext ---
+  const lossy =
+    human?.tones && human.tones.length > 0
+      ? {
+          tones: human.tones.map((t) => ({ tone: t.tone, score: t.score })),
+          urgency: computeUrgency(human),
+          subtext: human.tones[0]?.meaning,
+          confidence: human.confidence,
+        }
+      : undefined;
+
+  // --- Wise channel: the synthesis ---
+  // Takes lossless (pulse, grey, bullshit) + lossy (tones, urgency) and asks:
+  // what does this mean when you hold both together?
+  const wise = lossy
+    ? synthesize(pulse.state, consecutiveGrey, dominant?.type ?? null, lossy, pulse.wise_mind)
+    : undefined;
+
   return {
     pulse: pulse.state,
     wiseMind: pulse.wise_mind,
@@ -613,7 +645,216 @@ export function buildSignalState(pulse: PulseReading): SignalState {
     turn: turnCount,
     consecutiveGrey,
     alerts: alerts.length > 0 ? alerts : undefined,
+    lossy,
+    wise,
   };
+}
+
+// ============================================================
+// Wise Channel: The Synthesis Engine
+// ============================================================
+// Not a formula. A reading. What do the facts + feels mean together?
+// The barcode tells you WHAT. The emotion tells you HOW THEY FEEL.
+// The wise channel tells you WHY IT MATTERS and WHAT TO DO.
+
+type WiseTension = "mask" | "storm" | "stuck" | "disconnect" | "surge" | null;
+type WiseStance = "hold" | "match" | "slow" | "redirect" | "confront" | "ground";
+
+interface WiseChannel {
+  coherence: number;
+  tension: WiseTension;
+  stance: WiseStance;
+  read: string;
+  confidence: number;
+}
+
+interface LossyInput {
+  tones: Array<{ tone: string; score: number }>;
+  urgency: number;
+  subtext?: string;
+  confidence: number;
+}
+
+function synthesize(
+  pulse: "alive" | "grey" | "black",
+  greyStreak: number,
+  bullshitType: string | null,
+  lossy: LossyInput,
+  wiseMind: number,
+): WiseChannel {
+  const dominantTone = lossy.tones[0]?.tone ?? "neutral";
+  const dominantScore = lossy.tones[0]?.score ?? 0;
+  const hasSecondary = lossy.tones.length > 1;
+  const secondaryTone = lossy.tones[1]?.tone;
+
+  // --- Coherence: do facts and feels agree? ---
+  let coherence = 0.5; // baseline
+
+  // Alive + positive emotion = coherent
+  if (pulse === "alive" && (dominantTone === "excited" || dominantTone === "neutral")) {
+    coherence += 0.3;
+  }
+  // Grey/black + frustrated = coherent (they feel what's real)
+  if ((pulse === "grey" || pulse === "black") && dominantTone === "frustrated") {
+    coherence += 0.25;
+  }
+  // Alive + frustrated = slight tension but not incoherent (pushing for better)
+  if (pulse === "alive" && dominantTone === "frustrated") {
+    coherence += 0.1;
+  }
+  // Grey + neutral/excited = incoherent (something's masked)
+  if (pulse === "grey" && (dominantTone === "neutral" || dominantTone === "excited")) {
+    coherence -= 0.25;
+  }
+  // Black + neutral = deeply incoherent (disconnect)
+  if (pulse === "black" && dominantTone === "neutral") {
+    coherence -= 0.35;
+  }
+  // Bullshit + calm = mask
+  if (bullshitType && dominantTone === "neutral") {
+    coherence -= 0.15;
+  }
+  coherence = Math.max(0, Math.min(1, coherence));
+
+  // --- Tension detection ---
+  let tension: WiseTension = null;
+
+  if (pulse !== "alive" && dominantTone === "neutral" && dominantScore < 0.2) {
+    tension = "disconnect"; // facts say problems, feels say nothing. numbing.
+  } else if (
+    pulse !== "alive" &&
+    (dominantTone === "excited" || dominantTone === "neutral") &&
+    lossy.urgency < 0.4
+  ) {
+    tension = "mask"; // facts say grey, feels say fine. performing okayness.
+  } else if (pulse === "alive" && dominantTone === "frustrated" && dominantScore > 0.3) {
+    tension = "storm"; // facts say alive, feels say intense. passion not crisis.
+  } else if (dominantTone === "frustrated" && (greyStreak > 2 || bullshitType === "sycophancy")) {
+    tension = "stuck"; // frustrated + captured/looping. something real is broken.
+  } else if (dominantTone === "excited" && pulse === "grey") {
+    tension = "surge"; // momentum without direction. energy aimed at drift.
+  }
+
+  // --- Stance: what should the system do? ---
+  let stance: WiseStance = "hold";
+
+  if (tension === "storm") {
+    // They're passionate and the system is alive. Ride it.
+    stance = "match";
+  } else if (tension === "stuck") {
+    // Something is genuinely broken. Name it.
+    stance = "confront";
+  } else if (tension === "mask") {
+    // Facts and feels disagree. Slow down, make space for the real thing.
+    stance = "slow";
+  } else if (tension === "disconnect") {
+    // They've gone quiet but the system has problems. Ground.
+    stance = "ground";
+  } else if (tension === "surge") {
+    // Energy is real but aimed at grey output. Channel it.
+    stance = "redirect";
+  } else if (pulse === "alive" && dominantTone === "excited") {
+    stance = "match";
+  } else if (pulse === "alive" && dominantTone === "fatigued") {
+    stance = "slow";
+  } else if (pulse === "grey" && dominantTone === "frustrated") {
+    stance = "confront"; // they feel the grey. acknowledge it.
+  } else if (coherence > 0.7) {
+    stance = "hold"; // aligned. steady.
+  }
+
+  // --- Read: the one-line synthesis ---
+  const read = buildRead(
+    pulse,
+    dominantTone,
+    secondaryTone,
+    tension,
+    bullshitType,
+    greyStreak,
+    lossy.urgency,
+  );
+
+  // --- Meta-confidence: how sure are we about the synthesis? ---
+  // Higher when both channels have strong signals. Lower when either is weak.
+  let confidence = (lossy.confidence + coherence) / 2;
+  if (tension) confidence += 0.1; // tension is a strong signal either way
+  if (wiseMind > 0.5) confidence += 0.05; // balanced state = clearer read
+  confidence = Math.max(0, Math.min(1, confidence));
+
+  return { coherence, tension, stance, read, confidence };
+}
+
+/**
+ * Build the one-line wise read. Not a report. A sentence you'd say to a partner.
+ */
+function buildRead(
+  pulse: string,
+  dominant: string,
+  secondary: string | undefined,
+  tension: WiseTension,
+  bullshit: string | null,
+  greyStreak: number,
+  urgency: number,
+): string {
+  // Tension-based reads take priority — they're the interesting case
+  if (tension === "stuck" && bullshit) {
+    return `they feel the ${bullshit}. ${greyStreak > 2 ? `${greyStreak} turns of it.` : ""} something real is broken. name it.`;
+  }
+  if (tension === "stuck") {
+    return `frustrated and looping. the frustration is pointing at something real. stop and ask what.`;
+  }
+  if (tension === "storm" && secondary) {
+    return `${dominant} on top, ${secondary} underneath. alive but intense. ride it, don't dampen it.`;
+  }
+  if (tension === "storm") {
+    return `intense but alive. the heat is real engagement, not crisis. match it.`;
+  }
+  if (tension === "mask") {
+    return `facts say ${pulse} but they seem fine. something's masked. make space.`;
+  }
+  if (tension === "disconnect") {
+    return `quiet while the system drifts. either numbing or fatigue. ground first, then check in.`;
+  }
+  if (tension === "surge") {
+    return `excited energy aimed at grey output. channel the momentum before it burns on drift.`;
+  }
+
+  // No tension — simpler reads
+  if (pulse === "alive" && dominant === "excited") {
+    return `aligned and building. both channels green. ship.`;
+  }
+  if (pulse === "alive" && dominant === "neutral") {
+    return `steady state. no tension. hold.`;
+  }
+  if (pulse === "grey" && dominant === "frustrated") {
+    return `they feel the grey. frustration is accurate. acknowledge and correct.`;
+  }
+  if (dominant === "fatigued") {
+    return `running low. shorter responses, less pressure, more presence.`;
+  }
+  if (dominant === "confused") {
+    return `lost. ${urgency > 0.5 ? "urgently" : "quietly"} needs a map, not a lecture.`;
+  }
+
+  return `${pulse}/${dominant}. coherent. hold course.`;
+}
+
+/**
+ * Compute urgency from human reading.
+ */
+function computeUrgency(human: {
+  tones: Array<{ tone: string; score: number }>;
+  confidence: number;
+}): number {
+  let urgency = 0.3;
+  for (const t of human.tones) {
+    if (t.tone === "frustrated") urgency += t.score * 0.4;
+    if (t.tone === "confused") urgency += t.score * 0.2;
+    if (t.tone === "excited") urgency += t.score * 0.15;
+    if (t.tone === "looping") urgency += t.score * 0.3;
+    if (t.tone === "fatigued") urgency -= t.score * 0.2;
+  }
+  return Math.max(0, Math.min(1, urgency * human.confidence));
 }
 
 // ============================================================

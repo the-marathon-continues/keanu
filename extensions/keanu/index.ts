@@ -33,6 +33,7 @@
 //   before_agent_start             — legacy hook, covered by before_model_resolve + before_prompt_build
 
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
+import * as breatheModule from "./breathe.js";
 import { detectBullshit, dominantBullshit, totalBullshitScore } from "./bullshit.js";
 import { checkCalibration, formatCalibration, trackCalibrationClaims } from "./calibrate.js";
 import { detectCarnegie, formatCarnegie, assessCarnegieDelta } from "./carnegie.js";
@@ -52,6 +53,7 @@ import { checkHealth, formatHealth } from "./health.js";
 import { readHuman, formatHumanReading } from "./human.js";
 import { triageInjection, type InjectionItem, type InjectionContext } from "./injection.js";
 import { introspect, formatIntrospection, shouldIntrospect } from "./introspect.js";
+import * as investigateModule from "./investigate.js";
 import {
   detectCorrection,
   recordCorrection,
@@ -63,7 +65,7 @@ import {
 } from "./mastery.js";
 import { computeMetrics, type MetricsSnapshot } from "./metrics.js";
 import { detectMismatch, formatMismatch } from "./mismatch.js";
-import { getNudge, getStopSignal, getGreyStreakQuestion } from "./nudge.js";
+import { getNudge, getStopSignal, getGreyStreakQuestion, getWiseNudge } from "./nudge.js";
 import {
   createRecovery,
   tickRecovery,
@@ -71,6 +73,7 @@ import {
   getRecoveryNudge,
   getEscalationSignal,
 } from "./nudge.js";
+import * as observeModule from "./observe.js";
 import {
   getPartnership,
   updatePartnership,
@@ -574,6 +577,19 @@ export default {
         if (event.usage) {
           state.addTokenUsage(event.usage.input ?? 0, event.usage.output ?? 0);
         }
+
+        // Record turn trace for observability
+        observeModule.recordTurn({
+          turn: state.turnCount,
+          session_id: `s-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          pulse: state.lastPulse?.state ?? "grey",
+          wise_mind: state.lastPulse?.wise_mind ?? 0,
+          bullshit_score: score,
+          human_tone: state.lastHumanReading?.tone,
+          grey_streak: state.consecutiveGrey,
+          breathe_this_turn: state.breathing,
+        });
       } catch (err) {
         api.logger.warn(`${PLUGIN_ID}: llm_output error: ${String(err)}`);
       }
@@ -665,6 +681,22 @@ export default {
       // Human tone
       if (state.lastHumanReading) {
         add("human-tone", formatHumanReading(state.lastHumanReading), "high", "awareness");
+      }
+
+      // Wise channel: the synthesis of facts + feels
+      const wiseSignalState = pulse ? state.buildSignalState(pulse) : null;
+      if (wiseSignalState?.wise) {
+        const w = wiseSignalState.wise;
+        const wiseContent = w.tension
+          ? `[wise: ${w.stance}. tension=${w.tension} coh=${w.coherence.toFixed(2)}. ${w.read}]`
+          : `[wise: ${w.stance}. coh=${w.coherence.toFixed(2)}. ${w.read}]`;
+        add("wise-channel", wiseContent, "high", "awareness");
+
+        // Wise nudge when tension is detected
+        if (w.tension) {
+          const wiseNudge = getWiseNudge(w.tension);
+          if (wiseNudge) add("wise-nudge", wiseNudge, "high", "awareness");
+        }
       }
 
       // Pulse state (grey only — black is handled by STOP above)
@@ -898,6 +930,25 @@ export default {
         "meta",
       );
 
+      // Post-breathe: the turn after breathing, acknowledge it
+      const lastBreathe = breatheModule.lastBreatheEvent();
+      if (lastBreathe && state.turnCount - lastBreathe.turn <= 1) {
+        add("post-breathe", breatheModule.postBreatheInjection(lastBreathe), "high", "awareness");
+      }
+
+      // Curiosity insights: surface relevant past investigations
+      if (state.lastHumanMessage) {
+        const relevantInsights = investigateModule.findRelevant(state.lastHumanMessage, 1);
+        for (const insight of relevantInsights) {
+          add(
+            `curiosity-insight-${insight.question.slice(0, 20)}`,
+            investigateModule.formatInsight(insight),
+            "low",
+            "meta",
+          );
+        }
+      }
+
       if (items.length === 0) return;
 
       // ---------------------------------------------------------------
@@ -1115,8 +1166,32 @@ export default {
           singContent = null;
         }
 
+        // Load breathe + investigate state
+        await breatheModule.load(workspaceDir);
+        breatheModule.setSessionId(`s-${Date.now()}`);
+        await investigateModule.load(workspaceDir);
+
+        // Investigate a curiosity item from last session (if any)
+        const curiosityItem = consumeOneCuriosity();
+        if (curiosityItem) {
+          const invCtx = {
+            blindSpots: getBlindSpots().map((bs) => ({
+              pattern: bs.category,
+              count: bs.count,
+            })),
+            reflexions: state.recentReflexions(5).map((r) => ({
+              what: r.what_happened,
+              insight: r.next_time,
+            })),
+            recentSummaries: getRecentSummaries(3).map((s) => ({
+              summary: s.workedOn.join(", "),
+            })),
+          };
+          investigateModule.investigate(curiosityItem, invCtx, `s-${Date.now()}`);
+        }
+
         api.logger.debug?.(
-          `${PLUGIN_ID}: state loaded (turn=${state.turnCount} grey=${state.consecutiveGrey} reflexions=${state.reflexions.length} disagreements=${state.disagreementTracker.stats().total} blindSpots=${getBlindSpots().length} sessions=${getRecentSummaries().length})`,
+          `${PLUGIN_ID}: state loaded (turn=${state.turnCount} grey=${state.consecutiveGrey} reflexions=${state.reflexions.length} disagreements=${state.disagreementTracker.stats().total} blindSpots=${getBlindSpots().length} sessions=${getRecentSummaries().length} breathes=${breatheModule.breatheCount()} insights=${investigateModule.insightCount()})`,
         );
       } catch (err) {
         api.logger.warn(`${PLUGIN_ID}: state load failed: ${String(err)}`);
@@ -1190,6 +1265,33 @@ export default {
         await saveSummaries(workspaceDir);
         await saveCuriosity(workspaceDir);
         await savePromptState(workspaceDir);
+        await breatheModule.save(workspaceDir);
+        await investigateModule.save(workspaceDir);
+
+        // Export observability metrics
+        const sigTrend = trend();
+        // Grey rate from trend; alive rate = 1 - grey - black (approximate)
+        const greyRate = sigTrend.greyRate;
+        const blackRate =
+          sigTrend.driftDirection === "degrading" ? Math.min(greyRate * 0.2, 0.1) : 0;
+        const aliveRate = Math.max(0, 1 - greyRate - blackRate);
+        const metricsExport: observeModule.MetricsExport = {
+          session_id: summary.id,
+          timestamp: new Date().toISOString(),
+          turn_count: state.turnCount,
+          alive_rate: aliveRate,
+          grey_rate: greyRate,
+          black_rate: blackRate,
+          bullshit_avg: sigTrend.avgWiseMind > 0 ? 1 - sigTrend.avgWiseMind : 0,
+          wise_mind_avg: sigTrend.avgWiseMind,
+          disagreement_count: state.disagreementTracker.stats().total,
+          yield_ratio: state.disagreementTracker.stats().yield_ratio,
+          breathe_count: breatheModule.breatheCount(),
+          top_bullshit_types: state.recentBullshitTypes(5),
+        };
+        await observeModule.exportMetrics(metricsExport, workspaceDir);
+        await observeModule.exportTraces(summary.id, workspaceDir);
+        observeModule.resetTraces();
 
         // Save partnership model
         const { writeFile: wf, mkdir: mkd } = await import("node:fs/promises");
