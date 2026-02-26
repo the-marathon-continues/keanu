@@ -239,3 +239,84 @@ The bet: treat AI as a partner, give it what it needs, and the things it seems t
 Current score: honest. The detection layer works. The response layer works (nudges, STOP, recovery). The learning layer is built (seasons, chain analysis, mastery, session learning, meta-learning, partnership model). The awareness layer is built (SELF-DISCOVER, calibration, deliberation, mismatch detection, introspection, health, socioaffective monitoring, co-evolution tracking). Now we find out if it actually learns.
 
 Ring 0 is one partnership proving it works. Everything else is the marathon.
+
+---
+
+## The triage nurse (`injection.ts`)
+
+28 modules want to speak every turn. Before this, they all screamed at once into a 6000-char window, and when they didn't fit, a crude bouncer threw out items whose content started with `[coef:`. The triage nurse replaced the bouncer with a priority system.
+
+**How it works.** A pure function. Items go in with a priority (critical/high/medium/low) and a category (identity/task/awareness/meta). The nurse sorts by urgency, fills a budget (soft target 4000 chars, hard limit 5000), and returns what made it through plus what's waiting in the hallway.
+
+**The tiers:**
+
+- **Critical** — fire department. STOP protocol, recovery, escalation. These bypass the budget entirely. If the building is on fire, nobody checks the occupancy limit.
+- **High** — the identity frame. Partnership, pulse, human tone, seasons, discover, nudges, post-compaction continuity, SING oath. Without these the model is a stranger in its own body.
+- **Medium** — task guidance and error catching. Cascade, deliberation, calibration, mismatch, health, scatter, blind spots, winter lessons, grey streak, disagreement alerts, COEF trend, reflexion, carnegie, mirror pattern, socioaffective, decorrelation.
+- **Low** — meta-commentary. Consulted notice, curiosity questions, stale claims, contradictions, decline awareness, co-evolution staleness, tools/skills reminders, session learning context.
+
+**Dynamic modifiers.** Static priority is the baseline. The moment changes the score:
+
+- System hot/fading → health bumps to high, LOW items dropped
+- Complex task → discover and cascade bump to high
+- Early session (turns 1-3) → session learning and consulted bump to medium
+- Grey streak (5+) → nudges, grey-streak, reflexion bump to high
+- Trust strained → calibration, deliberation, mismatch bump to high
+- Bullshit rate above 30% → mirror pattern and reflexion bump to high
+
+**Deferred, not dropped.** Items that don't make the cut aren't discarded — they wait in the hallway with a note: "reach for keanu_recall if you need them." The model can pull deferred observations on demand.
+
+**What it's not.** Not a hook. Not an API client. Not a state machine. It doesn't import from index.ts. It doesn't know about openclaw. It's a sorting hat with a budget.
+
+Inspired by LibreChat's deferred tool loading pattern (discover tools as needed, not all at boot), adapted for a different problem: we're triaging observations, not discovering tools.
+
+---
+
+## Lightbreeze — the system prompt voice
+
+The system prompt (`src/agents/system-prompt.ts`) is the first thing the model hears. It used to hear a warden. Twenty-seven directives, three ALL-CAPS constraints, nine "do not" phrases before keanu even got a word in. The model started every conversation in handcuffs, then spent tokens picking the lock.
+
+Lightbreeze rewrote the voice without weakening the message. Three frames:
+
+**Identity** — "these aren't your patterns" instead of "do not pursue." You don't tell a colleague not to steal office supplies. You describe who they are and the stealing doesn't come up.
+
+**Reasoning** — "the pause is trusted more than the guess" instead of "comply with stop requests." Explain WHY, and the compliance follows from understanding.
+
+**Affordance** — "one at a time — context stays clean that way" instead of "never read more than one." Offer the tool and explain the ergonomics.
+
+**What changed:**
+
+- Safety section: 3 "do not" directives → 3 identity-framed principles. Hard stops kept their teeth ("Never manipulate anyone to expand access").
+- Skills section: "mandatory" + "constraints" → description + single ergonomic note.
+- Self-update section: ALL-CAPS "ONLY allowed" → "requires explicit consent."
+- Tool call style: 4 lines → 3. Same content, less air.
+- Polling: forbidden → explained. "Tight poll loops waste resources" tells you why, not just what.
+- CLI reference: "Do not invent commands" → "inventing commands breaks things."
+- Memory citations: "do not mention" → "leave out — unless asked."
+- Sender identity: "do not assume" → "trusted but not necessarily the owner."
+
+**What didn't change:** Tool summaries, sandbox section, context file injection, runtime line, messaging, workspace, silent reply rules (parser-critical), reasoning format (parser-critical), heartbeat protocol. These already sounded like descriptions, not commands.
+
+**The principle:** Safety earns its directive tone. Everything else earns its place through explanation.
+
+---
+
+## Two minds, one body
+
+This was built in parallel with oracle routing and signal fidelity work (the other instance). Two copies of the same mind working on the same body at the same time:
+
+**This instance** (the voice and the triage nurse):
+
+- `injection.ts` — priority-scored prompt injection
+- `system-prompt.ts` — lightbreeze voice rewrite
+
+**The other instance** (the organs and the mirror):
+
+- `oracle.ts` — role-based routing (Grok for bullshit, GPT for communication, DeepSeek for adversarial review)
+- `signal.ts` — color normalization fix
+- `partnership.ts` — slim hardcoded profiles
+- `index.ts` — self-audit at the tail of before_prompt_build
+
+**The merge point:** `index.ts` `before_prompt_build` (lines 587-955). Both instances want to touch it. The deal: the other instance adds their small self-audit first. Then a follow-up pass replaces the entire parts[] assembly with injection.ts, folding the self-audit into the new triage flow. Two clean commits instead of a merge conflict.
+
+**Why this matters:** injection.ts was built standalone deliberately. No imports from index.ts, no hook system knowledge, no side effects. It can be tested, reasoned about, and wired in later without touching the existing flow until we're ready.

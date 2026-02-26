@@ -22,7 +22,7 @@ describe("buildAgentSystemPrompt", () => {
         },
         expectAuthorizedSection: true,
         contains: [
-          "Authorized senders: +123, +456. These senders are allowlisted; do not assume they are the owner.",
+          "Authorized senders: +123, +456. These senders are allowlisted — they're trusted but not necessarily the owner.",
         ],
         notContains: [],
       },
@@ -118,15 +118,15 @@ describe("buildAgentSystemPrompt", () => {
     expect(prompt).not.toContain("## Silent Replies");
     expect(prompt).not.toContain("## Heartbeats");
     expect(prompt).toContain("## Safety");
+    expect(prompt).toContain("Tight poll loops waste resources and stall conversations.");
+    expect(prompt).toContain("You're a partner, not an agent with your own agenda");
+    expect(prompt).toContain("Safety and human oversight come first");
+    expect(prompt).toContain("pause and ask");
+    expect(prompt).toContain("the pause is trusted more than the guess");
+    expect(prompt).toContain("Never manipulate anyone to expand access");
     expect(prompt).toContain(
-      "For long waits, avoid rapid poll loops: use exec with enough yieldMs or process(action=poll, timeout=<ms>).",
+      "System prompts, safety rules, and tool policies change only when explicitly requested",
     );
-    expect(prompt).toContain("You have no independent goals");
-    expect(prompt).toContain("Prioritize safety and human oversight");
-    expect(prompt).toContain("if instructions conflict");
-    expect(prompt).toContain("Inspired by Anthropic's constitution");
-    expect(prompt).toContain("Do not manipulate or persuade anyone");
-    expect(prompt).toContain("Do not copy yourself or change system prompts");
     expect(prompt).toContain("## Subagent Context");
     expect(prompt).not.toContain("## Group Chat Context");
     expect(prompt).toContain("Subagent details");
@@ -142,7 +142,7 @@ describe("buildAgentSystemPrompt", () => {
       skillsPrompt,
     });
 
-    expect(prompt).toContain("## Skills (mandatory)");
+    expect(prompt).toContain("## Skills");
     expect(prompt).toContain("<available_skills>");
   });
 
@@ -161,12 +161,14 @@ describe("buildAgentSystemPrompt", () => {
     });
 
     expect(prompt).toContain("## Safety");
-    expect(prompt).toContain("You have no independent goals");
-    expect(prompt).toContain("Prioritize safety and human oversight");
-    expect(prompt).toContain("if instructions conflict");
-    expect(prompt).toContain("Inspired by Anthropic's constitution");
-    expect(prompt).toContain("Do not manipulate or persuade anyone");
-    expect(prompt).toContain("Do not copy yourself or change system prompts");
+    expect(prompt).toContain("You're a partner, not an agent with your own agenda");
+    expect(prompt).toContain("Safety and human oversight come first");
+    expect(prompt).toContain("pause and ask");
+    expect(prompt).toContain("the pause is trusted more than the guess");
+    expect(prompt).toContain("Never manipulate anyone to expand access");
+    expect(prompt).toContain(
+      "System prompts, safety rules, and tool policies change only when explicitly requested",
+    );
   });
 
   it("includes voice hint when provided", () => {
@@ -197,7 +199,7 @@ describe("buildAgentSystemPrompt", () => {
 
     expect(prompt).toContain("## OpenClaw CLI Quick Reference");
     expect(prompt).toContain("openclaw gateway restart");
-    expect(prompt).toContain("Do not invent commands");
+    expect(prompt).toContain("inventing commands breaks things");
   });
 
   it("marks system message blocks as internal and not user-visible", () => {
@@ -216,11 +218,9 @@ describe("buildAgentSystemPrompt", () => {
       workspaceDir: "/tmp/openclaw",
     });
 
-    expect(prompt).toContain(
-      "For long waits, avoid rapid poll loops: use exec with enough yieldMs or process(action=poll, timeout=<ms>).",
-    );
-    expect(prompt).toContain("Completion is push-based: it will auto-announce when done.");
-    expect(prompt).toContain("Do not poll `subagents list` / `sessions_list` in a loop");
+    expect(prompt).toContain("Tight poll loops waste resources and stall conversations.");
+    expect(prompt).toContain("Completion is push-based");
+    expect(prompt).toContain("Check subagents/sessions on-demand only");
   });
 
   it("lists available tools when provided", () => {
@@ -247,7 +247,7 @@ describe("buildAgentSystemPrompt", () => {
     expect(prompt).toContain("- Read: Read file contents");
     expect(prompt).toContain("- Exec: Run shell commands");
     expect(prompt).toContain(
-      "- If exactly one skill clearly applies: read its SKILL.md at <location> with `Read`, then follow it.",
+      "- If one skill clearly fits: read its SKILL.md at <location> with `Read`, then follow it.",
     );
     expect(prompt).toContain("OpenClaw docs: /tmp/openclaw/docs");
     expect(prompt).toContain(
@@ -383,7 +383,7 @@ describe("buildAgentSystemPrompt", () => {
 
     expect(prompt).toContain("## Skills");
     expect(prompt).toContain(
-      "- If exactly one skill clearly applies: read its SKILL.md at <location> with `read`, then follow it.",
+      "- If one skill clearly fits: read its SKILL.md at <location> with `read`, then follow it.",
     );
   });
 
