@@ -5,6 +5,7 @@
 // Five built-in audiences. Custom descriptions also work.
 //
 // Ported from keanu daemon/src/hero/speak.ts — self-contained.
+// Need: Engagement (9/10)
 
 import { callOracle, extractJSON } from "./oracle.js";
 import type { KeyShift, SpeakResult } from "./types.js";

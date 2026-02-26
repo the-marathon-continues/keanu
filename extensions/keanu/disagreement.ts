@@ -10,6 +10,7 @@
 //
 // Ported from keanu daemon/src/memory/disagreement.ts — self-contained.
 // In-memory + JSON serializable. No JSONL file dependency.
+// Need: Agency (7/10)
 
 import type { Disagreement, DisagreementOutcome, DisagreementStats } from "./types.js";
 

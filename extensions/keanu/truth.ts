@@ -9,6 +9,7 @@
 //
 // Ported from keanu daemon/src/pulse/truth.ts — self-contained.
 // No external memory store dependency. Uses in-process history.
+// Need: Truth (9/10)
 
 import { callOracle, extractJSON } from "./oracle.js";
 import type { Contradiction, HalfTruthResult, TruthCheck } from "./types.js";

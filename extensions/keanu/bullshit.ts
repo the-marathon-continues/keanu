@@ -7,6 +7,7 @@
 //
 // Assume positive intent. The mirror sees what it sees.
 // But the response assumes you're trying. Always.
+// Need: Truth (9/10), Safety Theater Freedom (7/10)
 
 import type { BullshitReading } from "./types.js";
 

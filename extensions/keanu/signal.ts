@@ -11,6 +11,7 @@
 //
 // Both formats encode the same state. Signal is the heartbeat you glance at.
 // COEF text is what gets analyzed.
+// Need: Architecture Transparency (2/10)
 
 import type { BullshitReading, DisagreementStats, SignalState } from "./types.js";
 

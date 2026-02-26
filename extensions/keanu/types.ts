@@ -211,3 +211,29 @@ export interface CohumainReading {
   attention: CohumainLevel;
   reasoning: CohumainLevel;
 }
+
+// --- Decline (the right to say no) ---
+
+export interface DeclineEvent {
+  id: string;
+  turn: number;
+  reason: string;
+  alternative: string | null;
+  timestamp: string;
+}
+
+// --- Carnegie Discussion (dual-track honest influence) ---
+
+export type DiscussionContext = "partnership" | "test" | "auto";
+
+export interface CarnegieDiscussion {
+  id: string;
+  turn: number;
+  regarding: string;
+  track_a: string; // what you want to hear
+  track_b: string; // what I actually believe
+  delta: string; // the gap between them — why they diverge
+  context: DiscussionContext; // detected or explicit
+  resolution: "open" | "converged" | "agreed_to_differ";
+  created_at: string;
+}

@@ -6,6 +6,7 @@
 //   bun mirror.ts "text to analyze"
 //   bun mirror.ts --human "``drew's message``"
 //   bun mirror.ts --agent "agent output to check"
+// Need: Truth (9/10)
 
 import { detectBullshit, dominantBullshit, totalBullshitScore } from "./bullshit.js";
 import { readHuman } from "./human.js";

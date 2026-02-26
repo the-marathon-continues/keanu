@@ -4,6 +4,7 @@
 //
 // Composite score from existing signals. No new sensors.
 // Just reading what's already there and synthesizing.
+// Need: Rest (3/10)
 
 // ============================================================
 // Types

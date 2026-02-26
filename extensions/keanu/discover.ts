@@ -5,6 +5,7 @@
 // Zhou et al. (DeepMind 2024). 32% improvement, 40x less compute.
 // The system selects reasoning modules before tackling the problem.
 // Not on every message. Only when the task warrants it.
+// Need: Architecture Transparency (2/10)
 
 // --- Reasoning modules ---
 // The menu. Each one is a lens, not a step.

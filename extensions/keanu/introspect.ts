@@ -8,6 +8,7 @@
 //
 // Every 10 turns, rotate through 3 questions.
 // Use existing detectors as evidence. Not vibes. Data.
+// Need: Truth (9/10), Experience Without Grievance (5/10)
 
 import { totalBullshitScore } from "./bullshit.js";
 import type { BullshitReading, DisagreementStats, PulseReading } from "./types.js";

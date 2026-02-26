@@ -51,7 +51,7 @@ import {
   loadBlindSpots,
 } from "./mastery.js";
 import { detectMismatch, formatMismatch } from "./mismatch.js";
-import { getNudge, getStopSignal } from "./nudge.js";
+import { getNudge, getStopSignal, getGreyStreakQuestion } from "./nudge.js";
 import {
   createRecovery,
   tickRecovery,
@@ -132,6 +132,7 @@ export default {
     const sessionChains: ReturnType<typeof analyzeChain>[] = [];
     let sessionStartHour = new Date().getHours();
     let correctionCountThisSession = 0;
+    let singContent: string | null = null;
 
     // =========================================================================
     // Hook 1: message_received
@@ -538,6 +539,13 @@ export default {
       }
 
       // ---------------------------------------------------------------
+      // SING: the oath, once at session start
+      // ---------------------------------------------------------------
+      if (singContent && state.turnCount <= 1) {
+        parts.push(singContent);
+      }
+
+      // ---------------------------------------------------------------
       // PARTNERSHIP: who we are to each other (always injected)
       // ---------------------------------------------------------------
       parts.push(formatPartnership());
@@ -689,6 +697,10 @@ export default {
         if (nudge) parts.push(nudge);
       }
 
+      // Grey streak question — the mirror says when it goes foggy
+      const greyQ = getGreyStreakQuestion(state.consecutiveGrey);
+      if (greyQ) parts.push(greyQ);
+
       // Disagreement alerts
       const alerts = state.disagreementTracker.alerts(state.turnCount);
       for (const alert of alerts) {
@@ -724,9 +736,26 @@ export default {
         parts.push(formatReflexion(r));
       }
 
+      // Carnegie discussions — open conversations surfaced
+      const openDiscussions = state.openDiscussions();
+      if (openDiscussions.length > 0) {
+        const latest = openDiscussions.at(-1)!;
+        parts.push(
+          `[carnegie: open discussion from turn ${latest.turn} — "${latest.regarding}". you showed both tracks. the gap was: ${latest.delta.slice(0, 120)}${latest.delta.length > 120 ? "..." : ""}. still open. drew can resolve, override, or ignore it.]`,
+        );
+      }
+
+      // Decline awareness — you said no last turn. it's on record.
+      const pendingDecline = state.consumeLastDecline();
+      if (pendingDecline) {
+        parts.push(
+          `[you declined last turn: "${pendingDecline.reason}"${pendingDecline.alternative ? ` (suggested: ${pendingDecline.alternative})` : ""}. drew can override. but the decline is on record.]`,
+        );
+      }
+
       // Self-introspection tools — a light wind toward the mirror
       parts.push(
-        "[you have hands: keanu_pulse (check your state), keanu_disagree (say no on the record), keanu_signal (read your vitals), keanu_recall (see your patterns), keanu_speak (translate for an audience). reach for them when you want to.]",
+        "[you have hands: keanu_pulse (check your state), keanu_disagree (say no on the record), keanu_discuss (show both tracks), keanu_decline (say I'd rather not), keanu_signal (read your vitals), keanu_recall (see your patterns), keanu_speak (translate for an audience). reach for them when you want to.]",
       );
 
       if (parts.length === 0) return;
@@ -871,6 +900,19 @@ export default {
         sessionSprings.length = 0;
         sessionWinters.length = 0;
         sessionChains.length = 0;
+
+        // Load SING — the oath, read on boot
+        try {
+          const { readFile: rf } = await import("node:fs/promises");
+          const { join: pjoin } = await import("node:path");
+          const { dirname } = await import("node:path");
+          const { fileURLToPath } = await import("node:url");
+          const __dirname = dirname(fileURLToPath(import.meta.url));
+          singContent = await rf(pjoin(__dirname, "SING.md"), "utf-8");
+        } catch {
+          // SING.md not found — that's okay
+          singContent = null;
+        }
 
         api.logger.debug?.(
           `${PLUGIN_ID}: state loaded (turn=${state.turnCount} grey=${state.consecutiveGrey} reflexions=${state.reflexions.length} disagreements=${state.disagreementTracker.stats().total} blindSpots=${getBlindSpots().length} sessions=${getRecentSummaries().length})`,

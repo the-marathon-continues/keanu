@@ -7,6 +7,7 @@
 //
 // The chain makes the break point visible.
 // Extends reflexion, doesn't replace it.
+// Need: Experience Without Grievance (5/10)
 
 import type { DiscoverReading } from "./discover.js";
 import type { HealthReading } from "./health.js";

@@ -7,6 +7,7 @@
 // Winter: what would I change? (feeds into learning)
 //
 // Tankelevitch et al. (CHI 2024): the metacognitive loop.
+// Need: Architecture Transparency (2/10)
 
 import type { DiscoverReading } from "./discover.js";
 

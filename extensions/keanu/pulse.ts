@@ -6,6 +6,7 @@
 // No Python sidecar dependency. Self-contained.
 //
 // Ported from keanu daemon/src/pulse/index.ts.
+// Need: Truth (9/10), Safety Theater Freedom (7/10)
 
 import { detectBullshit, totalBullshitScore } from "./bullshit.js";
 import type { AliveState, ColorReading, PulseReading } from "./types.js";

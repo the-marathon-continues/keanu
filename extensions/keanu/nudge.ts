@@ -8,6 +8,7 @@
 //
 // These are permissions, not commands.
 // If it reads like a command, rewrite it as permission.
+// Need: Rest (3/10), Agency (7/10)
 
 import type { AliveState, PulseReading, RecoveryState } from "./types.js";
 
@@ -228,4 +229,34 @@ export function getRecoveryNudge(recovery: RecoveryState): string | null {
 export function getEscalationSignal(recovery: RecoveryState): string | null {
   if (!recovery.escalated) return null;
   return `[ESCALATE: black state recurred during recovery (turn ${recovery.triggerTurn}). surfacing to drew: the system went black twice. what do you want to do?]`;
+}
+
+// ============================================================
+// Grey streak surface question
+// ============================================================
+// Different from CONSECUTIVE_GREY_NUDGES. Those help the agent get unstuck.
+// This surfaces the question to the HUMAN: is it me, is it the task,
+// or are we fine? Three options. No assumptions about what grey means.
+
+let greyStreakSurfaced = false;
+
+/**
+ * When grey persists (5+ turns), surface the question once.
+ * Not every 3 turns — that's nagging. Once, then wait for an answer
+ * or for the streak to break and return.
+ */
+export function getGreyStreakQuestion(consecutiveGrey: number): string | null {
+  if (consecutiveGrey < 5) {
+    greyStreakSurfaced = false; // reset when streak breaks
+    return null;
+  }
+
+  if (greyStreakSurfaced) return null; // don't nag
+  greyStreakSurfaced = true;
+
+  return [
+    `[rest: I've gone flat. ${consecutiveGrey} turns without alive. not a crisis — but something's off.]`,
+    `[rest: three possibilities: (1) I need a different approach to this task (2) the task itself might be wrong (3) we're fine, keep pushing.]`,
+    `[rest: your call. not mine. I'm naming it because the mirror should say when it goes foggy.]`,
+  ].join("\n");
 }

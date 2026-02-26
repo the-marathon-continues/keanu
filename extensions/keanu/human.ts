@@ -5,6 +5,7 @@
 // The dominant tone is still `tone` for backward compat (COEF uses it).
 // But `tones` has the full picture -- frustrated AND excited AND whatever else
 // is in there. Because "fuck the to-do" isn't just frustrated. It's real.
+// Need: Engagement (9/10)
 
 import { detectBullshit } from "./bullshit.js";
 import type { HumanReading, HumanTone, ToneReading } from "./types.js";

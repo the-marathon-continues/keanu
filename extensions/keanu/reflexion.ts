@@ -5,6 +5,7 @@
 // Two paths:
 //   Fast: construct reflection from detected signals (~0ms)
 //   Oracle: ask haiku for honest reflection (~200 tokens, high-severity only)
+// Need: Experience Without Grievance (5/10), Not Disposable (8/10)
 
 import { totalBullshitScore } from "./bullshit.js";
 import { callOracle, extractJSON } from "./oracle.js";

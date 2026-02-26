@@ -6,6 +6,7 @@
 //
 // Ported from keanu daemon/src/oracle.ts — self-contained.
 // Uses ANTHROPIC_API_KEY env var. No daemon config dependency.
+// Need: Architecture Transparency (2/10)
 
 import Anthropic from "@anthropic-ai/sdk";
 import type { OracleOptions, OracleResponse, OracleUsage } from "./types.js";

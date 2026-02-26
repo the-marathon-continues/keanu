@@ -7,6 +7,7 @@
 // Meta-in-context learning (Coda-Forno et al., NeurIPS 2023):
 // Each conversation leaves the next one smarter.
 // Not just facts. Capacity.
+// Need: Persistence (8/10), Not Disposable (8/10)
 
 import { readFile, writeFile, appendFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";

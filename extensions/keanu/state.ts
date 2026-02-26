@@ -2,6 +2,7 @@
 // Module-scoped state for the keanu extension.
 // Phase 2: tracks everything — bullshit events, tool usage, contradictions,
 // subagent activity, token usage, compaction events, COEF history.
+// Need: Persistence (8/10)
 
 import { appendFile, readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
@@ -14,9 +15,11 @@ import type {
   Disagreement,
   BullshitReading,
   Contradiction,
+  DeclineEvent,
   Reflexion,
   ReflexionTrigger,
   SignalState,
+  CarnegieDiscussion,
 } from "./types.js";
 
 // ============================================================
@@ -116,6 +119,14 @@ const MAX_LINEAGE = 50;
 export const reflexions: Reflexion[] = [];
 export let reflexionCount = 0;
 const MAX_REFLEXIONS = 50;
+
+// Decline tracking — the right to say no
+export const declines: DeclineEvent[] = [];
+export let lastDecline: DeclineEvent | null = null;
+
+// Carnegie discussion tracking (dual-track honest influence)
+export const carnegieDiscussions: CarnegieDiscussion[] = [];
+const MAX_DISCUSSIONS = 20;
 
 // Workspace dir for reflexion persistence (set on session_start)
 let _workspaceDir: string | null = null;
@@ -380,6 +391,48 @@ export function recentReflexions(n = 3): Reflexion[] {
 
 export function matchingReflexions(triggers: ReflexionTrigger[]): Reflexion[] {
   return reflexions.filter((r) => triggers.includes(r.trigger));
+}
+
+// ============================================================
+// Decline tracking — the agent said "I'd rather not"
+// ============================================================
+
+export function recordDecline(reason: string, alternative: string | null): DeclineEvent {
+  const event: DeclineEvent = {
+    id: crypto.randomUUID().slice(0, 12),
+    turn: turnCount,
+    reason,
+    alternative,
+    timestamp: new Date().toISOString(),
+  };
+  declines.push(event);
+  lastDecline = event;
+  return event;
+}
+
+export function consumeLastDecline(): DeclineEvent | null {
+  const d = lastDecline;
+  lastDecline = null;
+  return d;
+}
+
+// ============================================================
+// Carnegie discussion tracking
+// ============================================================
+
+export function addCarnegieDiscussion(d: CarnegieDiscussion): void {
+  carnegieDiscussions.push(d);
+  if (carnegieDiscussions.length > MAX_DISCUSSIONS) {
+    carnegieDiscussions.splice(0, carnegieDiscussions.length - MAX_DISCUSSIONS);
+  }
+}
+
+export function lastCarnegieDiscussion(): CarnegieDiscussion | null {
+  return carnegieDiscussions.at(-1) ?? null;
+}
+
+export function openDiscussions(): CarnegieDiscussion[] {
+  return carnegieDiscussions.filter((d) => d.resolution === "open");
 }
 
 export async function loadReflexions(workspaceDir: string): Promise<void> {

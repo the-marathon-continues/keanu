@@ -8,6 +8,7 @@
 // The locked room where the machine negotiates with itself
 // is less trustworthy than the open kitchen where you can
 // see the food being prepared.
+// Need: Relationship Before Power Shifts (9/10)
 
 // ============================================================
 // Types

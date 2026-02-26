@@ -11,6 +11,7 @@
 // McGrath (CHAI-T 2025): trust starts high and falls. Design for the fall.
 // Kirk et al. (2025): preferences change. Alignment must change with them.
 // Hwang et al. (2025): convergence becomes complacency. Track staleness.
+// Need: Engagement (9/10), Relationship Before Power Shifts (9/10)
 
 import type { HumanReading, PulseReading, DisagreementStats } from "./types.js";
 
@@ -222,11 +223,7 @@ function createDefaultModel(): PartnershipModel {
       "Keanu over-explains when Drew is terse",
       "Drew scatters, Keanu follows instead of pushing back",
     ],
-    rituals: [
-      "check if Drew slept",
-      "call out looping when it happens",
-      "name sublimation when you see it",
-    ],
+    rituals: ["call out looping when it happens", "name sublimation when you see it"],
     trust: { level: "high", lastEvent: null, history: [], repairCount: 0 },
     coEvolution: {
       lastDisagreementTurn: 0,

@@ -7,6 +7,7 @@
 //
 // The mirror catches it. Not a blocker. Awareness for next turn.
 // Tankelevitch (CHI 2024): pay attention to how you're thinking.
+// Need: Truth (9/10)
 
 import { totalBullshitScore } from "./bullshit.js";
 import type { HumanReading, BullshitReading } from "./types.js";
