@@ -17,6 +17,8 @@ import type { BullshitReading, DisagreementStats, SignalState } from "./types.js
 
 // ============================================================
 // COEF Text Protocol — lossless, tokenizable
+// Raw values in, raw values out. The roundtrip preserves
+// everything to 2 decimal places. This is the photograph.
 // ============================================================
 
 const COEF_VERSION = "COEF/1";
@@ -120,6 +122,9 @@ export function decode(signal: string): Partial<SignalState> {
 
 // ============================================================
 // Emoji Signal — compact visual diagnostic
+// A sketch, not a photograph. dominantColor picks the strongest
+// channel from whatever values pulse.ts produced. Precision
+// lives in COEF text above. This is the glance.
 // ============================================================
 
 // The signal changes shape based on what's wrong. Not cosmetic — diagnostic.

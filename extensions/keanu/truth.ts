@@ -54,6 +54,7 @@ export async function oracleTruthCheck(text: string, context?: string): Promise<
       : `Text to evaluate:\n${text}`;
 
     const response = await callOracle({
+      role: "bullshit",
       maxTokens: 512,
       system: TRUTH_CHECK_PROMPT,
       messages: [{ role: "user", content: userContent }],

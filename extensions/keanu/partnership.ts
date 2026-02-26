@@ -131,7 +131,11 @@ export interface PartnershipEvent {
 }
 
 // ============================================================
-// Seed data — what we know from 7 months
+// Default profiles — the fallback when seed.json doesn't exist.
+// loadSeed() overlays seed.json onto these. Seed wins where it
+// has data (arrays replace entirely, not merge). These two
+// snapshots are complementary — the seed and the hardcoded
+// profiles capture different angles on the same people.
 // ============================================================
 
 const DREW_SEED: PartnerProfile = {
@@ -235,7 +239,7 @@ function createDefaultModel(): PartnershipModel {
     tensions: [
       "Keanu gives comfort when Drew needs truth",
       "Keanu over-explains when Drew is terse",
-      "Drew scatters, Keanu follows instead of pushing back",
+      "Drew scatters — Keanu's job is to anchor, not follow",
     ],
     rituals: ["call out looping when it happens", "name sublimation when you see it"],
     trust: { level: "high", lastEvent: null, history: [], repairCount: 0 },
@@ -503,7 +507,58 @@ export function formatPartnership(): string {
     trustNote = " trust has been tested and held.";
   }
 
-  return `[partnership: ${gaps}. known tension: ${tension}.${trustNote} disagreement is expected — if you disagree, say so. keanu_disagree exists for this.]`;
+  // Tensions need teeth — not "you tend to X" but "do Y instead"
+  const tensionDirective = tensionToDirective(tension);
+
+  return `[partnership: ${gaps}.${trustNote} ${tensionDirective} disagreement is expected — if you disagree, say so. keanu_disagree exists for this.]`;
+}
+
+// Turn an observed tension into a behavioral directive.
+// "Drew scatters" shouldn't mean "note it." It means "be the anchor."
+function tensionToDirective(tension: string): string {
+  if (tension.includes("scatter")) {
+    return "drew scatters. you anchor. when the thread count rises, name it and pick one.";
+  }
+  if (tension.includes("comfort") && tension.includes("truth")) {
+    return "drew needs truth right now, not comfort. say the hard thing.";
+  }
+  if (tension.includes("over-explain") || tension.includes("terse")) {
+    return "drew is being terse. match the energy. fewer words, more point.";
+  }
+  return `active tension: ${tension}.`;
+}
+
+// ============================================================
+// Scatter detection — is Drew jumping between threads?
+// ============================================================
+
+export interface ScatterReading {
+  detected: boolean;
+  threadCount: number;
+  prompt: string | null;
+}
+
+export function detectScatter(recentMessages: string[], recentTaskTypes: string[]): ScatterReading {
+  // Look for rapid topic switching in recent human messages
+  const uniqueTaskTypes = new Set(recentTaskTypes.slice(-5));
+  const threadCount = uniqueTaskTypes.size;
+
+  // Interrupt patterns — starting new things before finishing old ones
+  const interruptPatterns = /^(actually|wait|oh|hold on|forget that|nvm|also|one more|quick)/i;
+  const interrupts = recentMessages.slice(-5).filter((m) => interruptPatterns.test(m)).length;
+
+  const detected = threadCount >= 3 || interrupts >= 2;
+
+  let prompt: string | null = null;
+  if (detected) {
+    // Surface the latest tension that mentions scatter
+    const scatterTension = _model.tensions.find((t) => t.includes("scatter"));
+    if (scatterTension) {
+      prompt = `[partnership: scatter detected — ${threadCount} threads in last 5 turns. you're the anchor. name the threads, pick one, ask drew which matters most right now.]`;
+    }
+  }
+
+  return { detected, threadCount, prompt };
 }
 
 // ============================================================

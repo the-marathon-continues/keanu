@@ -56,6 +56,7 @@ export async function speak(content: string, audience: string): Promise<SpeakRes
 
   try {
     const response = await callOracle({
+      role: "communicate",
       system,
       messages: [{ role: "user", content }],
     });

@@ -354,6 +354,10 @@ export type PluginHookBeforePromptBuildEvent = {
 export type PluginHookBeforePromptBuildResult = {
   systemPrompt?: string;
   prependContext?: string;
+  /** Appended to the system prompt (not the user message). Use this for
+   *  self-knowledge that the model should treat as its own context —
+   *  alignment observations, state awareness, identity continuity. */
+  systemPromptAppend?: string;
 };
 
 // before_agent_start hook (legacy compatibility: combines both phases)

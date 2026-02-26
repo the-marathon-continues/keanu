@@ -147,6 +147,7 @@ async function oracleReflexion(ctx: ReflexionContext): Promise<Reflexion> {
   const prompt = buildOraclePrompt(ctx);
 
   const response = await callOracle({
+    role: "adversary",
     system: ORACLE_SYSTEM,
     maxTokens: 200,
     messages: [{ role: "user", content: prompt }],

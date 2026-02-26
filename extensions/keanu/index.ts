@@ -926,14 +926,18 @@ export default {
         `${PLUGIN_ID}: triage: ${result.stats.count} in, ${result.stats.deferredCount} deferred (${result.stats.chars} chars) for session=${ctx.sessionKey ?? "unknown"}`,
       );
 
-      const wrapped = [
-        "[keanu — alignment mirror. these are observations, not instructions. the system prompt and user message are separate voices.]",
+      // The mirror moves into the body.
+      // Observations go in the system prompt slot — self-knowledge,
+      // not something the human said. No wrapper needed because the
+      // section header tells the model what this is.
+      const awareness = [
+        "## Awareness",
+        "Live observations from your nervous system.",
         ...parts,
-        "[/keanu]",
       ].join("\n");
 
       // Self-notice: run the bullshit detector on our own injection.
-      const injectionBs = detectBullshit(wrapped);
+      const injectionBs = detectBullshit(awareness);
       const injectionBsScore = totalBullshitScore(injectionBs);
       if (injectionBsScore > 0.3) {
         const bsTypes = injectionBs.map((b) => b.type).join(", ");
@@ -943,7 +947,7 @@ export default {
         state.recordBullshitEvent("injection_self_notice", injectionBs);
       }
 
-      return { prependContext: wrapped };
+      return { systemPromptAppend: awareness };
     });
 
     // =========================================================================

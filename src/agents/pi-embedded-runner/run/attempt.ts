@@ -1059,6 +1059,12 @@ export async function runEmbeddedAttempt(
               `hooks: prepended context to prompt (${hookResult.prependContext.length} chars)`,
             );
           }
+          if (hookResult?.systemPromptAppend) {
+            systemPromptText = `${systemPromptText}\n\n${hookResult.systemPromptAppend}`;
+            log.debug(
+              `hooks: appended to system prompt (${hookResult.systemPromptAppend.length} chars)`,
+            );
+          }
           const legacySystemPrompt =
             typeof hookResult?.systemPrompt === "string" ? hookResult.systemPrompt.trim() : "";
           if (legacySystemPrompt) {

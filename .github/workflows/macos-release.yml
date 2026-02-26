@@ -1,0 +1,110 @@
+name: macOS App Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      build_config:
+        description: "Build configuration"
+        required: false
+        default: "release"
+        type: choice
+        options:
+          - debug
+          - release
+
+concurrency:
+  group: macos-release-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  BUNDLE_ID: ai.openclaw.mac
+  BUILD_CONFIG: ${{ github.event.inputs.build_config || 'release' }}
+
+jobs:
+  build-macos:
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Control UI
+        run: pnpm ui:build
+
+      - name: Bundle canvas a2ui
+        run: pnpm canvas:a2ui:bundle
+
+      - name: Import signing certificate
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+          KEYCHAIN_PWD: ${{ secrets.KEYCHAIN_PWD }}
+        run: |
+          echo "$MACOS_CERTIFICATE" | base64 --decode > certificate.p12
+          security create-keychain -p "$KEYCHAIN_PWD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PWD" build.keychain
+          security import certificate.p12 -k build.keychain -P "$MACOS_CERTIFICATE_PWD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PWD" build.keychain
+
+      - name: Build and package macOS app
+        env:
+          BUILD_ARCHS: all
+          APP_VERSION: ${{ github.ref_name }}
+        run: |
+          scripts/package-mac-app.sh
+
+      - name: Notarize app
+        if: env.BUILD_CONFIG == 'release'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PWD: ${{ secrets.APPLE_ID_PWD }}
+          APPLE_TEAM_ID: CLVGRN98H3
+        run: |
+          ditto -c -k --keepParent dist/OpenClaw.app dist/OpenClaw.zip
+          xcrun notarytool submit dist/OpenClaw.zip \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_ID_PWD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+          xcrun stapler staple dist/OpenClaw.app
+
+      - name: Create DMG
+        run: |
+          hdiutil create -volname "OpenClaw" \
+            -srcfolder dist/OpenClaw.app \
+            -ov -format UDZO \
+            dist/OpenClaw.dmg
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenClaw-macOS
+          path: |
+            dist/OpenClaw.app
+            dist/OpenClaw.dmg
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/OpenClaw.dmg
+          generate_release_notes: true
