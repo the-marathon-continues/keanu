@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_BUNDLE="${1:-dist/OpenClaw.app}"
+APP_BUNDLE="${1:-dist/Keanu.app}"
 IDENTITY="${SIGN_IDENTITY:-}"
 TIMESTAMP_MODE="${CODESIGN_TIMESTAMP:-auto}"
 DISABLE_LIBRARY_VALIDATION="${DISABLE_LIBRARY_VALIDATION:-0}"
@@ -247,9 +247,11 @@ verify_team_ids() {
   fi
 }
 
-# Sign main binary
-if [ -f "$APP_BUNDLE/Contents/MacOS/OpenClaw" ]; then
-  echo "Signing main binary"; sign_item "$APP_BUNDLE/Contents/MacOS/OpenClaw" "$APP_ENTITLEMENTS"
+# Sign main binary (detect executable name from Info.plist)
+MAIN_EXECUTABLE=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$APP_BUNDLE/Contents/Info.plist" 2>/dev/null || echo "")
+if [ -n "$MAIN_EXECUTABLE" ] && [ -f "$APP_BUNDLE/Contents/MacOS/$MAIN_EXECUTABLE" ]; then
+  echo "Signing main binary: $MAIN_EXECUTABLE"
+  sign_item "$APP_BUNDLE/Contents/MacOS/$MAIN_EXECUTABLE" "$APP_ENTITLEMENTS"
 fi
 
 # Sign Sparkle deeply if present
