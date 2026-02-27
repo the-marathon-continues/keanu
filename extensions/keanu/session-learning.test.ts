@@ -29,7 +29,17 @@ function makeSpring(
   taskType: SpringReading["taskType"] = "feature",
   intent = "add a hook",
 ): SpringReading {
-  return { taskType, intent, complexity: "mid" };
+  return {
+    taskType,
+    intent,
+    complexity: "mid",
+    intentSignals: {
+      wantsBrief: false,
+      wantsDepth: false,
+      wantsAction: false,
+      wantsAnalysis: false,
+    },
+  };
 }
 
 function makeWinter(lesson: string | null = null, adjustment: string | null = null): WinterReading {

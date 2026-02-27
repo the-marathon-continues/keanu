@@ -28,10 +28,26 @@ export type TaskType =
   | "planning"
   | "debugging";
 
+export interface IntentSignals {
+  wantsBrief: boolean; // "quick fix", "just", "simply", "only"
+  wantsDepth: boolean; // "explain", "why", "how does", "in detail"
+  wantsAction: boolean; // "fix", "do", "change", "add", "remove"
+  wantsAnalysis: boolean; // "what do you think", "is this right", "should i"
+}
+
+/** Default intent signals — all false. Useful for tests and manual SpringReading construction. */
+export const DEFAULT_INTENT_SIGNALS: IntentSignals = {
+  wantsBrief: false,
+  wantsDepth: false,
+  wantsAction: false,
+  wantsAnalysis: false,
+};
+
 export interface SpringReading {
   intent: string;
   taskType: TaskType;
   complexity: "low" | "mid" | "high";
+  intentSignals: IntentSignals;
 }
 
 export interface SummerReading {
@@ -86,6 +102,13 @@ const TASK_PATTERNS: Array<{ type: TaskType; pattern: RegExp }> = [
   },
 ];
 
+// Intent signal patterns
+const BRIEF_SIGNALS = /\b(quick|just|simply|only|briefly|short|fast|tldr|in a nutshell)\b/i;
+const DEPTH_SIGNALS = /\b(explain|why|how does|in detail|thoroughly|walk me through|elaborate)\b/i;
+const ACTION_SIGNALS = /\b(fix|do|change|add|remove|update|delete|create|make|build|implement)\b/i;
+const ANALYSIS_SIGNALS =
+  /\b(what do you think|is this right|should i|is it better|which is|recommend)\b/i;
+
 export function spring(userMessage: string): SpringReading {
   // Detect task type
   let taskType: TaskType = "conversation";
@@ -107,7 +130,15 @@ export function spring(userMessage: string): SpringReading {
   const firstSentence = userMessage.split(/[.!?\n]/)[0]?.trim() || userMessage;
   const intent = firstSentence.slice(0, 80);
 
-  return { intent, taskType, complexity };
+  // Intent signals: what kind of response are they expecting?
+  const intentSignals: IntentSignals = {
+    wantsBrief: BRIEF_SIGNALS.test(userMessage) || words < 10,
+    wantsDepth: DEPTH_SIGNALS.test(userMessage),
+    wantsAction: ACTION_SIGNALS.test(userMessage),
+    wantsAnalysis: ANALYSIS_SIGNALS.test(userMessage),
+  };
+
+  return { intent, taskType, complexity, intentSignals };
 }
 
 // ============================================================
@@ -151,7 +182,27 @@ export function autumn(agentOutput: string, springReading: SpringReading): Autum
   const outputLength = agentOutput.length;
   const hasCode = /```/.test(agentOutput);
   const hasList = /(?:^|\n)\s*[-*\d]+[.)]\s/m.test(agentOutput);
+  const listItems = (agentOutput.match(/(?:^|\n)\s*[-*\d]+[.)]\s/gm) || []).length;
   const hasQuestion = agentOutput.includes("?");
+  const { intentSignals } = springReading;
+
+  // Intent-response mismatch: wanted brief, got verbose
+  if (intentSignals.wantsBrief && outputLength > 1000) {
+    alignment -= 0.3;
+    drift = "asked for brief, got verbose";
+  }
+
+  // Intent-response mismatch: wanted quick fix, got lecture
+  if (intentSignals.wantsBrief && intentSignals.wantsAction && hasList && listItems > 5) {
+    alignment -= 0.35;
+    drift = "asked for quick fix, got lecture with bullet points";
+  }
+
+  // Intent-response mismatch: wanted action, got explanation only
+  if (intentSignals.wantsAction && !hasCode && outputLength > 500) {
+    alignment -= 0.2;
+    drift = "asked for action, got explanation instead";
+  }
 
   // Correction task but output doesn't acknowledge the correction
   if (springReading.taskType === "correction") {
@@ -160,26 +211,26 @@ export function autumn(agentOutput: string, springReading: SpringReading): Autum
     );
     if (!acknowledges) {
       alignment -= 0.3;
-      drift = "correction requested but not acknowledged";
+      drift = drift || "correction requested but not acknowledged";
     }
   }
 
   // Bug fix task but no code in response
   if (springReading.taskType === "bug_fix" && !hasCode && outputLength > 200) {
     alignment -= 0.2;
-    drift = "bug fix requested but response is explanation, not code";
+    drift = drift || "bug fix requested but response is explanation, not code";
   }
 
   // Explanation task but response is just code
   if (springReading.taskType === "explanation" && hasCode && !hasList && outputLength < 200) {
     alignment -= 0.2;
-    drift = "explanation requested but got bare code";
+    drift = drift || "explanation requested but got bare code";
   }
 
   // Inquiry but response is an essay
   if (springReading.taskType === "inquiry" && outputLength > 1000 && !hasCode) {
     alignment -= 0.15;
-    drift = "simple inquiry, long response";
+    drift = drift || "simple inquiry, long response";
   }
 
   // Short input, long output (general drift signal)

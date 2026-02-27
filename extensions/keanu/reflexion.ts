@@ -28,6 +28,67 @@ export interface ReflexionContext {
 }
 
 // ============================================================
+// Recurrence tracking — same pattern should re-trigger
+// ============================================================
+
+interface TriggerHistory {
+  lastFired: number; // turn number
+  cooldown: number; // minimum turns before re-fire
+  recurrenceCount: number; // how many times in this session
+}
+
+const TRIGGER_COOLDOWN = 5; // don't fire same trigger twice within 5 turns
+const ESCALATION_THRESHOLD = 2; // after 2 recurrences, use oracle
+
+const triggerHistory: Map<ReflexionTrigger, TriggerHistory> = new Map();
+
+/**
+ * Check if a trigger should fire based on recurrence tracking.
+ * Returns { shouldFire, isRecurrence, escalate }
+ */
+export function checkRecurrence(
+  trigger: ReflexionTrigger,
+  turn: number,
+): { shouldFire: boolean; isRecurrence: boolean; escalate: boolean } {
+  const history = triggerHistory.get(trigger);
+
+  if (!history) {
+    // First time seeing this trigger
+    triggerHistory.set(trigger, {
+      lastFired: turn,
+      cooldown: TRIGGER_COOLDOWN,
+      recurrenceCount: 1,
+    });
+    return { shouldFire: true, isRecurrence: false, escalate: false };
+  }
+
+  // Check if cooldown has passed
+  if (turn - history.lastFired < history.cooldown) {
+    // Still in cooldown — don't fire
+    return { shouldFire: false, isRecurrence: false, escalate: false };
+  }
+
+  // Cooldown passed — this is a recurrence
+  history.recurrenceCount++;
+  history.lastFired = turn;
+
+  // After multiple recurrences, escalate to oracle
+  const escalate = history.recurrenceCount > ESCALATION_THRESHOLD;
+
+  return { shouldFire: true, isRecurrence: true, escalate };
+}
+
+/** Get recurrence info for a trigger. */
+export function getRecurrenceCount(trigger: ReflexionTrigger): number {
+  return triggerHistory.get(trigger)?.recurrenceCount ?? 0;
+}
+
+/** Reset recurrence tracking (for session boundaries). */
+export function resetRecurrence(): void {
+  triggerHistory.clear();
+}
+
+// ============================================================
 // Oracle prompt
 // ============================================================
 
@@ -184,8 +245,11 @@ async function oracleReflexion(ctx: ReflexionContext): Promise<Reflexion> {
 // Decision: fast or oracle?
 // ============================================================
 
-function shouldUseOracle(ctx: ReflexionContext): boolean {
+function shouldUseOracle(ctx: ReflexionContext, escalate: boolean = false): boolean {
   if (!process.env.ANTHROPIC_API_KEY) return false;
+
+  // Escalation from recurrence — same stumble keeps happening
+  if (escalate) return true;
 
   // Black state always gets oracle attention
   if (ctx.trigger === "black_state") return true;
@@ -203,17 +267,55 @@ function shouldUseOracle(ctx: ReflexionContext): boolean {
 // Main entry point
 // ============================================================
 
-/** Produce a reflexion from the given context. */
+/**
+ * Produce a reflexion from the given context.
+ * Checks recurrence and escalates to oracle if same pattern keeps happening.
+ */
 export async function reflect(ctx: ReflexionContext): Promise<Reflexion> {
-  if (shouldUseOracle(ctx)) {
+  const { shouldFire, isRecurrence, escalate } = checkRecurrence(ctx.trigger, ctx.turn);
+
+  // If in cooldown, return a minimal reflexion noting the recurrence
+  if (!shouldFire) {
+    return {
+      id: reflexionId(),
+      turn: ctx.turn,
+      timestamp: new Date().toISOString(),
+      trigger: ctx.trigger,
+      what_happened: `${ctx.trigger} triggered again within cooldown — pattern detected`,
+      why_it_failed: "Same stumble is recurring. The previous reflexion didn't stick.",
+      what_was_missed: "The underlying pattern that keeps triggering this.",
+      next_time: "Look at what the reflexions have in common.",
+      pulse_state: ctx.pulse.state,
+      wise_mind: ctx.pulse.wise_mind,
+      bullshit_types: ctx.bullshitReadings.map((b) => b.type),
+    };
+  }
+
+  // Add recurrence note to context for escalated reflexions
+  const escalateNote = isRecurrence ? ` (recurrence #${getRecurrenceCount(ctx.trigger)})` : "";
+
+  if (shouldUseOracle(ctx, escalate)) {
     try {
-      return await oracleReflexion(ctx);
+      const reflexion = await oracleReflexion(ctx);
+      if (isRecurrence) {
+        reflexion.what_happened += escalateNote;
+      }
+      return reflexion;
     } catch {
       // Oracle failed — degrade gracefully
-      return fastReflexion(ctx);
+      const reflexion = fastReflexion(ctx);
+      if (isRecurrence) {
+        reflexion.what_happened += escalateNote;
+      }
+      return reflexion;
     }
   }
-  return fastReflexion(ctx);
+
+  const reflexion = fastReflexion(ctx);
+  if (isRecurrence) {
+    reflexion.what_happened += escalateNote;
+  }
+  return reflexion;
 }
 
 /** Format a reflexion for context injection into before_prompt_build. */

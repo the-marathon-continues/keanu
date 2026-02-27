@@ -67,7 +67,17 @@ function makeMismatch(
 
 function makeSeason(drift: string | null = null): SeasonReading {
   return {
-    spring: { intent: "test intent", taskType: "conversation", complexity: "low" },
+    spring: {
+      intent: "test intent",
+      taskType: "conversation",
+      complexity: "low",
+      intentSignals: {
+        wantsBrief: false,
+        wantsDepth: false,
+        wantsAction: false,
+        wantsAnalysis: false,
+      },
+    },
     summer: { confidence: 0.7, approach: "direct", risks: [] },
     autumn: { alignment: drift ? 0.4 : 0.8, drift },
     winter: null,

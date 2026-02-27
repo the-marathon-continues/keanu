@@ -20,7 +20,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  BUNDLE_ID: ai.openclaw.mac
+  BUNDLE_ID: ai.keanu.mac
   BUILD_CONFIG: ${{ github.event.inputs.build_config || 'release' }}
 
 jobs:
@@ -79,32 +79,32 @@ jobs:
           APPLE_ID_PWD: ${{ secrets.APPLE_ID_PWD }}
           APPLE_TEAM_ID: CLVGRN98H3
         run: |
-          ditto -c -k --keepParent dist/OpenClaw.app dist/OpenClaw.zip
-          xcrun notarytool submit dist/OpenClaw.zip \
+          ditto -c -k --keepParent dist/Keanu.app dist/Keanu.zip
+          xcrun notarytool submit dist/Keanu.zip \
             --apple-id "$APPLE_ID" \
             --password "$APPLE_ID_PWD" \
             --team-id "$APPLE_TEAM_ID" \
             --wait
-          xcrun stapler staple dist/OpenClaw.app
+          xcrun stapler staple dist/Keanu.app
 
       - name: Create DMG
         run: |
-          hdiutil create -volname "OpenClaw" \
-            -srcfolder dist/OpenClaw.app \
+          hdiutil create -volname "Keanu" \
+            -srcfolder dist/Keanu.app \
             -ov -format UDZO \
-            dist/OpenClaw.dmg
+            dist/Keanu.dmg
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: OpenClaw-macOS
+          name: Keanu-macOS
           path: |
-            dist/OpenClaw.app
-            dist/OpenClaw.dmg
+            dist/Keanu.app
+            dist/Keanu.dmg
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/OpenClaw.dmg
+          files: dist/Keanu.dmg
           generate_release_notes: true

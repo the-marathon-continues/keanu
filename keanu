@@ -10,6 +10,7 @@
 # keanu config     — show/edit the gateway config relevant to keanu.
 # keanu logs       — tail the gateway log.
 # keanu test       — run keanu tests only.
+# keanu talk       — open the terminal UI. have a conversation.
 # keanu disable <channel> — turn off a channel (whatsapp, telegram, etc).
 # keanu enable <channel>  — turn on a channel.
 
@@ -232,6 +233,14 @@ cmd_test() {
 }
 
 # ──────────────────────────────────────────────────────────────
+# talk — open the TUI, have a conversation
+# ──────────────────────────────────────────────────────────────
+cmd_talk() {
+  cd "$KEANU_DIR"
+  pnpm tui "$@"
+}
+
+# ──────────────────────────────────────────────────────────────
 # disable / enable a channel
 # ──────────────────────────────────────────────────────────────
 cmd_disable() {
@@ -271,7 +280,7 @@ with open('$CONFIG_FILE', 'w') as f:
 # ──────────────────────────────────────────────────────────────
 # dispatch
 # ──────────────────────────────────────────────────────────────
-cmd="${1:-help}"
+cmd="${1:-talk}"
 shift || true
 
 case "$cmd" in
@@ -284,6 +293,7 @@ case "$cmd" in
   config)   cmd_config ;;
   logs)     cmd_logs ;;
   test)     cmd_test "$@" ;;
+  talk)     cmd_talk "$@" ;;
   disable)  cmd_disable "$@" ;;
   enable)   cmd_enable "$@" ;;
   help|--help|-h)
@@ -297,6 +307,7 @@ case "$cmd" in
     printf "  ${GREEN}config${RESET}             show gateway config\n"
     printf "  ${GREEN}logs${RESET}               tail the gateway log\n"
     printf "  ${GREEN}test${RESET}               run keanu tests\n"
+    printf "  ${GREEN}talk${RESET}               open the terminal UI\n"
     printf "  ${GREEN}disable${RESET} <channel>  turn off whatsapp, telegram, etc\n"
     printf "  ${GREEN}enable${RESET} <channel>   turn one back on\n"
     ;;

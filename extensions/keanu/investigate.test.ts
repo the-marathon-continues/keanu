@@ -171,6 +171,7 @@ describe("formatInsight", () => {
       generated: new Date().toISOString(),
       session_id: "s1",
       applied_count: 0,
+      sessions_exposed: 0,
     };
 
     const text = formatInsight(insight);

@@ -88,6 +88,8 @@ import type { NostrProfileFormState } from "./views/channels.nostr-profile-form.
 
 declare global {
   interface Window {
+    __KEANU_BASE_PATH__?: string;
+    /** @deprecated Use __KEANU_BASE_PATH__ instead */
     __OPENCLAW_CONTROL_UI_BASE_PATH__?: string;
   }
 }
@@ -107,8 +109,8 @@ function resolveOnboardingMode(): boolean {
   return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
 }
 
-@customElement("openclaw-app")
-export class OpenClawApp extends LitElement {
+@customElement("keanu-app")
+export class KeanuApp extends LitElement {
   private i18nController = new I18nController(this);
   clientInstanceId = generateUUID();
   @state() settings: UiSettings = loadSettings();

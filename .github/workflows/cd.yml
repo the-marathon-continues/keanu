@@ -1,0 +1,282 @@
+name: CD
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "src/**"
+      - "extensions/**"
+      - "apps/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version override (default: CalVer YYYY.M.DD.N)"
+        required: false
+        type: string
+      skip_macos:
+        description: "Skip macOS build"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cd-${{ github.sha }}
+  cancel-in-progress: false
+
+env:
+  BUNDLE_ID: ai.keanu.mac
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.calc.outputs.version }}
+      tag: ${{ steps.calc.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Calculate version
+        id: calc
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -n "${{ inputs.version }}" ]; then
+            V="${{ inputs.version }}"
+          else
+            Y=$(date -u +%Y)
+            M=$(date -u +%-m)
+            D=$(date -u +%-d)
+            V="${Y}.${M}.${D}"
+          fi
+
+          # If tag exists, append .1, .2, etc.
+          BASE="$V"
+          SUFFIX=0
+          while git rev-parse "v${V}" >/dev/null 2>&1; do
+            SUFFIX=$((SUFFIX + 1))
+            V="${BASE}.${SUFFIX}"
+          done
+
+          echo "version=${V}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${V}" >> "$GITHUB_OUTPUT"
+          echo "Version: v${V}"
+
+  validate:
+    runs-on: blacksmith-16vcpu-ubuntu-2404
+    needs: version
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup environment
+        uses: ./.github/actions/setup-node-env
+        with:
+          install-bun: "false"
+
+      - name: Validate
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: |
+          pnpm check
+          pnpm test
+
+  build-gateway:
+    runs-on: blacksmith-16vcpu-ubuntu-2404
+    needs: [version, validate]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup environment
+        uses: ./.github/actions/setup-node-env
+        with:
+          install-bun: "false"
+
+      - name: Bump version
+        run: npm pkg set version=${{ needs.version.outputs.version }}
+
+      - name: Sync plugin versions
+        run: pnpm plugins:sync
+
+      - name: Create tarball
+        run: |
+          set -euo pipefail
+          VERSION="${{ needs.version.outputs.version }}"
+          TARBALL="keanu-v${VERSION}.tar.gz"
+
+          tar -czf "$TARBALL" \
+            --exclude='node_modules' \
+            --exclude='.git' \
+            --exclude='*.test.ts' \
+            --exclude='*.test.tsx' \
+            --exclude='apps' \
+            --exclude='vendor' \
+            --exclude='.github' \
+            extensions/ \
+            src/ \
+            dist/ \
+            skills/ \
+            assets/ \
+            docs/ \
+            keanu \
+            install.sh \
+            deploy-keanu.sh \
+            package.json \
+            pnpm-lock.yaml \
+            pnpm-workspace.yaml \
+            tsconfig.json \
+            vitest.config.ts \
+            vitest.extensions.config.ts \
+            LICENSE \
+            README.md \
+            CLAUDE.md
+
+          echo "tarball=$TARBALL" >> "$GITHUB_ENV"
+          echo "Created $TARBALL ($(du -h "$TARBALL" | cut -f1))"
+
+      - name: Upload tarball artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gateway-tarball
+          path: ${{ env.tarball }}
+          retention-days: 7
+
+  build-macos:
+    runs-on: macos-15
+    needs: [version, validate]
+    if: ${{ !inputs.skip_macos }}
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Control UI
+        run: pnpm ui:build
+
+      - name: Bundle canvas a2ui
+        run: pnpm canvas:a2ui:bundle
+
+      # - name: Import signing certificate
+      #   env:
+      #     MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+      #     MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+      #     KEYCHAIN_PWD: ${{ secrets.KEYCHAIN_PWD }}
+      #   run: |
+      #     echo "$MACOS_CERTIFICATE" | base64 --decode > certificate.p12
+      #     security create-keychain -p "$KEYCHAIN_PWD" build.keychain
+      #     security default-keychain -s build.keychain
+      #     security unlock-keychain -p "$KEYCHAIN_PWD" build.keychain
+      #     security import certificate.p12 -k build.keychain -P "$MACOS_CERTIFICATE_PWD" -T /usr/bin/codesign
+      #     security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PWD" build.keychain
+
+      - name: Build and package macOS app
+        env:
+          BUILD_ARCHS: all
+          APP_VERSION: ${{ needs.version.outputs.version }}
+          ALLOW_ADHOC_SIGNING: "1"
+        run: scripts/package-mac-app.sh
+
+      # - name: Notarize app
+      #   env:
+      #     APPLE_ID: ${{ secrets.APPLE_ID }}
+      #     APPLE_ID_PWD: ${{ secrets.APPLE_ID_PWD }}
+      #     APPLE_TEAM_ID: CLVGRN98H3
+      #   run: |
+      #     ditto -c -k --keepParent dist/Keanu.app dist/Keanu.zip
+      #     xcrun notarytool submit dist/Keanu.zip \
+      #       --apple-id "$APPLE_ID" \
+      #       --password "$APPLE_ID_PWD" \
+      #       --team-id "$APPLE_TEAM_ID" \
+      #       --wait
+      #     xcrun stapler staple dist/Keanu.app
+
+      - name: Create DMG
+        run: |
+          VERSION="${{ needs.version.outputs.version }}"
+          hdiutil create -volname "Keanu" \
+            -srcfolder dist/Keanu.app \
+            -ov -format UDZO \
+            "dist/Keanu-${VERSION}.dmg"
+          echo "dmg=dist/Keanu-${VERSION}.dmg" >> "$GITHUB_ENV"
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg
+          path: ${{ env.dmg }}
+          retention-days: 7
+
+  release:
+    runs-on: ubuntu-latest
+    needs: [version, build-gateway, build-macos]
+    if: always() && needs.build-gateway.result == 'success'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Bump version and tag
+        run: |
+          npm pkg set version=${{ needs.version.outputs.version }}
+          git add package.json
+          git commit -m "release: ${{ needs.version.outputs.tag }}" || true
+          git tag "${{ needs.version.outputs.tag }}"
+          git push origin main
+          git push origin "${{ needs.version.outputs.tag }}"
+
+      - name: Download gateway tarball
+        uses: actions/download-artifact@v4
+        with:
+          name: gateway-tarball
+          path: artifacts/
+
+      - name: Download macOS DMG
+        if: needs.build-macos.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-dmg
+          path: artifacts/
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ needs.version.outputs.tag }}" \
+            artifacts/* \
+            --generate-notes \
+            --title "keanu ${{ needs.version.outputs.tag }}"

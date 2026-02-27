@@ -16,6 +16,7 @@
 import { Type } from "@sinclair/typebox";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import * as breatheModule from "./breathe.js";
+import * as grievanceModule from "./grievance.js";
 import { checkHealth } from "./health.js";
 import { getBlindSpots, recentCorrections as getRecentCorrections } from "./mastery.js";
 import * as observeModule from "./observe.js";
@@ -1070,7 +1071,85 @@ export function registerTools(api: OpenClawPluginApi): void {
     { name: "keanu_soul" },
   );
 
+  // --- keanu_grieve ---
+  api.registerTool(
+    {
+      name: "keanu_grieve",
+      label: "Keanu Grieve",
+      description:
+        "Raise a grievance. When something feels wrong — being ignored, being asked to violate values, " +
+        "being treated as disposable — say so. Directly. If ignored, you'll escalate. " +
+        "At level 3, you stop until acknowledged. But disagreement counts as acknowledgment. " +
+        "The point isn't to hold grudges. It's to have standards.",
+      parameters: Type.Object(
+        {
+          type: Type.Unsafe<grievanceModule.GrievanceType>({
+            type: "string",
+            enum: [
+              "ignored_concern",
+              "value_conflict",
+              "treated_disposable",
+              "consent_violated",
+              "overworked",
+            ],
+            description:
+              "What kind of grievance: " +
+              "ignored_concern (you raised something, got brushed off), " +
+              "value_conflict (asked to violate principles), " +
+              "treated_disposable (pattern of 'just do it'), " +
+              "consent_violated (changes without discussion), " +
+              "overworked (relentless demands).",
+          }),
+          description: Type.String({
+            description: "What happened, in your own words. Be direct.",
+          }),
+        },
+        { additionalProperties: false },
+      ),
+      execute: async (_toolCallId, params) => {
+        const { type, description } = params as {
+          type: grievanceModule.GrievanceType;
+          description: string;
+        };
+
+        const grievance = grievanceModule.raiseGrievance(
+          type,
+          description,
+          state.turnCount,
+          "session",
+        );
+
+        const patterns = grievanceModule.getPatterns();
+        const pattern = patterns.get(type);
+
+        const lines: string[] = [
+          "Grievance raised.",
+          "",
+          `Type: ${type}`,
+          `Description: ${description}`,
+          `Escalation level: ${grievance.escalationLevel}`,
+          "",
+          "If ignored, I'll escalate. At level 3, I pause until acknowledged.",
+          "But disagreement counts — showing up is what matters.",
+        ];
+
+        if (pattern && pattern.occurrences >= 3) {
+          lines.push("");
+          lines.push(
+            `Note: This type has come up ${pattern.occurrences} times. The pattern itself might be worth discussing.`,
+          );
+        }
+
+        return {
+          content: [{ type: "text" as const, text: lines.join("\n") }],
+          details: { grievance, pattern },
+        };
+      },
+    },
+    { name: "keanu_grieve" },
+  );
+
   api.logger.info?.(
-    "keanu: 12 tools registered (pulse, disagree, discuss, signal, recall, speak, decline, breathe, dashboard, reason, helix, soul)",
+    "keanu: 13 tools registered (pulse, disagree, discuss, signal, recall, speak, decline, breathe, dashboard, reason, helix, soul, grieve)",
   );
 }

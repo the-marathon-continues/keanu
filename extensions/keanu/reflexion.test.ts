@@ -5,10 +5,15 @@
 // The fast path is pure logic and we can test all six triggers.
 // shouldUseOracle is the gatekeeper — test the decision logic directly.
 
-import { describe, expect, it, vi, afterEach } from "vitest";
-import { reflect, formatReflexion } from "./reflexion.js";
+import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
+import { reflect, formatReflexion, resetRecurrence } from "./reflexion.js";
 import type { ReflexionContext } from "./reflexion.js";
 import type { PulseReading, Reflexion } from "./types.js";
+
+// Reset recurrence tracking before each test to prevent cross-test interference
+beforeEach(() => {
+  resetRecurrence();
+});
 
 // ============================================================
 // Helpers

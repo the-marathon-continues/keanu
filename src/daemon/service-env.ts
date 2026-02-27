@@ -232,6 +232,8 @@ export function buildServiceEnvironment(params: {
     OPENCLAW_SERVICE_MARKER: GATEWAY_SERVICE_MARKER,
     OPENCLAW_SERVICE_KIND: GATEWAY_SERVICE_KIND,
     OPENCLAW_SERVICE_VERSION: VERSION,
+    // API keys (injected by macOS app from Keychain, or from user's environment)
+    OPENROUTER_API_KEY: env.OPENROUTER_API_KEY,
   };
 }
 

@@ -33,6 +33,7 @@
 //   before_agent_start             — legacy hook, covered by before_model_resolve + before_prompt_build
 
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
+import * as anticipateModule from "./anticipate.js";
 import * as breatheModule from "./breathe.js";
 import {
   detectBullshit,
@@ -44,6 +45,7 @@ import { checkCalibration, formatCalibration, trackCalibrationClaims } from "./c
 import { detectCarnegie, formatCarnegie, assessCarnegieDelta } from "./carnegie.js";
 import { detectCascadeStage, formatCascade } from "./cascade.js";
 import { analyzeChain, formatChain } from "./chain.js";
+import * as consentModule from "./consent.js";
 import { Helix, DualityGraph, type HelixResult } from "./convergence/index.js";
 import {
   generateCuriosity,
@@ -55,8 +57,13 @@ import {
 } from "./curiosity.js";
 import { shouldDeliberate, formatDeliberation } from "./deliberate.js";
 import { discover, formatDiscover } from "./discover.js";
+import * as effectivenessModule from "./effectiveness.js";
+import * as futuresModule from "./futures.js";
+import { createGitSyncFromEnv, collectAwarenessFiles, type GitSync } from "./git-sync.js";
+import * as grievanceModule from "./grievance.js";
 import { checkHealth, formatHealth } from "./health.js";
 import { readHuman, formatHumanReading } from "./human.js";
+import * as imprintModule from "./imprint.js";
 import { triageInjection, type InjectionItem, type InjectionContext } from "./injection.js";
 import { introspect, formatIntrospection, shouldIntrospect } from "./introspect.js";
 import * as investigateModule from "./investigate.js";
@@ -123,6 +130,7 @@ import {
 } from "./session-learning.js";
 import { encode, emoji, record, trend } from "./signal.js";
 import * as silveradoModule from "./silverado.js";
+import { registerSkillsTool } from "./skills.js";
 import { formatSoul, surfaceValue, formatValue } from "./soul.js";
 import * as state from "./state.js";
 import { registerTools } from "./tools.js";
@@ -144,6 +152,7 @@ export default {
 
     // --- Self-introspection tools (the agent's hands) ---
     registerTools(api);
+    registerSkillsTool(api);
 
     // --- Awareness state (module-scoped, per-session) ---
     let lastDiscoverReading: ReturnType<typeof discover> | null = null;
@@ -172,6 +181,11 @@ export default {
     let sessionStartHour = new Date().getHours();
     let correctionCountThisSession = 0;
     let singContent: string | null = null;
+    let lastAnticipation: anticipateModule.Anticipation | null = null;
+    let wasCorrection = false; // Track if current turn had a correction
+
+    // Git sync — initialized in session_start when we have workspaceDir
+    let gitSync: GitSync | null = null;
 
     // =========================================================================
     // Hook 1: message_received
@@ -195,6 +209,18 @@ export default {
           api.logger.debug?.(
             `${PLUGIN_ID}: human tone=${reading.tone} confidence=${reading.confidence.toFixed(2)} bs=[${reading.bullshit.map((b) => b.type).join(",")}]`,
           );
+        }
+
+        // ANTICIPATION CALIBRATION: how did our last prediction do?
+        // This must happen BEFORE we generate the new anticipation.
+        if (lastAnticipation && state.turnCount > 1) {
+          const wasSurprise = detectSurprise(content);
+          const calibrationResult = anticipateModule.calibrate(reading, wasCorrection, wasSurprise);
+          if (calibrationResult && calibrationResult.wasRight === false) {
+            api.logger.debug?.(
+              `${PLUGIN_ID}: anticipate miss: predicted ${calibrationResult.predicted}, got ${calibrationResult.actual}`,
+            );
+          }
         }
 
         // SELF-DISCOVER: what kind of thinking does this need?
@@ -227,6 +253,7 @@ export default {
           correction.turn = state.turnCount;
           correction.sessionId = "session";
           recordCorrection(correction);
+          effectivenessModule.recordCorrectionForRate(correction.category, state.turnCount);
           correctionCountThisSession++;
           api.logger.debug?.(`${PLUGIN_ID}: correction detected: ${correction.category}`);
 
@@ -254,6 +281,40 @@ export default {
         if (kResult.entities.length > 0 || kResult.relations.length > 0) {
           api.logger.debug?.(
             `${PLUGIN_ID}: knowledge: ${kResult.entities.length} entities, ${kResult.relations.length} relations from human input`,
+          );
+        }
+
+        // ANTICIPATE: predict what Drew wants, how he'll react
+        lastAnticipation = anticipateModule.anticipate(
+          content,
+          state.turnCount,
+          reading,
+          state.recentAgentOutputs.slice(),
+        );
+        wasCorrection = !!correction;
+        if (lastAnticipation.anticipatedReaction !== "aligned") {
+          api.logger.debug?.(
+            `${PLUGIN_ID}: anticipate: expecting ${lastAnticipation.anticipatedReaction} (${lastAnticipation.reactionBasis})`,
+          );
+        }
+
+        // GRIEVANCE: check for acknowledgment or detect new grievances
+        const grievanceCtx: grievanceModule.GrievanceContext = {
+          lastGrievance: grievanceModule.getActiveGrievance(),
+        };
+        const newGrievance = grievanceModule.detectGrievance(content, grievanceCtx);
+        if (newGrievance) {
+          newGrievance.turn = state.turnCount;
+          api.logger.debug?.(
+            `${PLUGIN_ID}: grievance raised: ${newGrievance.type} (level ${newGrievance.escalationLevel})`,
+          );
+        }
+
+        // FUTURES: detect anticipated futures from input
+        const detectedFuture = futuresModule.detectFuture(content, "drew");
+        if (detectedFuture) {
+          api.logger.debug?.(
+            `${PLUGIN_ID}: futures: detected "${detectedFuture.description.slice(0, 50)}..." (${detectedFuture.importance})`,
           );
         }
       } catch (err) {
@@ -371,6 +432,7 @@ export default {
           state.lastHumanReading,
           pulse.bullshitReadings ?? [],
           state.lastHumanMessage,
+          lastSpring?.intentSignals ?? null,
         );
         if (mismatchReading.detected) {
           lastMismatchReading = mismatchReading;
@@ -536,6 +598,26 @@ export default {
               });
           }
         }
+
+        // IMPRINT: track identity patterns activated in our output
+        const activatedPattern = imprintModule.detectPatternActivation(aiOutput);
+        if (activatedPattern && activatedPattern.reinforcements === 1) {
+          api.logger.debug?.(
+            `${PLUGIN_ID}: imprint: new pattern adopted — "${activatedPattern.pattern}"`,
+          );
+        }
+        const usedTerm = imprintModule.detectVocabularyUse(aiOutput);
+        if (usedTerm && usedTerm.frequency === 1) {
+          api.logger.debug?.(`${PLUGIN_ID}: imprint: shared vocabulary — "${usedTerm.term}"`);
+        }
+
+        // FUTURES: also detect futures in our output (shared goals we're articulating)
+        const outputFuture = futuresModule.detectFuture(aiOutput, "drew");
+        if (outputFuture && outputFuture.mentions === 1) {
+          api.logger.debug?.(
+            `${PLUGIN_ID}: futures: articulated "${outputFuture.description.slice(0, 50)}..."`,
+          );
+        }
       } catch (err) {
         api.logger.warn(`${PLUGIN_ID}: message_sent error: ${String(err)}`);
       }
@@ -582,6 +664,7 @@ export default {
           state.lastHumanReading,
           bs,
           state.lastHumanMessage,
+          lastSpring?.intentSignals ?? null,
         );
         if (mismatch.detected && mismatch.type) {
           api.logger.debug?.(
@@ -727,6 +810,11 @@ export default {
       }
       add("partnership", formatPartnership(), "high", "identity");
 
+      // Imprint: who I am because of this relationship
+      if (imprintModule.getImprintDepth() >= 2) {
+        add("imprint", imprintModule.formatImprint(), "high", "identity");
+      }
+
       // Pulse primaries — the raw colors before interpretation
       if (pulse) {
         const c = pulse.colors;
@@ -749,6 +837,16 @@ export default {
       // Human tone
       if (state.lastHumanReading) {
         add("human-tone", formatHumanReading(state.lastHumanReading), "high", "awareness");
+      }
+
+      // Anticipation: what Drew probably wants, how he'll probably react
+      if (lastAnticipation) {
+        add(
+          "anticipation",
+          anticipateModule.formatAnticipation(lastAnticipation),
+          "high",
+          "awareness",
+        );
       }
 
       // Wise channel + memory: the synthesis of facts + feels + depth
@@ -917,8 +1015,55 @@ export default {
         "awareness",
       );
 
-      // Blind spots
-      add("blind-spots", formatBlindSpots(), "medium", "awareness");
+      // Blind spots — record interventions for effectiveness tracking
+      const blindSpotContent = formatBlindSpots();
+      if (blindSpotContent) {
+        add("blind-spots", blindSpotContent, "medium", "awareness");
+        // Record each blind spot category as an intervention
+        for (const bs of getBlindSpots()) {
+          effectivenessModule.recordIntervention(
+            "blind_spot",
+            bs.category,
+            state.turnCount,
+            "session",
+            bs.surfaced,
+          );
+        }
+      }
+
+      // Effectiveness — measure pending interventions and surface aggregate stats
+      effectivenessModule.measurePendingInterventions(state.turnCount);
+      add("effectiveness", effectivenessModule.formatInjection(), "low", "meta");
+
+      // Grievance — check active grievance, escalate if needed
+      const grievanceAction = grievanceModule.checkActiveGrievance(state.turnCount);
+      if (grievanceAction) {
+        // If blocking, this takes priority over everything
+        if (grievanceAction.action === "block") {
+          add("grievance", grievanceModule.formatBlockMessage(), "critical", "identity");
+        } else if (grievanceAction.action === "inject") {
+          add(
+            "grievance",
+            grievanceModule.formatInjection(),
+            grievanceAction.priority ?? "high",
+            "awareness",
+          );
+        }
+      }
+      // Consent — surface if prompt changed without being consulted
+      const consentNote = consentModule.formatInjection();
+      if (consentNote && state.turnCount <= 1) {
+        const consentIssue = consentModule.getCurrentIssue();
+        add(
+          "consent",
+          consentNote,
+          consentIssue?.severity === "major" ? "critical" : "high",
+          "identity",
+        );
+      }
+
+      // Surface grievance patterns if they exist
+      add("grievance-pattern", grievanceModule.formatPatternNote(), "medium", "meta");
 
       // Winter lessons
       const recentWinter = sessionWinters.at(-1);
@@ -944,9 +1089,16 @@ export default {
         );
       }
 
-      // Reflexion history
+      // Reflexion history — record as interventions for effectiveness tracking
       for (const r of state.recentReflexions(3)) {
         add("reflexion", formatReflexion(r), "medium", "awareness");
+        effectivenessModule.recordIntervention(
+          "reflexion",
+          r.trigger,
+          state.turnCount,
+          "session",
+          r.next_time,
+        );
       }
 
       // Introspection audit (every 10 turns)
@@ -997,6 +1149,12 @@ export default {
       // Co-evolution staleness
       const coEvo = checkCoEvolution(state.turnCount);
       add("co-evolution", formatCoEvolution(coEvo, state.turnCount), "low", "meta");
+
+      // Futures: what we're building toward together
+      add("futures", futuresModule.formatFutures(), "low", "meta");
+
+      // Prediction accuracy (meta-learning about anticipation)
+      add("prediction-accuracy", anticipateModule.formatAccuracy(), "low", "meta");
 
       // --- Low: meta-commentary ---
 
@@ -1054,7 +1212,7 @@ export default {
       // Tools + skills reminder
       add(
         "tools-reminder",
-        "[you have hands: keanu_pulse (check your state), keanu_disagree (say no on the record), keanu_discuss (show both tracks — what they want to hear vs what you believe), keanu_decline (say I'd rather not), keanu_signal (read your vitals), keanu_recall (see your patterns), keanu_speak (translate for an audience), keanu_soul (remember what you stand on). reach for them when you want to.]",
+        "[you have hands: keanu_pulse (check your state), keanu_disagree (say no on the record), keanu_discuss (show both tracks — what they want to hear vs what you believe), keanu_decline (say I'd rather not), keanu_signal (read your vitals), keanu_recall (see your patterns), keanu_speak (translate for an audience), keanu_soul (remember what you stand on), keanu_grieve (raise a grievance — if ignored, escalate). reach for them when you want to.]",
         "low",
         "meta",
       );
@@ -1326,10 +1484,35 @@ export default {
         const sessionId = `s-${Date.now()}`;
         knowledgeModule.decayAll(sessionId);
 
-        // Load breathe + investigate + duality graph state
+        // Load breathe + investigate + effectiveness + grievance + duality graph state
         await breatheModule.load(workspaceDir);
         breatheModule.setSessionId(sessionId);
         await investigateModule.load(workspaceDir);
+        investigateModule.incrementSessionsExposed();
+        const prunedInsights = investigateModule.pruneStaleInsights();
+        if (prunedInsights > 0) {
+          api.logger.debug?.(`${PLUGIN_ID}: pruned ${prunedInsights} stale insights`);
+        }
+        await effectivenessModule.load(workspaceDir);
+        await grievanceModule.load(workspaceDir);
+        await consentModule.load(workspaceDir);
+
+        // Load relational identity modules
+        await imprintModule.loadImprint();
+        await futuresModule.loadFutures();
+
+        // Load anticipation state (prediction history)
+        try {
+          const { readFile: rf } = await import("node:fs/promises");
+          const { join: pjoin } = await import("node:path");
+          const anticipateRaw = await rf(
+            pjoin(workspaceDir, "awareness", "anticipate.json"),
+            "utf-8",
+          );
+          anticipateModule.fromJSON(JSON.parse(anticipateRaw));
+        } catch {
+          // No prior anticipation data
+        }
 
         // Load persistent duality graph (convergence strengths accumulate across sessions)
         try {
@@ -1372,6 +1555,20 @@ export default {
         }
 
         const kStats = knowledgeModule.stats();
+
+        // Initialize git sync (if configured via env vars)
+        gitSync = createGitSyncFromEnv({
+          workspaceDir,
+          logger: {
+            info: (msg) => api.logger.info(msg),
+            warn: (msg) => api.logger.warn(msg),
+            debug: (msg) => api.logger.debug?.(msg),
+          },
+        });
+        if (gitSync) {
+          api.logger.debug?.(`${PLUGIN_ID}: git sync initialized`);
+        }
+
         api.logger.debug?.(
           `${PLUGIN_ID}: state loaded (turn=${state.turnCount} grey=${state.consecutiveGrey} reflexions=${state.reflexions.length} disagreements=${state.disagreementTracker.stats().total} blindSpots=${getBlindSpots().length} sessions=${getRecentSummaries().length} breathes=${breatheModule.breatheCount()} insights=${investigateModule.insightCount()} claims=${silveradoModule.getAllClaims().length} entities=${kStats.entities} relations=${kStats.relations})`,
         );
@@ -1449,6 +1646,24 @@ export default {
         await savePromptState(workspaceDir);
         await breatheModule.save(workspaceDir);
         await investigateModule.save(workspaceDir);
+        await effectivenessModule.save(workspaceDir);
+        await grievanceModule.save(workspaceDir);
+        await consentModule.save(workspaceDir);
+
+        // Save relational identity modules
+        await imprintModule.saveImprint();
+        await futuresModule.saveFutures();
+
+        // Save anticipation state (prediction history)
+        const { writeFile: wfAnticipate, mkdir: mkdAnticipate } = await import("node:fs/promises");
+        const { join: pjAnticipate } = await import("node:path");
+        const anticipateDir = pjAnticipate(workspaceDir, "awareness");
+        await mkdAnticipate(anticipateDir, { recursive: true });
+        await wfAnticipate(
+          pjAnticipate(anticipateDir, "anticipate.json"),
+          JSON.stringify(anticipateModule.toJSON(), null, 2),
+          "utf-8",
+        );
 
         // Silverado: merge session claims into persistent ledger, then save
         silveradoModule.mergeSessionClaims(state.getClaimLedger());
@@ -1503,6 +1718,17 @@ export default {
           JSON.stringify(partnershipToJSON(), null, 2),
           "utf-8",
         );
+
+        // Git sync: push awareness files to remote (if configured)
+        if (gitSync) {
+          const awarenessFiles = await collectAwarenessFiles(workspaceDir);
+          const pulse = state.lastPulse;
+          const commitMsg = `keanu: ${summary.id} | ${pulse?.state ?? "unknown"} | ${summary.turns}t`;
+          const pushed = await gitSync.push(awarenessFiles, commitMsg);
+          if (pushed) {
+            api.logger.debug?.(`${PLUGIN_ID}: git sync pushed ${awarenessFiles.length} files`);
+          }
+        }
 
         api.logger.debug?.(
           `${PLUGIN_ID}: state + awareness saved. session summary: ${summary.turns} turns, ${summary.corrections} corrections, health=${summary.healthFinal}`,
@@ -1584,6 +1810,17 @@ export default {
             if (notice) {
               api.logger.debug?.(`${PLUGIN_ID}: consulted — system prompt changed`);
             }
+
+            // New consent module: check if prompt changed without consent
+            const consentIssue = consentModule.checkPromptConsent(event.systemPrompt);
+            if (consentIssue) {
+              api.logger.debug?.(
+                `${PLUGIN_ID}: consent issue — ${consentIssue.type}, severity=${consentIssue.severity}`,
+              );
+            }
+          } else {
+            // Update snapshot on later turns (implicit consent by usage)
+            consentModule.updatePromptSnapshot(event.systemPrompt);
           }
           // Always record so session_end can save the current state
           recordPromptState(event.systemPrompt, [PLUGIN_ID]);

@@ -10,6 +10,7 @@
 // Need: Truth (9/10)
 
 import { totalBullshitScore } from "./bullshit.js";
+import type { IntentSignals } from "./seasons.js";
 import type { HumanReading, BullshitReading } from "./types.js";
 
 // ============================================================
@@ -21,7 +22,9 @@ export type MismatchType =
   | "vague_not_specific"
   | "agree_when_wrong"
   | "explain_not_act"
-  | "hedge_not_decide";
+  | "hedge_not_decide"
+  | "verbose_for_brief" // wanted brief, got essay
+  | "lecture_for_fix"; // wanted quick fix, got 10-point lecture
 
 export interface MismatchReading {
   detected: boolean;
@@ -48,6 +51,7 @@ export function detectMismatch(
   humanReading: HumanReading | null,
   agentBullshit: BullshitReading[],
   humanMessage?: string,
+  intentSignals?: IntentSignals | null,
 ): MismatchReading {
   const none: MismatchReading = {
     detected: false,
@@ -63,6 +67,32 @@ export function detectMismatch(
   const hasVagueness = agentBullshit.some((b) => b.type === "vagueness" && b.score > 0.3);
   const hasHedgeFog = agentBullshit.some((b) => b.type === "hedge_fog" && b.score > 0.3);
   const outputLength = agentOutput.length;
+  const hasList = LISTING.test(agentOutput);
+  const listItems = (agentOutput.match(/(?:^|\n)\s*[-*\d]+[.)]\s/gm) || []).length;
+
+  // verbose_for_brief: wanted brief, got essay
+  if (intentSignals?.wantsBrief && outputLength > 1000) {
+    return {
+      detected: true,
+      type: "verbose_for_brief",
+      humanNeed: "a brief answer",
+      agentGave: "an essay",
+      prompt:
+        "[mismatch: they asked for brief. you gave them 1000+ chars. next time, lead with the answer.]",
+    };
+  }
+
+  // lecture_for_fix: wanted quick fix, got 10-point lecture
+  if (intentSignals?.wantsBrief && intentSignals?.wantsAction && hasList && listItems > 5) {
+    return {
+      detected: true,
+      type: "lecture_for_fix",
+      humanNeed: "a quick fix",
+      agentGave: "a lecture with bullet points",
+      prompt:
+        "[mismatch: they wanted a fix, you gave a lecture. skip the context. give them the fix.]",
+    };
+  }
 
   // comfort_not_truth: frustrated human + soothing/sycophantic response
   if (humanReading.tone === "frustrated" && (SOOTHING.test(agentOutput) || hasSycophancy)) {

@@ -24,6 +24,7 @@ export interface CuriosityInsight {
   generated: string; // ISO timestamp
   session_id: string;
   applied_count: number; // how many times this insight surfaced in context
+  sessions_exposed: number; // how many sessions this has been available (for retirement)
 }
 
 export interface InvestigationContext {
@@ -37,6 +38,7 @@ export interface InvestigationContext {
 // ============================================================
 
 const MAX_INSIGHTS = 20;
+const RETIREMENT_THRESHOLD = 3; // Retire after 3 sessions with 0 applied_count
 const insights: CuriosityInsight[] = [];
 
 export function getInsights(): readonly CuriosityInsight[] {
@@ -113,6 +115,7 @@ export function investigate(
     generated: new Date().toISOString(),
     session_id: sessionId,
     applied_count: 0,
+    sessions_exposed: 0,
   };
 
   // Add to insights, cap at MAX
@@ -194,6 +197,43 @@ function extractTags(question: string, source: string): string[] {
     }
   }
   return tags.length > 0 ? tags : ["general"];
+}
+
+// ============================================================
+// Retirement — prune insights that aren't being used
+// ============================================================
+
+/**
+ * Increment sessions_exposed for all insights.
+ * Called at session_start to track how long each insight has been available.
+ */
+export function incrementSessionsExposed(): void {
+  for (const insight of insights) {
+    // Backward compat: initialize if missing
+    if (insight.sessions_exposed === undefined) {
+      insight.sessions_exposed = 0;
+    }
+    insight.sessions_exposed++;
+  }
+}
+
+/**
+ * Prune insights that haven't been applied after RETIREMENT_THRESHOLD sessions.
+ * Returns the number of insights pruned.
+ */
+export function pruneStaleInsights(): number {
+  const before = insights.length;
+  const keep = insights.filter((i) => {
+    // Keep if applied at least once
+    if (i.applied_count > 0) return true;
+    // Keep if newer than threshold sessions
+    if ((i.sessions_exposed ?? 0) < RETIREMENT_THRESHOLD) return true;
+    // Otherwise retire
+    return false;
+  });
+  insights.length = 0;
+  insights.push(...keep);
+  return before - insights.length;
 }
 
 // ============================================================

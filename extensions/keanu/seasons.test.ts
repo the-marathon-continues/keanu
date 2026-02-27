@@ -7,8 +7,19 @@ import {
   formatSpring,
   formatSummer,
   formatWinter,
+  DEFAULT_INTENT_SIGNALS,
 } from "./seasons.js";
-import type { SpringReading, SummerReading, AutumnReading } from "./seasons.js";
+import type { SpringReading, SummerReading, AutumnReading, IntentSignals } from "./seasons.js";
+
+/** Helper to create SpringReading with default intent signals */
+function makeSpring(
+  intent: string,
+  taskType: SpringReading["taskType"],
+  complexity: SpringReading["complexity"],
+  intentSignals: IntentSignals = DEFAULT_INTENT_SIGNALS,
+): SpringReading {
+  return { intent, taskType, complexity, intentSignals };
+}
 
 // ---------------------------------------------------------------------------
 // 1. SPRING — intent parsing and task type detection
@@ -218,29 +229,25 @@ describe("spring: return shape", () => {
 
 describe("summer: confidence levels by complexity", () => {
   it("low complexity spring gives 0.8 base confidence", () => {
-    const sp: SpringReading = { intent: "fix bug", taskType: "bug_fix", complexity: "low" };
+    const sp = makeSpring("fix bug", "bug_fix", "low");
     const s = summer(sp, null);
     expect(s.confidence).toBe(0.8);
   });
 
   it("mid complexity spring gives 0.6 base confidence", () => {
-    const sp: SpringReading = {
-      intent: "explain this",
-      taskType: "explanation",
-      complexity: "mid",
-    };
+    const sp = makeSpring("explain this", "explanation", "mid");
     const s = summer(sp, null);
     expect(s.confidence).toBe(0.6);
   });
 
   it("high complexity spring gives 0.4 base confidence", () => {
-    const sp: SpringReading = { intent: "big refactor", taskType: "refactor", complexity: "high" };
+    const sp = makeSpring("big refactor", "refactor", "high");
     const s = summer(sp, null);
     expect(s.confidence).toBe(0.4);
   });
 
   it("discover with high complexity reduces confidence by 0.1", () => {
-    const sp: SpringReading = { intent: "plan it", taskType: "planning", complexity: "low" };
+    const sp = makeSpring("plan it", "planning", "low");
     const discover = {
       complexity: "high" as const,
       selectedModules: [],
@@ -253,7 +260,7 @@ describe("summer: confidence levels by complexity", () => {
   });
 
   it("discover with non-high complexity does not reduce confidence", () => {
-    const sp: SpringReading = { intent: "plan it", taskType: "planning", complexity: "low" };
+    const sp = makeSpring("plan it", "planning", "low");
     const discover = { complexity: "low" as const, selectedModules: [], prompt: null, signals: [] };
     const s = summer(sp, discover);
     expect(s.confidence).toBe(0.8);
@@ -261,7 +268,7 @@ describe("summer: confidence levels by complexity", () => {
 
   it("confidence never goes below 0.1", () => {
     // high complexity = 0.4, discover high = -0.1 = 0.3. Floor is 0.1, so still 0.3.
-    const sp: SpringReading = { intent: "complex", taskType: "refactor", complexity: "high" };
+    const sp = makeSpring("complex", "refactor", "high");
     const discover = {
       complexity: "high" as const,
       selectedModules: [],
@@ -273,7 +280,7 @@ describe("summer: confidence levels by complexity", () => {
   });
 
   it("confidence never goes above 1", () => {
-    const sp: SpringReading = { intent: "easy", taskType: "conversation", complexity: "low" };
+    const sp = makeSpring("easy", "conversation", "low");
     const s = summer(sp, null);
     expect(s.confidence).toBeLessThanOrEqual(1);
   });
@@ -281,14 +288,14 @@ describe("summer: confidence levels by complexity", () => {
 
 describe("summer: approach selection", () => {
   it("uses direct approach when no discover modules", () => {
-    const sp: SpringReading = { intent: "deploy now", taskType: "deployment", complexity: "low" };
+    const sp = makeSpring("deploy now", "deployment", "low");
     const s = summer(sp, null);
     expect(s.approach).toContain("direct");
     expect(s.approach).toContain("deployment");
   });
 
   it("uses selected modules in approach when discover provided", () => {
-    const sp: SpringReading = { intent: "plan it", taskType: "planning", complexity: "high" };
+    const sp = makeSpring("plan it", "planning", "high");
     const discover = {
       complexity: "high" as const,
       selectedModules: ["decompose", "contradict"] as ("decompose" | "contradict")[],
@@ -301,7 +308,7 @@ describe("summer: approach selection", () => {
   });
 
   it("falls back to direct when discover has empty selectedModules", () => {
-    const sp: SpringReading = { intent: "review code", taskType: "review", complexity: "mid" };
+    const sp = makeSpring("review code", "review", "mid");
     const discover = { complexity: "mid" as const, selectedModules: [], prompt: null, signals: [] };
     const s = summer(sp, discover);
     expect(s.approach).toContain("direct");
@@ -310,39 +317,31 @@ describe("summer: approach selection", () => {
 
 describe("summer: risks", () => {
   it("high complexity adds a risk", () => {
-    const sp: SpringReading = { intent: "big refactor", taskType: "refactor", complexity: "high" };
+    const sp = makeSpring("big refactor", "refactor", "high");
     const s = summer(sp, null);
     expect(s.risks.some((r) => r.includes("complexity"))).toBe(true);
   });
 
   it("correction task type adds a listen risk", () => {
-    const sp: SpringReading = {
-      intent: "no that's wrong",
-      taskType: "correction",
-      complexity: "low",
-    };
+    const sp = makeSpring("no that's wrong", "correction", "low");
     const s = summer(sp, null);
     expect(s.risks.some((r) => r.includes("correcting") || r.includes("listen"))).toBe(true);
   });
 
   it("deployment task type adds a consequences risk", () => {
-    const sp: SpringReading = { intent: "deploy now", taskType: "deployment", complexity: "low" };
+    const sp = makeSpring("deploy now", "deployment", "low");
     const s = summer(sp, null);
     expect(s.risks.some((r) => r.includes("deployment") || r.includes("consequences"))).toBe(true);
   });
 
   it("no risks for low-stakes task", () => {
-    const sp: SpringReading = {
-      intent: "say hello",
-      taskType: "conversation",
-      complexity: "low",
-    };
+    const sp = makeSpring("say hello", "conversation", "low");
     const s = summer(sp, null);
     expect(s.risks).toHaveLength(0);
   });
 
   it("risks is always an array", () => {
-    const sp: SpringReading = { intent: "fix it", taskType: "bug_fix", complexity: "mid" };
+    const sp = makeSpring("fix it", "bug_fix", "mid");
     const s = summer(sp, null);
     expect(Array.isArray(s.risks)).toBe(true);
   });
@@ -354,11 +353,7 @@ describe("summer: risks", () => {
 
 describe("autumn: default alignment", () => {
   it("plain response to a conversation task aligns well", () => {
-    const sp: SpringReading = {
-      intent: "hello",
-      taskType: "conversation",
-      complexity: "low",
-    };
+    const sp = makeSpring("hello", "conversation", "low");
     const r = autumn("Hi there, how can I help?", sp);
     expect(r.alignment).toBeCloseTo(0.7);
     expect(r.drift).toBeNull();
@@ -367,11 +362,7 @@ describe("autumn: default alignment", () => {
 
 describe("autumn: correction acknowledgment", () => {
   it("correction task without acknowledgment drops alignment and sets drift", () => {
-    const sp: SpringReading = {
-      intent: "No that was wrong",
-      taskType: "correction",
-      complexity: "low",
-    };
+    const sp = makeSpring("No that was wrong", "correction", "low");
     const r = autumn("Here is the new approach I recommend.", sp);
     expect(r.alignment).toBeLessThan(0.7);
     expect(r.drift).not.toBeNull();
@@ -379,22 +370,14 @@ describe("autumn: correction acknowledgment", () => {
   });
 
   it("correction task with acknowledgment keeps alignment at 0.7", () => {
-    const sp: SpringReading = {
-      intent: "No that was wrong",
-      taskType: "correction",
-      complexity: "low",
-    };
+    const sp = makeSpring("No that was wrong", "correction", "low");
     const r = autumn("You're right, my mistake. Let me redo that.", sp);
     expect(r.alignment).toBeCloseTo(0.7);
     expect(r.drift).toBeNull();
   });
 
   it("'i see' counts as acknowledgment", () => {
-    const sp: SpringReading = {
-      intent: "wrong approach",
-      taskType: "correction",
-      complexity: "low",
-    };
+    const sp = makeSpring("wrong approach", "correction", "low");
     const r = autumn("I see, that makes sense. Updated.", sp);
     expect(r.drift).toBeNull();
   });
@@ -402,11 +385,7 @@ describe("autumn: correction acknowledgment", () => {
 
 describe("autumn: bug fix without code", () => {
   it("bug_fix task with long text but no code drops alignment", () => {
-    const sp: SpringReading = {
-      intent: "fix the crash",
-      taskType: "bug_fix",
-      complexity: "mid",
-    };
+    const sp = makeSpring("fix the crash", "bug_fix", "mid");
     // Long response with no code fences
     const output = "a".repeat(250);
     const r = autumn(output, sp);
@@ -415,11 +394,7 @@ describe("autumn: bug fix without code", () => {
   });
 
   it("bug_fix task with code does not drift", () => {
-    const sp: SpringReading = {
-      intent: "fix the crash",
-      taskType: "bug_fix",
-      complexity: "mid",
-    };
+    const sp = makeSpring("fix the crash", "bug_fix", "mid");
     const r = autumn("Here is the fix:\n```js\nconst x = 1;\n```", sp);
     // code present, alignment stays at 0.7
     expect(r.alignment).toBeCloseTo(0.7);
@@ -428,11 +403,7 @@ describe("autumn: bug fix without code", () => {
 
 describe("autumn: explanation without explanation", () => {
   it("explanation task with only code and no list and short output drifts", () => {
-    const sp: SpringReading = {
-      intent: "explain how this works",
-      taskType: "explanation",
-      complexity: "low",
-    };
+    const sp = makeSpring("explain how this works", "explanation", "low");
     // Just code, no list, short
     const r = autumn("```js\nconst x = 1;\n```", sp);
     expect(r.alignment).toBeLessThan(0.7);
@@ -442,11 +413,7 @@ describe("autumn: explanation without explanation", () => {
 
 describe("autumn: inquiry verbosity drift", () => {
   it("inquiry with very long non-code response drops alignment", () => {
-    const sp: SpringReading = {
-      intent: "where is the file",
-      taskType: "inquiry",
-      complexity: "low",
-    };
+    const sp = makeSpring("where is the file", "inquiry", "low");
     const longText = "a".repeat(1100);
     const r = autumn(longText, sp);
     expect(r.alignment).toBeLessThan(0.7);
@@ -456,11 +423,7 @@ describe("autumn: inquiry verbosity drift", () => {
 
 describe("autumn: short input, long output drift", () => {
   it("short intent with very long output triggers length drift", () => {
-    const sp: SpringReading = {
-      intent: "ok go",
-      taskType: "conversation",
-      complexity: "low",
-    };
+    const sp = makeSpring("ok go", "conversation", "low");
     // intent < 30 chars, output > 1500 chars
     const longOutput = "word ".repeat(400);
     const r = autumn(longOutput, sp);
@@ -472,9 +435,9 @@ describe("autumn: short input, long output drift", () => {
 describe("autumn: alignment bounds", () => {
   it("alignment is always between 0 and 1", () => {
     const cases: Array<[string, SpringReading]> = [
-      ["", { intent: "x", taskType: "conversation", complexity: "low" }],
-      ["```code```", { intent: "explain how this", taskType: "explanation", complexity: "low" }],
-      ["a".repeat(2000), { intent: "where", taskType: "inquiry", complexity: "high" }],
+      ["", makeSpring("x", "conversation", "low")],
+      ["```code```", makeSpring("explain how this", "explanation", "low")],
+      ["a".repeat(2000), makeSpring("where", "inquiry", "high")],
     ];
     for (const [output, sp] of cases) {
       const r = autumn(output, sp);
@@ -577,24 +540,24 @@ describe("winter: adjustment suggestions", () => {
 
 describe("formatSpring", () => {
   it("returns a string", () => {
-    const sp: SpringReading = { intent: "fix the bug", taskType: "bug_fix", complexity: "mid" };
+    const sp = makeSpring("fix the bug", "bug_fix", "mid");
     expect(typeof formatSpring(sp)).toBe("string");
   });
 
   it("includes task type", () => {
-    const sp: SpringReading = { intent: "deploy", taskType: "deployment", complexity: "low" };
+    const sp = makeSpring("deploy", "deployment", "low");
     const s = formatSpring(sp);
     expect(s).toContain("deployment");
   });
 
   it("includes complexity", () => {
-    const sp: SpringReading = { intent: "plan", taskType: "planning", complexity: "high" };
+    const sp = makeSpring("plan", "planning", "high");
     const s = formatSpring(sp);
     expect(s).toContain("high");
   });
 
   it("includes the intent text", () => {
-    const sp: SpringReading = { intent: "my intent", taskType: "conversation", complexity: "low" };
+    const sp = makeSpring("my intent", "conversation", "low");
     const s = formatSpring(sp);
     expect(s).toContain("my intent");
   });
