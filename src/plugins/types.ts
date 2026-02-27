@@ -651,6 +651,13 @@ export type PluginHookGatewayContext = {
 // gateway_start hook
 export type PluginHookGatewayStartEvent = {
   port: number;
+  /** Browser control server port, if running */
+  browserPort?: number;
+  /** Gateway auth credentials (token/password) — use for browser control access */
+  auth?: {
+    token?: string;
+    password?: string;
+  };
 };
 
 // gateway_stop hook

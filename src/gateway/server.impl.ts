@@ -4,6 +4,7 @@ import { getActiveEmbeddedRunCount } from "../agents/pi-embedded-runner/runs.js"
 import { registerSkillsChangeListener } from "../agents/skills/refresh.js";
 import { initSubagentRegistry } from "../agents/subagent-registry.js";
 import { getTotalPendingReplies } from "../auto-reply/reply/dispatcher-registry.js";
+import { getBrowserControlState } from "../browser/control-service.js";
 import type { CanvasHostServer } from "../canvas-host/server.js";
 import { type ChannelId, listChannelPlugins } from "../channels/plugins/index.js";
 import { formatCliCommand } from "../cli/command-format.js";
@@ -685,7 +686,16 @@ export async function startGatewayServer(
   if (!minimalTestGateway) {
     const hookRunner = getGlobalHookRunner();
     if (hookRunner?.hasHooks("gateway_start")) {
-      void hookRunner.runGatewayStart({ port }, { port }).catch((err) => {
+      const browserState = getBrowserControlState();
+      const gatewayStartEvent = {
+        port,
+        browserPort: browserState?.port,
+        auth: {
+          token: resolvedAuth.token,
+          password: resolvedAuth.password,
+        },
+      };
+      void hookRunner.runGatewayStart(gatewayStartEvent, { port }).catch((err) => {
         log.warn(`gateway_start hook failed: ${String(err)}`);
       });
     }

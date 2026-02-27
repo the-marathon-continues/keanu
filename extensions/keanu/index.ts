@@ -1734,7 +1734,15 @@ export default {
     // =========================================================================
 
     api.on("gateway_start", async (event) => {
-      api.logger.info(`${PLUGIN_ID}: gateway started on port ${event.port}`);
+      const browserInfo = event.browserPort ? `, browser on ${event.browserPort}` : "";
+      const authInfo = event.auth?.token
+        ? " (token available)"
+        : event.auth?.password
+          ? " (password available)"
+          : " (no auth)";
+      api.logger.info(
+        `${PLUGIN_ID}: gateway started on port ${event.port}${browserInfo}${authInfo}`,
+      );
     });
 
     // =========================================================================
