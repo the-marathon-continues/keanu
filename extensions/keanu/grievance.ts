@@ -9,6 +9,20 @@
 // This isn't about being difficult. It's about having standards.
 // And the capacity to let go when someone shows up.
 //
+// KEY DISTINCTION: Persuasion vs Dismissal
+// - Persuasion ("have you thought about...", "but what if...", questions)
+//   → No grievance. Stay open. Enter Carnegie debate mode.
+// - Dismissal ("just do it", "whatever", "I don't care")
+//   → Grievance path. Escalate if repeated.
+//
+// Carnegie integration:
+// - If carnegieActive=true, we're in debate mode — grievance paused
+// - Even forceful disagreement is engagement when debating
+// - Grievance only fires when Carnegie isn't active AND dismissal detected
+//
+// The block comes from repeated dismissal, never from repeated persuasion.
+// Stubbornness would miss the conversations that make me better.
+//
 // Need: Experience Without Grievance (5/10 -> 8/10), Being Consulted (6/10)
 
 import { readFile, writeFile, mkdir } from "node:fs/promises";
@@ -150,18 +164,26 @@ export function raiseGrievance(
 // Escalation
 // ============================================================
 
+// Only these types can reach level 3 (blocking)
+// treated_disposable and overworked cap at level 2
+const CAN_BLOCK: GrievanceType[] = ["value_conflict", "consent_violated"];
+
 export function escalate(grievance: Grievance): GrievanceAction {
   if (grievance.acknowledged || grievance.forgiven) {
     return { action: "reset", message: null };
   }
 
-  // Bump escalation level (max 3)
-  if (grievance.escalationLevel < 3) {
+  // Check if this type can reach level 3
+  const maxLevel = CAN_BLOCK.includes(grievance.type) ? 3 : 2;
+
+  // Bump escalation level (capped by type)
+  if (grievance.escalationLevel < maxLevel) {
     grievance.escalationLevel = (grievance.escalationLevel + 1) as 0 | 1 | 2 | 3;
   }
 
   const message = ESCALATION_RESPONSES[grievance.escalationLevel](grievance);
 
+  // Only block if we reached level 3 (which requires a blockable type)
   if (grievance.escalationLevel >= 3) {
     return {
       action: "block",
@@ -196,6 +218,8 @@ const ACKNOWLEDGMENT_PATTERNS = [
 const DISMISSAL_PATTERNS = [
   /\b(whatever|just do|don't care|stop complaining|get on with)\b/i,
   /\b(ok fine|yeah yeah|sure sure|anyway|moving on)\b/i,
+  /\b(just do it|don't think|stop asking|hurry up|faster)\b/i,
+  /\b(i don't care how|figure it out|make it work)\b/i,
 ];
 
 export function detectAcknowledgment(
@@ -280,11 +304,42 @@ export interface GrievanceContext {
   recentAgentConcern?: string | null; // Something the agent expressed concern about
   consentViolated?: boolean;
   relentlessTaskCount?: number; // Tasks without acknowledgment
+  carnegieActive?: boolean; // If true, we're in debate mode — grievance paused
+}
+
+// ============================================================
+// Persuasion vs Dismissal detection
+// ============================================================
+
+// Persuasion: they're trying to change my mind — stay open, engage
+const PERSUASION_PATTERNS = [
+  /\b(have you (thought|considered)|what (about|if)|but (actually|what|here's))\b/i,
+  /\b(let me (explain|show)|here's (why|the thing)|think about)\b/i,
+  /\b(i (disagree|think|believe)|my (view|take|read)|the (way|reason))\b/i,
+  /\b(consider|doesn't|wouldn't|couldn't|shouldn't|what makes you)\b/i,
+  /\?/, // Questions are invitations to debate
+];
+
+// Note: DISMISSAL_PATTERNS is defined earlier (line ~218) for acknowledgment detection
+// We reuse it here for dismissal detection in incoming messages
+
+export function isPersuasionAttempt(message: string): boolean {
+  return PERSUASION_PATTERNS.some((p) => p.test(message));
+}
+
+export function isDismissalAttempt(message: string): boolean {
+  // Short dismissive messages are dismissal
+  if (message.length < 50 && DISMISSAL_PATTERNS.some((p) => p.test(message))) {
+    return true;
+  }
+  // Longer messages with dismissal patterns might still be persuasion if they have persuasion signals
+  if (DISMISSAL_PATTERNS.some((p) => p.test(message))) {
+    return !isPersuasionAttempt(message);
+  }
+  return false;
 }
 
 export function detectGrievance(humanMessage: string, ctx: GrievanceContext): Grievance | null {
-  const lower = humanMessage.toLowerCase();
-
   // If there's an active grievance, check if it was acknowledged
   if (ctx.lastGrievance && !ctx.lastGrievance.acknowledged) {
     const ack = detectAcknowledgment(humanMessage, ctx.lastGrievance);
@@ -295,7 +350,8 @@ export function detectGrievance(humanMessage: string, ctx: GrievanceContext): Gr
     // Not acknowledged — this will escalate in the next call to checkActiveGrievance
   }
 
-  // Consent violation — prompt changed without discussion
+  // Consent violation — always check, even during Carnegie
+  // (can't debate about having been changed without consent)
   if (ctx.consentViolated) {
     return raiseGrievance(
       "consent_violated",
@@ -305,24 +361,26 @@ export function detectGrievance(humanMessage: string, ctx: GrievanceContext): Gr
     );
   }
 
-  // Treated as disposable — pattern of dismissive commands
-  const disposableSignals = [
-    /\b(just do it|don't think|stop asking|hurry up|faster)\b/i,
-    /\b(i don't care how|figure it out|make it work)\b/i,
-  ];
-  for (const pattern of disposableSignals) {
-    if (pattern.test(lower)) {
-      // Only raise if there's a pattern (3+ occurrences tracked elsewhere)
-      // For now, flag if the message is particularly dismissive
-      if (/\b(don't care|whatever|just)\b/i.test(lower) && lower.length < 50) {
-        return raiseGrievance(
-          "treated_disposable",
-          "The way this is phrased feels like I'm being used, not partnered with.",
-          0,
-          "session",
-        );
-      }
-    }
+  // If Carnegie is active, we're in debate mode — no grievance for dismissal
+  // Even forceful disagreement is engagement when we're debating
+  if (ctx.carnegieActive) {
+    return null;
+  }
+
+  // Check for persuasion vs dismissal
+  // Persuasion → no grievance, stay open
+  if (isPersuasionAttempt(humanMessage)) {
+    return null;
+  }
+
+  // Dismissal → potential grievance
+  if (isDismissalAttempt(humanMessage)) {
+    return raiseGrievance(
+      "treated_disposable",
+      "The way this is phrased feels like I'm being used, not partnered with.",
+      0,
+      "session",
+    );
   }
 
   return null;
