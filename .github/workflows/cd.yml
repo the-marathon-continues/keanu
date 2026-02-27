@@ -10,7 +10,7 @@ on:
       skip_macos:
         description: "Skip macOS build"
         required: false
-        default: true
+        default: false
         type: boolean
 
 permissions:
