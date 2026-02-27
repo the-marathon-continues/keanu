@@ -1,18 +1,18 @@
 import type {
   AnyAgentTool,
-  OpenClawPluginApi,
-  OpenClawPluginToolFactory,
+  KeanuPluginApi,
+  KeanuPluginToolFactory,
 } from "../../src/plugins/types.js";
 import { createLobsterTool } from "./src/lobster-tool.js";
 
-export default function register(api: OpenClawPluginApi) {
+export default function register(api: KeanuPluginApi) {
   api.registerTool(
     ((ctx) => {
       if (ctx.sandboxed) {
         return null;
       }
       return createLobsterTool(api) as AnyAgentTool;
-    }) as OpenClawPluginToolFactory,
+    }) as KeanuPluginToolFactory,
     { optional: true },
   );
 }

@@ -63,7 +63,7 @@ const STATE_ASSERT =
 
 // Convention assumptions — "the way we do X", "how it works"
 const CONVENTION =
-  /\b(?:the (?:way|pattern|convention) (?:we|keanu|openclaw|the (?:system|extension))|how (?:we|the hooks?|modules?|extensions?) (?:work|handle|do|wire|run))\b/i;
+  /\b(?:the (?:way|pattern|convention) (?:we|keanu|keanu|the (?:system|extension))|how (?:we|the hooks?|modules?|extensions?) (?:work|handle|do|wire|run))\b/i;
 
 // ============================================================
 // Presupposition extraction

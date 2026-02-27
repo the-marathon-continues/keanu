@@ -345,8 +345,8 @@ actor MacNodeRuntime {
         let sessionKey = self.mainSessionKey
         let json = try await CanvasManager.shared.eval(sessionKey: sessionKey, javaScript: """
         (() => {
-          const host = globalThis.openclawA2UI;
-          if (!host) return JSON.stringify({ ok: false, error: "missing openclawA2UI" });
+          const host = globalThis.keanuA2UI;
+          if (!host) return JSON.stringify({ ok: false, error: "missing keanuA2UI" });
           return JSON.stringify(host.reset());
         })()
         """)
@@ -375,8 +375,8 @@ actor MacNodeRuntime {
         let js = """
         (() => {
           try {
-            const host = globalThis.openclawA2UI;
-            if (!host) return JSON.stringify({ ok: false, error: "missing openclawA2UI" });
+            const host = globalThis.keanuA2UI;
+            if (!host) return JSON.stringify({ ok: false, error: "missing keanuA2UI" });
             const messages = \(messagesJSON);
             return JSON.stringify(host.applyMessages(messages));
           } catch (e) {
@@ -410,7 +410,7 @@ actor MacNodeRuntime {
         guard let raw = await GatewayConnection.shared.canvasHostUrl() else { return nil }
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, let baseUrl = URL(string: trimmed) else { return nil }
-        return baseUrl.appendingPathComponent("__openclaw__/a2ui/").absoluteString + "?platform=macos"
+        return baseUrl.appendingPathComponent("__keanu__/a2ui/").absoluteString + "?platform=macos"
     }
 
     private func isA2UIReady(poll: Bool = false) async -> Bool {
@@ -420,7 +420,7 @@ actor MacNodeRuntime {
                 let sessionKey = self.mainSessionKey
                 let ready = try await CanvasManager.shared.eval(sessionKey: sessionKey, javaScript: """
                 (() => {
-                  const host = globalThis.openclawA2UI;
+                  const host = globalThis.keanuA2UI;
                   return String(Boolean(host));
                 })()
                 """)

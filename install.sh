@@ -111,9 +111,9 @@ pass "Dependencies installed"
 # ── setup config ────────────────────────────────────────────
 step "Configuring"
 
-OPENCLAW_DIR="$HOME/.openclaw"
-CONFIG_FILE="$OPENCLAW_DIR/openclaw.json"
-mkdir -p "$OPENCLAW_DIR"
+KEANU_DIR="$HOME/.openclaw"
+CONFIG_FILE="$KEANU_DIR/openclaw.json"
+mkdir -p "$KEANU_DIR"
 
 if [ ! -f "$CONFIG_FILE" ]; then
   cat > "$CONFIG_FILE" <<'CONF'

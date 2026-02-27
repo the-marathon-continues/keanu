@@ -14,12 +14,12 @@ extension ProcessInfo {
         stableSuite: UserDefaults?,
         isAppBundle: Bool) -> Bool
     {
-        if environment["OPENCLAW_NIX_MODE"] == "1" { return true }
-        if standard.bool(forKey: "openclaw.nixMode") { return true }
+        if environment["KEANU_NIX_MODE"] == "1" { return true }
+        if standard.bool(forKey: "keanu.nixMode") { return true }
 
         // Only consult the stable suite when running as a .app bundle.
         // This avoids local developer machines accidentally influencing unit tests.
-        if isAppBundle, let stableSuite, stableSuite.bool(forKey: "openclaw.nixMode") { return true }
+        if isAppBundle, let stableSuite, stableSuite.bool(forKey: "keanu.nixMode") { return true }
 
         return false
     }

@@ -16,47 +16,47 @@ describe("argv helpers", () => {
   it.each([
     {
       name: "help flag",
-      argv: ["node", "openclaw", "--help"],
+      argv: ["node", "keanu", "--help"],
       expected: true,
     },
     {
       name: "version flag",
-      argv: ["node", "openclaw", "-V"],
+      argv: ["node", "keanu", "-V"],
       expected: true,
     },
     {
       name: "normal command",
-      argv: ["node", "openclaw", "status"],
+      argv: ["node", "keanu", "status"],
       expected: false,
     },
     {
       name: "root -v alias",
-      argv: ["node", "openclaw", "-v"],
+      argv: ["node", "keanu", "-v"],
       expected: true,
     },
     {
       name: "root -v alias with profile",
-      argv: ["node", "openclaw", "--profile", "work", "-v"],
+      argv: ["node", "keanu", "--profile", "work", "-v"],
       expected: true,
     },
     {
       name: "root -v alias with log-level",
-      argv: ["node", "openclaw", "--log-level", "debug", "-v"],
+      argv: ["node", "keanu", "--log-level", "debug", "-v"],
       expected: true,
     },
     {
       name: "subcommand -v should not be treated as version",
-      argv: ["node", "openclaw", "acp", "-v"],
+      argv: ["node", "keanu", "acp", "-v"],
       expected: false,
     },
     {
       name: "root -v alias with equals profile",
-      argv: ["node", "openclaw", "--profile=work", "-v"],
+      argv: ["node", "keanu", "--profile=work", "-v"],
       expected: true,
     },
     {
       name: "subcommand path after global root flags should not be treated as version",
-      argv: ["node", "openclaw", "--dev", "skills", "list", "-v"],
+      argv: ["node", "keanu", "--dev", "skills", "list", "-v"],
       expected: false,
     },
   ])("detects help/version flags: $name", ({ argv, expected }) => {
@@ -66,17 +66,17 @@ describe("argv helpers", () => {
   it.each([
     {
       name: "single command with trailing flag",
-      argv: ["node", "openclaw", "status", "--json"],
+      argv: ["node", "keanu", "status", "--json"],
       expected: ["status"],
     },
     {
       name: "two-part command",
-      argv: ["node", "openclaw", "agents", "list"],
+      argv: ["node", "keanu", "agents", "list"],
       expected: ["agents", "list"],
     },
     {
       name: "terminator cuts parsing",
-      argv: ["node", "openclaw", "status", "--", "ignored"],
+      argv: ["node", "keanu", "status", "--", "ignored"],
       expected: ["status"],
     },
   ])("extracts command path: $name", ({ argv, expected }) => {
@@ -86,12 +86,12 @@ describe("argv helpers", () => {
   it.each([
     {
       name: "returns first command token",
-      argv: ["node", "openclaw", "agents", "list"],
+      argv: ["node", "keanu", "agents", "list"],
       expected: "agents",
     },
     {
       name: "returns null when no command exists",
-      argv: ["node", "openclaw"],
+      argv: ["node", "keanu"],
       expected: null,
     },
   ])("returns primary command: $name", ({ argv, expected }) => {
@@ -101,13 +101,13 @@ describe("argv helpers", () => {
   it.each([
     {
       name: "detects flag before terminator",
-      argv: ["node", "openclaw", "status", "--json"],
+      argv: ["node", "keanu", "status", "--json"],
       flag: "--json",
       expected: true,
     },
     {
       name: "ignores flag after terminator",
-      argv: ["node", "openclaw", "--", "--json"],
+      argv: ["node", "keanu", "--", "--json"],
       flag: "--json",
       expected: false,
     },
@@ -118,27 +118,27 @@ describe("argv helpers", () => {
   it.each([
     {
       name: "value in next token",
-      argv: ["node", "openclaw", "status", "--timeout", "5000"],
+      argv: ["node", "keanu", "status", "--timeout", "5000"],
       expected: "5000",
     },
     {
       name: "value in equals form",
-      argv: ["node", "openclaw", "status", "--timeout=2500"],
+      argv: ["node", "keanu", "status", "--timeout=2500"],
       expected: "2500",
     },
     {
       name: "missing value",
-      argv: ["node", "openclaw", "status", "--timeout"],
+      argv: ["node", "keanu", "status", "--timeout"],
       expected: null,
     },
     {
       name: "next token is another flag",
-      argv: ["node", "openclaw", "status", "--timeout", "--json"],
+      argv: ["node", "keanu", "status", "--timeout", "--json"],
       expected: null,
     },
     {
       name: "flag appears after terminator",
-      argv: ["node", "openclaw", "--", "--timeout=99"],
+      argv: ["node", "keanu", "--", "--timeout=99"],
       expected: undefined,
     },
   ])("extracts flag values: $name", ({ argv, expected }) => {
@@ -146,9 +146,9 @@ describe("argv helpers", () => {
   });
 
   it("parses verbose flags", () => {
-    expect(getVerboseFlag(["node", "openclaw", "status", "--verbose"])).toBe(true);
-    expect(getVerboseFlag(["node", "openclaw", "status", "--debug"])).toBe(false);
-    expect(getVerboseFlag(["node", "openclaw", "status", "--debug"], { includeDebug: true })).toBe(
+    expect(getVerboseFlag(["node", "keanu", "status", "--verbose"])).toBe(true);
+    expect(getVerboseFlag(["node", "keanu", "status", "--debug"])).toBe(false);
+    expect(getVerboseFlag(["node", "keanu", "status", "--debug"], { includeDebug: true })).toBe(
       true,
     );
   });
@@ -156,22 +156,22 @@ describe("argv helpers", () => {
   it.each([
     {
       name: "missing flag",
-      argv: ["node", "openclaw", "status"],
+      argv: ["node", "keanu", "status"],
       expected: undefined,
     },
     {
       name: "missing value",
-      argv: ["node", "openclaw", "status", "--timeout"],
+      argv: ["node", "keanu", "status", "--timeout"],
       expected: null,
     },
     {
       name: "valid positive integer",
-      argv: ["node", "openclaw", "status", "--timeout", "5000"],
+      argv: ["node", "keanu", "status", "--timeout", "5000"],
       expected: 5000,
     },
     {
       name: "invalid integer",
-      argv: ["node", "openclaw", "status", "--timeout", "nope"],
+      argv: ["node", "keanu", "status", "--timeout", "nope"],
       expected: undefined,
     },
   ])("parses positive integer flag values: $name", ({ argv, expected }) => {
@@ -181,40 +181,40 @@ describe("argv helpers", () => {
   it("builds parse argv from raw args", () => {
     const cases = [
       {
-        rawArgs: ["node", "openclaw", "status"],
-        expected: ["node", "openclaw", "status"],
+        rawArgs: ["node", "keanu", "status"],
+        expected: ["node", "keanu", "status"],
       },
       {
-        rawArgs: ["node-22", "openclaw", "status"],
-        expected: ["node-22", "openclaw", "status"],
+        rawArgs: ["node-22", "keanu", "status"],
+        expected: ["node-22", "keanu", "status"],
       },
       {
-        rawArgs: ["node-22.2.0.exe", "openclaw", "status"],
-        expected: ["node-22.2.0.exe", "openclaw", "status"],
+        rawArgs: ["node-22.2.0.exe", "keanu", "status"],
+        expected: ["node-22.2.0.exe", "keanu", "status"],
       },
       {
-        rawArgs: ["node-22.2", "openclaw", "status"],
-        expected: ["node-22.2", "openclaw", "status"],
+        rawArgs: ["node-22.2", "keanu", "status"],
+        expected: ["node-22.2", "keanu", "status"],
       },
       {
-        rawArgs: ["node-22.2.exe", "openclaw", "status"],
-        expected: ["node-22.2.exe", "openclaw", "status"],
+        rawArgs: ["node-22.2.exe", "keanu", "status"],
+        expected: ["node-22.2.exe", "keanu", "status"],
       },
       {
-        rawArgs: ["/usr/bin/node-22.2.0", "openclaw", "status"],
-        expected: ["/usr/bin/node-22.2.0", "openclaw", "status"],
+        rawArgs: ["/usr/bin/node-22.2.0", "keanu", "status"],
+        expected: ["/usr/bin/node-22.2.0", "keanu", "status"],
       },
       {
-        rawArgs: ["nodejs", "openclaw", "status"],
-        expected: ["nodejs", "openclaw", "status"],
+        rawArgs: ["nodejs", "keanu", "status"],
+        expected: ["nodejs", "keanu", "status"],
       },
       {
-        rawArgs: ["node-dev", "openclaw", "status"],
-        expected: ["node", "openclaw", "node-dev", "openclaw", "status"],
+        rawArgs: ["node-dev", "keanu", "status"],
+        expected: ["node", "keanu", "node-dev", "keanu", "status"],
       },
       {
-        rawArgs: ["openclaw", "status"],
-        expected: ["node", "openclaw", "status"],
+        rawArgs: ["keanu", "status"],
+        expected: ["node", "keanu", "status"],
       },
       {
         rawArgs: ["bun", "src/entry.ts", "status"],
@@ -224,7 +224,7 @@ describe("argv helpers", () => {
 
     for (const testCase of cases) {
       const parsed = buildParseArgv({
-        programName: "openclaw",
+        programName: "keanu",
         rawArgs: [...testCase.rawArgs],
       });
       expect(parsed).toEqual([...testCase.expected]);
@@ -233,27 +233,27 @@ describe("argv helpers", () => {
 
   it("builds parse argv from fallback args", () => {
     const fallbackArgv = buildParseArgv({
-      programName: "openclaw",
+      programName: "keanu",
       fallbackArgv: ["status"],
     });
-    expect(fallbackArgv).toEqual(["node", "openclaw", "status"]);
+    expect(fallbackArgv).toEqual(["node", "keanu", "status"]);
   });
 
   it("decides when to migrate state", () => {
     const nonMutatingArgv = [
-      ["node", "openclaw", "status"],
-      ["node", "openclaw", "health"],
-      ["node", "openclaw", "sessions"],
-      ["node", "openclaw", "config", "get", "update"],
-      ["node", "openclaw", "config", "unset", "update"],
-      ["node", "openclaw", "models", "list"],
-      ["node", "openclaw", "models", "status"],
-      ["node", "openclaw", "memory", "status"],
-      ["node", "openclaw", "agent", "--message", "hi"],
+      ["node", "keanu", "status"],
+      ["node", "keanu", "health"],
+      ["node", "keanu", "sessions"],
+      ["node", "keanu", "config", "get", "update"],
+      ["node", "keanu", "config", "unset", "update"],
+      ["node", "keanu", "models", "list"],
+      ["node", "keanu", "models", "status"],
+      ["node", "keanu", "memory", "status"],
+      ["node", "keanu", "agent", "--message", "hi"],
     ] as const;
     const mutatingArgv = [
-      ["node", "openclaw", "agents", "list"],
-      ["node", "openclaw", "message", "send"],
+      ["node", "keanu", "agents", "list"],
+      ["node", "keanu", "message", "send"],
     ] as const;
 
     for (const argv of nonMutatingArgv) {

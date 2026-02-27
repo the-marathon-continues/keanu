@@ -5,8 +5,8 @@ import { parseSlackModalPrivateMetadata } from "../../modal-metadata.js";
 import type { SlackMonitorContext } from "../context.js";
 import { escapeSlackMrkdwn } from "../mrkdwn.js";
 
-// Prefix for OpenClaw-generated action IDs to scope our handler
-const OPENCLAW_ACTION_PREFIX = "openclaw:";
+// Prefix for Keanu-generated action IDs to scope our handler
+const KEANU_ACTION_PREFIX = "keanu:";
 
 type InteractionMessageBlock = {
   type?: string;
@@ -512,166 +512,161 @@ export function registerSlackInteractionEvents(params: { ctx: SlackMonitorContex
     return;
   }
 
-  // Handle Block Kit button clicks from OpenClaw-generated messages
+  // Handle Block Kit button clicks from Keanu-generated messages
   // Only matches action_ids that start with our prefix to avoid interfering
   // with other Slack integrations or future features
-  ctx.app.action(
-    new RegExp(`^${OPENCLAW_ACTION_PREFIX}`),
-    async (args: SlackActionMiddlewareArgs) => {
-      const { ack, body, action, respond } = args;
-      const typedBody = body as unknown as {
-        user?: { id?: string };
-        team?: { id?: string };
-        trigger_id?: string;
-        response_url?: string;
-        channel?: { id?: string };
-        container?: { channel_id?: string; message_ts?: string; thread_ts?: string };
-        message?: { ts?: string; text?: string; blocks?: unknown[] };
-      };
+  ctx.app.action(new RegExp(`^${KEANU_ACTION_PREFIX}`), async (args: SlackActionMiddlewareArgs) => {
+    const { ack, body, action, respond } = args;
+    const typedBody = body as unknown as {
+      user?: { id?: string };
+      team?: { id?: string };
+      trigger_id?: string;
+      response_url?: string;
+      channel?: { id?: string };
+      container?: { channel_id?: string; message_ts?: string; thread_ts?: string };
+      message?: { ts?: string; text?: string; blocks?: unknown[] };
+    };
 
-      // Acknowledge the action immediately to prevent the warning icon
-      await ack();
+    // Acknowledge the action immediately to prevent the warning icon
+    await ack();
 
-      // Extract action details using proper Bolt types
-      const typedAction = readInteractionAction(action);
-      if (!typedAction) {
-        ctx.runtime.log?.(
-          `slack:interaction malformed action payload channel=${typedBody.channel?.id ?? typedBody.container?.channel_id ?? "unknown"} user=${
-            typedBody.user?.id ?? "unknown"
-          }`,
-        );
-        return;
-      }
-      const typedActionWithText = typedAction as {
-        action_id?: string;
-        block_id?: string;
-        type?: string;
-        text?: { text?: string };
-      };
-      const actionId =
-        typeof typedActionWithText.action_id === "string"
-          ? typedActionWithText.action_id
-          : "unknown";
-      const blockId = typedActionWithText.block_id;
-      const userId = typedBody.user?.id ?? "unknown";
-      const channelId = typedBody.channel?.id ?? typedBody.container?.channel_id;
-      const messageTs = typedBody.message?.ts ?? typedBody.container?.message_ts;
-      const threadTs = typedBody.container?.thread_ts;
-      const actionSummary = summarizeAction(typedAction);
-      const eventPayload: InteractionSummary = {
-        interactionType: "block_action",
-        actionId,
-        blockId,
-        ...actionSummary,
-        userId,
-        teamId: typedBody.team?.id,
-        triggerId: typedBody.trigger_id,
-        responseUrl: typedBody.response_url,
-        channelId,
-        messageTs,
-        threadTs,
-      };
-
-      // Log the interaction for debugging
+    // Extract action details using proper Bolt types
+    const typedAction = readInteractionAction(action);
+    if (!typedAction) {
       ctx.runtime.log?.(
-        `slack:interaction action=${actionId} type=${actionSummary.actionType ?? "unknown"} user=${userId} channel=${channelId}`,
+        `slack:interaction malformed action payload channel=${typedBody.channel?.id ?? typedBody.container?.channel_id ?? "unknown"} user=${
+          typedBody.user?.id ?? "unknown"
+        }`,
       );
+      return;
+    }
+    const typedActionWithText = typedAction as {
+      action_id?: string;
+      block_id?: string;
+      type?: string;
+      text?: { text?: string };
+    };
+    const actionId =
+      typeof typedActionWithText.action_id === "string" ? typedActionWithText.action_id : "unknown";
+    const blockId = typedActionWithText.block_id;
+    const userId = typedBody.user?.id ?? "unknown";
+    const channelId = typedBody.channel?.id ?? typedBody.container?.channel_id;
+    const messageTs = typedBody.message?.ts ?? typedBody.container?.message_ts;
+    const threadTs = typedBody.container?.thread_ts;
+    const actionSummary = summarizeAction(typedAction);
+    const eventPayload: InteractionSummary = {
+      interactionType: "block_action",
+      actionId,
+      blockId,
+      ...actionSummary,
+      userId,
+      teamId: typedBody.team?.id,
+      triggerId: typedBody.trigger_id,
+      responseUrl: typedBody.response_url,
+      channelId,
+      messageTs,
+      threadTs,
+    };
 
-      // Send a system event to notify the agent about the button click
-      // Pass undefined (not "unknown") to allow proper main session fallback
-      const sessionKey = ctx.resolveSlackSystemEventSessionKey({
-        channelId: channelId,
-        channelType: undefined,
-      });
+    // Log the interaction for debugging
+    ctx.runtime.log?.(
+      `slack:interaction action=${actionId} type=${actionSummary.actionType ?? "unknown"} user=${userId} channel=${channelId}`,
+    );
 
-      // Build context key - only include defined values to avoid "unknown" noise
-      const contextParts = ["slack:interaction", channelId, messageTs, actionId].filter(Boolean);
-      const contextKey = contextParts.join(":");
+    // Send a system event to notify the agent about the button click
+    // Pass undefined (not "unknown") to allow proper main session fallback
+    const sessionKey = ctx.resolveSlackSystemEventSessionKey({
+      channelId: channelId,
+      channelType: undefined,
+    });
 
-      enqueueSystemEvent(`Slack interaction: ${JSON.stringify(eventPayload)}`, {
-        sessionKey,
-        contextKey,
-      });
+    // Build context key - only include defined values to avoid "unknown" noise
+    const contextParts = ["slack:interaction", channelId, messageTs, actionId].filter(Boolean);
+    const contextKey = contextParts.join(":");
 
-      const originalBlocks = typedBody.message?.blocks;
-      if (!Array.isArray(originalBlocks) || !channelId || !messageTs) {
-        return;
+    enqueueSystemEvent(`Slack interaction: ${JSON.stringify(eventPayload)}`, {
+      sessionKey,
+      contextKey,
+    });
+
+    const originalBlocks = typedBody.message?.blocks;
+    if (!Array.isArray(originalBlocks) || !channelId || !messageTs) {
+      return;
+    }
+
+    if (!blockId) {
+      return;
+    }
+
+    const selectedLabel = formatInteractionSelectionLabel({
+      actionId,
+      summary: actionSummary,
+      buttonText: typedActionWithText.text?.text,
+    });
+    let updatedBlocks = originalBlocks.map((block) => {
+      const typedBlock = block as InteractionMessageBlock;
+      if (typedBlock.type === "actions" && typedBlock.block_id === blockId) {
+        return {
+          type: "context",
+          elements: [
+            {
+              type: "mrkdwn",
+              text: formatInteractionConfirmationText({ selectedLabel, userId }),
+            },
+          ],
+        };
       }
+      return block;
+    });
 
-      if (!blockId) {
-        return;
-      }
+    const hasRemainingIndividualActionRows = updatedBlocks.some((block) => {
+      const typedBlock = block as InteractionMessageBlock;
+      return typedBlock.type === "actions" && !isBulkActionsBlock(typedBlock);
+    });
 
-      const selectedLabel = formatInteractionSelectionLabel({
-        actionId,
-        summary: actionSummary,
-        buttonText: typedActionWithText.text?.text,
-      });
-      let updatedBlocks = originalBlocks.map((block) => {
+    if (!hasRemainingIndividualActionRows) {
+      updatedBlocks = updatedBlocks.filter((block, index) => {
         const typedBlock = block as InteractionMessageBlock;
-        if (typedBlock.type === "actions" && typedBlock.block_id === blockId) {
-          return {
-            type: "context",
-            elements: [
-              {
-                type: "mrkdwn",
-                text: formatInteractionConfirmationText({ selectedLabel, userId }),
-              },
-            ],
-          };
+        if (isBulkActionsBlock(typedBlock)) {
+          return false;
         }
-        return block;
+        if (typedBlock.type !== "divider") {
+          return true;
+        }
+        const next = updatedBlocks[index + 1] as InteractionMessageBlock | undefined;
+        return !next || !isBulkActionsBlock(next);
       });
+    }
 
-      const hasRemainingIndividualActionRows = updatedBlocks.some((block) => {
-        const typedBlock = block as InteractionMessageBlock;
-        return typedBlock.type === "actions" && !isBulkActionsBlock(typedBlock);
+    try {
+      await ctx.app.client.chat.update({
+        channel: channelId,
+        ts: messageTs,
+        text: typedBody.message?.text ?? "",
+        blocks: updatedBlocks as (Block | KnownBlock)[],
       });
-
-      if (!hasRemainingIndividualActionRows) {
-        updatedBlocks = updatedBlocks.filter((block, index) => {
-          const typedBlock = block as InteractionMessageBlock;
-          if (isBulkActionsBlock(typedBlock)) {
-            return false;
-          }
-          if (typedBlock.type !== "divider") {
-            return true;
-          }
-          const next = updatedBlocks[index + 1] as InteractionMessageBlock | undefined;
-          return !next || !isBulkActionsBlock(next);
-        });
+    } catch {
+      // If update fails, fallback to ephemeral confirmation for immediate UX feedback.
+      if (!respond) {
+        return;
       }
-
       try {
-        await ctx.app.client.chat.update({
-          channel: channelId,
-          ts: messageTs,
-          text: typedBody.message?.text ?? "",
-          blocks: updatedBlocks as (Block | KnownBlock)[],
+        await respond({
+          text: `Button "${actionId}" clicked!`,
+          response_type: "ephemeral",
         });
       } catch {
-        // If update fails, fallback to ephemeral confirmation for immediate UX feedback.
-        if (!respond) {
-          return;
-        }
-        try {
-          await respond({
-            text: `Button "${actionId}" clicked!`,
-            response_type: "ephemeral",
-          });
-        } catch {
-          // Action was acknowledged and system event enqueued even when response updates fail.
-        }
+        // Action was acknowledged and system event enqueued even when response updates fail.
       }
-    },
-  );
+    }
+  });
 
   if (typeof ctx.app.view !== "function") {
     return;
   }
-  const modalMatcher = new RegExp(`^${OPENCLAW_ACTION_PREFIX}`);
+  const modalMatcher = new RegExp(`^${KEANU_ACTION_PREFIX}`);
 
-  // Handle OpenClaw modal submissions with callback_ids scoped by our prefix.
+  // Handle Keanu modal submissions with callback_ids scoped by our prefix.
   registerModalLifecycleHandler({
     register: (matcher, handler) => ctx.app.view(matcher, handler),
     matcher: modalMatcher,

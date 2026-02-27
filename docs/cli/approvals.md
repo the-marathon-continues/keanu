@@ -1,12 +1,12 @@
 ---
-summary: "CLI reference for `openclaw approvals` (exec approvals for gateway or node hosts)"
+summary: "CLI reference for `keanu approvals` (exec approvals for gateway or node hosts)"
 read_when:
   - You want to edit exec approvals from the CLI
   - You need to manage allowlists on gateway or node hosts
 title: "approvals"
 ---
 
-# `openclaw approvals`
+# `keanu approvals`
 
 Manage exec approvals for the **local host**, **gateway host**, or a **node host**.
 By default, commands target the local approvals file on disk. Use `--gateway` to target the gateway, or `--node` to target a specific node.
@@ -19,32 +19,32 @@ Related:
 ## Common commands
 
 ```bash
-openclaw approvals get
-openclaw approvals get --node <id|name|ip>
-openclaw approvals get --gateway
+keanu approvals get
+keanu approvals get --node <id|name|ip>
+keanu approvals get --gateway
 ```
 
 ## Replace approvals from a file
 
 ```bash
-openclaw approvals set --file ./exec-approvals.json
-openclaw approvals set --node <id|name|ip> --file ./exec-approvals.json
-openclaw approvals set --gateway --file ./exec-approvals.json
+keanu approvals set --file ./exec-approvals.json
+keanu approvals set --node <id|name|ip> --file ./exec-approvals.json
+keanu approvals set --gateway --file ./exec-approvals.json
 ```
 
 ## Allowlist helpers
 
 ```bash
-openclaw approvals allowlist add "~/Projects/**/bin/rg"
-openclaw approvals allowlist add --agent main --node <id|name|ip> "/usr/bin/uptime"
-openclaw approvals allowlist add --agent "*" "/usr/bin/uname"
+keanu approvals allowlist add "~/Projects/**/bin/rg"
+keanu approvals allowlist add --agent main --node <id|name|ip> "/usr/bin/uptime"
+keanu approvals allowlist add --agent "*" "/usr/bin/uname"
 
-openclaw approvals allowlist remove "~/Projects/**/bin/rg"
+keanu approvals allowlist remove "~/Projects/**/bin/rg"
 ```
 
 ## Notes
 
-- `--node` uses the same resolver as `openclaw nodes` (id, name, ip, or id prefix).
+- `--node` uses the same resolver as `keanu nodes` (id, name, ip, or id prefix).
 - `--agent` defaults to `"*"`, which applies to all agents.
 - The node host must advertise `system.execApprovals.get/set` (macOS app or headless node host).
-- Approvals files are stored per host at `~/.openclaw/exec-approvals.json`.
+- Approvals files are stored per host at `~/.keanu/exec-approvals.json`.

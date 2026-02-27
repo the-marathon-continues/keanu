@@ -99,7 +99,7 @@ export function registerGatewayCli(program: Command) {
             ["keanu gateway status", "Show service status and probe reachability."],
             ["keanu gateway discover", "Find local and wide-area gateway beacons."],
             ["keanu gateway call health", "Call a gateway RPC method directly."],
-          ])}\n\n${theme.muted("Docs:")} ${formatDocsLink("/cli/gateway", "docs.openclaw.ai/cli/gateway")}\n`,
+          ])}\n\n${theme.muted("Docs:")} ${formatDocsLink("/cli/gateway", "docs.keanu.ai/cli/gateway")}\n`,
       ),
   );
 

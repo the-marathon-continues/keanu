@@ -40,8 +40,8 @@ export function formatCliBannerLine(version: string, options: BannerOptions = {}
   const commitLabel = commit ?? "unknown";
   const tagline = pickTagline(options);
   const rich = options.richTty ?? isRich();
-  const title = "🐕 keanu";
-  const prefix = "🐕 ";
+  const title = "🌴 keanu";
+  const prefix = "🌴 ";
   const columns = options.columns ?? process.stdout.columns ?? 120;
   const plainFullLine = `${title} ${version} (${commitLabel}) — ${tagline}`;
   const fitsOnOneLine = visibleWidth(plainFullLine) <= columns;
@@ -71,7 +71,7 @@ const KEANU_ASCII = [
   "██░▄▀███░▄▄▄██░▀▀░██░█░█░██░██░██░█░█░██",
   "██░██░██░▀▀▀██░██░██░██▄░██▄▀▀▄██▄▀▄▀▄██",
   "▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀",
-  "               🐕 KEANU 🐕               ",
+  "               🌴 KEANU 🌴               ",
   " ",
 ];
 
@@ -97,7 +97,7 @@ export function formatCliBannerArt(options: BannerOptions = {}): string {
   const colored = KEANU_ASCII.map((line) => {
     if (line.includes("KEANU")) {
       return (
-        theme.muted("           ") + theme.accent("🐕") + theme.info(" KEANU ") + theme.accent("🐕")
+        theme.muted("           ") + theme.accent("🌴") + theme.info(" KEANU ") + theme.accent("🌴")
       );
     }
     return splitGraphemes(line).map(colorChar).join("");

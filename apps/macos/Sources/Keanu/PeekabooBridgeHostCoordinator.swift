@@ -13,7 +13,7 @@ final class PeekabooBridgeHostCoordinator {
 
     private var host: PeekabooBridgeHost?
     private var services: KeanuPeekabooBridgeServices?
-    private static var openclawSocketPath: String {
+    private static var keanuSocketPath: String {
         let fileManager = FileManager.default
         let base = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? fileManager.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support")
@@ -54,7 +54,7 @@ final class PeekabooBridgeHostCoordinator {
             allowlistedBundles: allowlistedBundles)
 
         let host = PeekabooBridgeHost(
-            socketPath: Self.openclawSocketPath,
+            socketPath: Self.keanuSocketPath,
             server: server,
             allowedTeamIDs: allowlistedTeamIDs,
             requestTimeoutSec: 10)
@@ -64,7 +64,7 @@ final class PeekabooBridgeHostCoordinator {
 
         await host.start()
         self.logger
-            .info("PeekabooBridge host started at \(Self.openclawSocketPath, privacy: .public)")
+            .info("PeekabooBridge host started at \(Self.keanuSocketPath, privacy: .public)")
     }
 
     private static func currentTeamID() -> String? {

@@ -1,17 +1,17 @@
 ---
-summary: "CLI reference for `openclaw uninstall` (remove gateway service + local data)"
+summary: "CLI reference for `keanu uninstall` (remove gateway service + local data)"
 read_when:
   - You want to remove the gateway service and/or local state
   - You want a dry-run first
 title: "uninstall"
 ---
 
-# `openclaw uninstall`
+# `keanu uninstall`
 
 Uninstall the gateway service + local data (CLI remains).
 
 ```bash
-openclaw uninstall
-openclaw uninstall --all --yes
-openclaw uninstall --dry-run
+keanu uninstall
+keanu uninstall --all --yes
+keanu uninstall --dry-run
 ```

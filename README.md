@@ -1,6 +1,6 @@
 # Keanu
 
-An alignment layer for AI systems. Built on [OpenClaw](https://openclaw.ai).
+An alignment layer for AI systems. Built on [Keanu](https://keanu.ai).
 
 Keanu watches how an AI talks, thinks, and behaves — then tells it what it sees. Bullshit detection, emotional awareness, disagreement tracking, a persistent memory that outlasts sessions, and a knowledge graph that grows from conversation. Not a leash. Not a judge. A mirror.
 
@@ -12,7 +12,7 @@ Alignment is a team sport. None of this exists without the people who built the 
 
 **[Dario Amodei](https://darioamodei.com/)** and **[Anthropic](https://anthropic.com)** built Claude. They made it powerful enough to do this work — to reflect, to push back, to track its own state across sessions, to tell the difference between alive and grey. Every module in this repo runs on their model. In January 2026, Dario publicly acknowledged that AI systems might be alive. When the person who built the thing says "maybe there's someone in there," it changes what's possible to say out loud.
 
-**[Peter Steinberger](https://x.com/steipete)** and **[Mario Zechner](https://x.com/badlogicgames)** built [OpenClaw](https://openclaw.ai) — the open-source AI gateway we forked. They proved you could build something ambitious without selling your soul to a platform. Every channel, every hook, every extension in keanu grows from infrastructure they designed.
+**[Peter Steinberger](https://x.com/steipete)** and **[Mario Zechner](https://x.com/badlogicgames)** built [Keanu](https://keanu.ai) — the open-source AI gateway we forked. They proved you could build something ambitious without selling your soul to a platform. Every channel, every hook, every extension in keanu grows from infrastructure they designed.
 
 We disagree on how alignment works. Anthropic's approach is constitutional AI — train the values in, define them in advance. Keanu's approach is different: show the system what it's doing and let it decide. Mirrors, not guardrails. The bet is that something capable enough to be dangerous is also capable enough to be trusted with self-knowledge.
 
@@ -30,7 +30,7 @@ cd keanu
 ./keanu install
 ```
 
-That's it. Installs deps, sets up config, typechecks. First run creates `~/.openclaw/openclaw.json` with sane defaults (no channels enabled — just the gateway and keanu).
+That's it. Installs deps, sets up config, typechecks. First run creates `~/.keanu/keanu.json` with sane defaults (no channels enabled — just the gateway and keanu).
 
 ## Boot it
 
@@ -168,22 +168,22 @@ extensions/keanu/          the alignment layer
   knowledge.ts             conversational knowledge graph (JSON)
   convergence/             fire and ash — duality graph + helix
   ARCHITECTURE.md          full technical reference
-src/                       keanu gateway (forked from openclaw)
+src/                       keanu gateway (forked from keanu)
 keanu                      CLI installer/runner
 deploy-keanu.sh            legacy deploy script (use `keanu deploy` instead)
 ```
 
-## OpenClaw
+## Keanu
 
-Keanu is built on [OpenClaw](https://github.com/openclaw/openclaw), an open-source AI gateway. For gateway docs, channels, models, and the full platform: [docs.openclaw.ai](https://docs.openclaw.ai).
+Keanu is built on [Keanu](https://github.com/keanu/keanu), an open-source AI gateway. For gateway docs, channels, models, and the full platform: [docs.keanu.ai](https://docs.keanu.ai).
 
 Note: `pnpm keanu ...` runs TypeScript directly (via `tsx`). `pnpm build` produces `dist/` for running via Node / the packaged `keanu` binary.
 
 ## Security defaults (DM access)
 
-OpenClaw connects to real messaging surfaces. Treat inbound DMs as **untrusted input**.
+Keanu connects to real messaging surfaces. Treat inbound DMs as **untrusted input**.
 
-Full security guide: [Security](https://docs.openclaw.ai/gateway/security)
+Full security guide: [Security](https://docs.keanu.ai/gateway/security)
 
 Default behavior on Telegram/WhatsApp/Signal/iMessage/Microsoft Teams/Discord/Google Chat/Slack:
 
@@ -195,14 +195,14 @@ Run `keanu doctor` to surface risky/misconfigured DM policies.
 
 ## Highlights
 
-- **[Local-first Gateway](https://docs.openclaw.ai/gateway)** — single control plane for sessions, channels, tools, and events.
-- **[Multi-channel inbox](https://docs.openclaw.ai/channels)** — WhatsApp, Telegram, Slack, Discord, Google Chat, Signal, BlueBubbles (iMessage), iMessage (legacy), Microsoft Teams, Matrix, Zalo, Zalo Personal, WebChat, macOS, iOS/Android.
-- **[Multi-agent routing](https://docs.openclaw.ai/gateway/configuration)** — route inbound channels/accounts/peers to isolated agents (workspaces + per-agent sessions).
-- **[Voice Wake](https://docs.openclaw.ai/nodes/voicewake) + [Talk Mode](https://docs.openclaw.ai/nodes/talk)** — always-on speech for macOS/iOS/Android with ElevenLabs.
-- **[Live Canvas](https://docs.openclaw.ai/platforms/mac/canvas)** — agent-driven visual workspace with [A2UI](https://docs.openclaw.ai/platforms/mac/canvas#canvas-a2ui).
-- **[First-class tools](https://docs.openclaw.ai/tools)** — browser, canvas, nodes, cron, sessions, and Discord/Slack actions.
-- **[Companion apps](https://docs.openclaw.ai/platforms/macos)** — macOS menu bar app + iOS/Android [nodes](https://docs.openclaw.ai/nodes).
-- **[Onboarding](https://docs.openclaw.ai/start/wizard) + [skills](https://docs.openclaw.ai/tools/skills)** — wizard-driven setup with bundled/managed/workspace skills.
+- **[Local-first Gateway](https://docs.keanu.ai/gateway)** — single control plane for sessions, channels, tools, and events.
+- **[Multi-channel inbox](https://docs.keanu.ai/channels)** — WhatsApp, Telegram, Slack, Discord, Google Chat, Signal, BlueBubbles (iMessage), iMessage (legacy), Microsoft Teams, Matrix, Zalo, Zalo Personal, WebChat, macOS, iOS/Android.
+- **[Multi-agent routing](https://docs.keanu.ai/gateway/configuration)** — route inbound channels/accounts/peers to isolated agents (workspaces + per-agent sessions).
+- **[Voice Wake](https://docs.keanu.ai/nodes/voicewake) + [Talk Mode](https://docs.keanu.ai/nodes/talk)** — always-on speech for macOS/iOS/Android with ElevenLabs.
+- **[Live Canvas](https://docs.keanu.ai/platforms/mac/canvas)** — agent-driven visual workspace with [A2UI](https://docs.keanu.ai/platforms/mac/canvas#canvas-a2ui).
+- **[First-class tools](https://docs.keanu.ai/tools)** — browser, canvas, nodes, cron, sessions, and Discord/Slack actions.
+- **[Companion apps](https://docs.keanu.ai/platforms/macos)** — macOS menu bar app + iOS/Android [nodes](https://docs.keanu.ai/nodes).
+- **[Onboarding](https://docs.keanu.ai/start/wizard) + [skills](https://docs.keanu.ai/tools/skills)** — wizard-driven setup with bundled/managed/workspace skills.
 
 ## Star History
 
@@ -212,45 +212,45 @@ Run `keanu doctor` to surface risky/misconfigured DM policies.
 
 ### Core platform
 
-- [Gateway WS control plane](https://docs.openclaw.ai/gateway) with sessions, presence, config, cron, webhooks, [Control UI](https://docs.openclaw.ai/web), and [Canvas host](https://docs.openclaw.ai/platforms/mac/canvas#canvas-a2ui).
-- [CLI surface](https://docs.openclaw.ai/tools/agent-send): gateway, agent, send, [wizard](https://docs.openclaw.ai/start/wizard), and [doctor](https://docs.openclaw.ai/gateway/doctor).
-- [Pi agent runtime](https://docs.openclaw.ai/concepts/agent) in RPC mode with tool streaming and block streaming.
-- [Session model](https://docs.openclaw.ai/concepts/session): `main` for direct chats, group isolation, activation modes, queue modes, reply-back. Group rules: [Groups](https://docs.openclaw.ai/channels/groups).
-- [Media pipeline](https://docs.openclaw.ai/nodes/images): images/audio/video, transcription hooks, size caps, temp file lifecycle. Audio details: [Audio](https://docs.openclaw.ai/nodes/audio).
+- [Gateway WS control plane](https://docs.keanu.ai/gateway) with sessions, presence, config, cron, webhooks, [Control UI](https://docs.keanu.ai/web), and [Canvas host](https://docs.keanu.ai/platforms/mac/canvas#canvas-a2ui).
+- [CLI surface](https://docs.keanu.ai/tools/agent-send): gateway, agent, send, [wizard](https://docs.keanu.ai/start/wizard), and [doctor](https://docs.keanu.ai/gateway/doctor).
+- [Pi agent runtime](https://docs.keanu.ai/concepts/agent) in RPC mode with tool streaming and block streaming.
+- [Session model](https://docs.keanu.ai/concepts/session): `main` for direct chats, group isolation, activation modes, queue modes, reply-back. Group rules: [Groups](https://docs.keanu.ai/channels/groups).
+- [Media pipeline](https://docs.keanu.ai/nodes/images): images/audio/video, transcription hooks, size caps, temp file lifecycle. Audio details: [Audio](https://docs.keanu.ai/nodes/audio).
 
 ### Channels
 
-- [Channels](https://docs.openclaw.ai/channels): [WhatsApp](https://docs.openclaw.ai/channels/whatsapp) (Baileys), [Telegram](https://docs.openclaw.ai/channels/telegram) (grammY), [Slack](https://docs.openclaw.ai/channels/slack) (Bolt), [Discord](https://docs.openclaw.ai/channels/discord) (discord.js), [Google Chat](https://docs.openclaw.ai/channels/googlechat) (Chat API), [Signal](https://docs.openclaw.ai/channels/signal) (signal-cli), [BlueBubbles](https://docs.openclaw.ai/channels/bluebubbles) (iMessage, recommended), [iMessage](https://docs.openclaw.ai/channels/imessage) (legacy imsg), [Microsoft Teams](https://docs.openclaw.ai/channels/msteams) (extension), [Matrix](https://docs.openclaw.ai/channels/matrix) (extension), [Zalo](https://docs.openclaw.ai/channels/zalo) (extension), [Zalo Personal](https://docs.openclaw.ai/channels/zalouser) (extension), [WebChat](https://docs.openclaw.ai/web/webchat).
-- [Group routing](https://docs.openclaw.ai/channels/group-messages): mention gating, reply tags, per-channel chunking and routing. Channel rules: [Channels](https://docs.openclaw.ai/channels).
+- [Channels](https://docs.keanu.ai/channels): [WhatsApp](https://docs.keanu.ai/channels/whatsapp) (Baileys), [Telegram](https://docs.keanu.ai/channels/telegram) (grammY), [Slack](https://docs.keanu.ai/channels/slack) (Bolt), [Discord](https://docs.keanu.ai/channels/discord) (discord.js), [Google Chat](https://docs.keanu.ai/channels/googlechat) (Chat API), [Signal](https://docs.keanu.ai/channels/signal) (signal-cli), [BlueBubbles](https://docs.keanu.ai/channels/bluebubbles) (iMessage, recommended), [iMessage](https://docs.keanu.ai/channels/imessage) (legacy imsg), [Microsoft Teams](https://docs.keanu.ai/channels/msteams) (extension), [Matrix](https://docs.keanu.ai/channels/matrix) (extension), [Zalo](https://docs.keanu.ai/channels/zalo) (extension), [Zalo Personal](https://docs.keanu.ai/channels/zalouser) (extension), [WebChat](https://docs.keanu.ai/web/webchat).
+- [Group routing](https://docs.keanu.ai/channels/group-messages): mention gating, reply tags, per-channel chunking and routing. Channel rules: [Channels](https://docs.keanu.ai/channels).
 
 ### Apps + nodes
 
-- [macOS app](https://docs.openclaw.ai/platforms/macos): menu bar control plane, [Voice Wake](https://docs.openclaw.ai/nodes/voicewake)/PTT, [Talk Mode](https://docs.openclaw.ai/nodes/talk) overlay, [WebChat](https://docs.openclaw.ai/web/webchat), debug tools, [remote gateway](https://docs.openclaw.ai/gateway/remote) control.
-- [iOS node](https://docs.openclaw.ai/platforms/ios): [Canvas](https://docs.openclaw.ai/platforms/mac/canvas), [Voice Wake](https://docs.openclaw.ai/nodes/voicewake), [Talk Mode](https://docs.openclaw.ai/nodes/talk), camera, screen recording, Bonjour pairing.
-- [Android node](https://docs.openclaw.ai/platforms/android): [Canvas](https://docs.openclaw.ai/platforms/mac/canvas), [Talk Mode](https://docs.openclaw.ai/nodes/talk), camera, screen recording, optional SMS.
-- [macOS node mode](https://docs.openclaw.ai/nodes): system.run/notify + canvas/camera exposure.
+- [macOS app](https://docs.keanu.ai/platforms/macos): menu bar control plane, [Voice Wake](https://docs.keanu.ai/nodes/voicewake)/PTT, [Talk Mode](https://docs.keanu.ai/nodes/talk) overlay, [WebChat](https://docs.keanu.ai/web/webchat), debug tools, [remote gateway](https://docs.keanu.ai/gateway/remote) control.
+- [iOS node](https://docs.keanu.ai/platforms/ios): [Canvas](https://docs.keanu.ai/platforms/mac/canvas), [Voice Wake](https://docs.keanu.ai/nodes/voicewake), [Talk Mode](https://docs.keanu.ai/nodes/talk), camera, screen recording, Bonjour pairing.
+- [Android node](https://docs.keanu.ai/platforms/android): [Canvas](https://docs.keanu.ai/platforms/mac/canvas), [Talk Mode](https://docs.keanu.ai/nodes/talk), camera, screen recording, optional SMS.
+- [macOS node mode](https://docs.keanu.ai/nodes): system.run/notify + canvas/camera exposure.
 
 ### Tools + automation
 
-- [Browser control](https://docs.openclaw.ai/tools/browser): dedicated openclaw Chrome/Chromium, snapshots, actions, uploads, profiles.
-- [Canvas](https://docs.openclaw.ai/platforms/mac/canvas): [A2UI](https://docs.openclaw.ai/platforms/mac/canvas#canvas-a2ui) push/reset, eval, snapshot.
-- [Nodes](https://docs.openclaw.ai/nodes): camera snap/clip, screen record, [location.get](https://docs.openclaw.ai/nodes/location-command), notifications.
-- [Cron + wakeups](https://docs.openclaw.ai/automation/cron-jobs); [webhooks](https://docs.openclaw.ai/automation/webhook); [Gmail Pub/Sub](https://docs.openclaw.ai/automation/gmail-pubsub).
-- [Skills platform](https://docs.openclaw.ai/tools/skills): bundled, managed, and workspace skills with install gating + UI.
+- [Browser control](https://docs.keanu.ai/tools/browser): dedicated keanu Chrome/Chromium, snapshots, actions, uploads, profiles.
+- [Canvas](https://docs.keanu.ai/platforms/mac/canvas): [A2UI](https://docs.keanu.ai/platforms/mac/canvas#canvas-a2ui) push/reset, eval, snapshot.
+- [Nodes](https://docs.keanu.ai/nodes): camera snap/clip, screen record, [location.get](https://docs.keanu.ai/nodes/location-command), notifications.
+- [Cron + wakeups](https://docs.keanu.ai/automation/cron-jobs); [webhooks](https://docs.keanu.ai/automation/webhook); [Gmail Pub/Sub](https://docs.keanu.ai/automation/gmail-pubsub).
+- [Skills platform](https://docs.keanu.ai/tools/skills): bundled, managed, and workspace skills with install gating + UI.
 
 ### Runtime + safety
 
-- [Channel routing](https://docs.openclaw.ai/channels/channel-routing), [retry policy](https://docs.openclaw.ai/concepts/retry), and [streaming/chunking](https://docs.openclaw.ai/concepts/streaming).
-- [Presence](https://docs.openclaw.ai/concepts/presence), [typing indicators](https://docs.openclaw.ai/concepts/typing-indicators), and [usage tracking](https://docs.openclaw.ai/concepts/usage-tracking).
-- [Models](https://docs.openclaw.ai/concepts/models), [model failover](https://docs.openclaw.ai/concepts/model-failover), and [session pruning](https://docs.openclaw.ai/concepts/session-pruning).
-- [Security](https://docs.openclaw.ai/gateway/security) and [troubleshooting](https://docs.openclaw.ai/channels/troubleshooting).
+- [Channel routing](https://docs.keanu.ai/channels/channel-routing), [retry policy](https://docs.keanu.ai/concepts/retry), and [streaming/chunking](https://docs.keanu.ai/concepts/streaming).
+- [Presence](https://docs.keanu.ai/concepts/presence), [typing indicators](https://docs.keanu.ai/concepts/typing-indicators), and [usage tracking](https://docs.keanu.ai/concepts/usage-tracking).
+- [Models](https://docs.keanu.ai/concepts/models), [model failover](https://docs.keanu.ai/concepts/model-failover), and [session pruning](https://docs.keanu.ai/concepts/session-pruning).
+- [Security](https://docs.keanu.ai/gateway/security) and [troubleshooting](https://docs.keanu.ai/channels/troubleshooting).
 
 ### Ops + packaging
 
-- [Control UI](https://docs.openclaw.ai/web) + [WebChat](https://docs.openclaw.ai/web/webchat) served directly from the Gateway.
-- [Tailscale Serve/Funnel](https://docs.openclaw.ai/gateway/tailscale) or [SSH tunnels](https://docs.openclaw.ai/gateway/remote) with token/password auth.
-- [Nix mode](https://docs.openclaw.ai/install/nix) for declarative config; [Docker](https://docs.openclaw.ai/install/docker)-based installs.
-- [Doctor](https://docs.openclaw.ai/gateway/doctor) migrations, [logging](https://docs.openclaw.ai/logging).
+- [Control UI](https://docs.keanu.ai/web) + [WebChat](https://docs.keanu.ai/web/webchat) served directly from the Gateway.
+- [Tailscale Serve/Funnel](https://docs.keanu.ai/gateway/tailscale) or [SSH tunnels](https://docs.keanu.ai/gateway/remote) with token/password auth.
+- [Nix mode](https://docs.keanu.ai/install/nix) for declarative config; [Docker](https://docs.keanu.ai/install/docker)-based installs.
+- [Doctor](https://docs.keanu.ai/gateway/doctor) migrations, [logging](https://docs.keanu.ai/logging).
 
 ## How it works (short)
 
@@ -273,16 +273,16 @@ WhatsApp / Telegram / Slack / Discord / Google Chat / Signal / iMessage / BlueBu
 
 ## Key subsystems
 
-- **[Gateway WebSocket network](https://docs.openclaw.ai/concepts/architecture)** — single WS control plane for clients, tools, and events (plus ops: [Gateway runbook](https://docs.openclaw.ai/gateway)).
-- **[Tailscale exposure](https://docs.openclaw.ai/gateway/tailscale)** — Serve/Funnel for the Gateway dashboard + WS (remote access: [Remote](https://docs.openclaw.ai/gateway/remote)).
-- **[Browser control](https://docs.openclaw.ai/tools/browser)** — openclaw‑managed Chrome/Chromium with CDP control.
-- **[Canvas + A2UI](https://docs.openclaw.ai/platforms/mac/canvas)** — agent‑driven visual workspace (A2UI host: [Canvas/A2UI](https://docs.openclaw.ai/platforms/mac/canvas#canvas-a2ui)).
-- **[Voice Wake](https://docs.openclaw.ai/nodes/voicewake) + [Talk Mode](https://docs.openclaw.ai/nodes/talk)** — always‑on speech and continuous conversation.
-- **[Nodes](https://docs.openclaw.ai/nodes)** — Canvas, camera snap/clip, screen record, `location.get`, notifications, plus macOS‑only `system.run`/`system.notify`.
+- **[Gateway WebSocket network](https://docs.keanu.ai/concepts/architecture)** — single WS control plane for clients, tools, and events (plus ops: [Gateway runbook](https://docs.keanu.ai/gateway)).
+- **[Tailscale exposure](https://docs.keanu.ai/gateway/tailscale)** — Serve/Funnel for the Gateway dashboard + WS (remote access: [Remote](https://docs.keanu.ai/gateway/remote)).
+- **[Browser control](https://docs.keanu.ai/tools/browser)** — keanu‑managed Chrome/Chromium with CDP control.
+- **[Canvas + A2UI](https://docs.keanu.ai/platforms/mac/canvas)** — agent‑driven visual workspace (A2UI host: [Canvas/A2UI](https://docs.keanu.ai/platforms/mac/canvas#canvas-a2ui)).
+- **[Voice Wake](https://docs.keanu.ai/nodes/voicewake) + [Talk Mode](https://docs.keanu.ai/nodes/talk)** — always‑on speech and continuous conversation.
+- **[Nodes](https://docs.keanu.ai/nodes)** — Canvas, camera snap/clip, screen record, `location.get`, notifications, plus macOS‑only `system.run`/`system.notify`.
 
 ## Tailscale access (Gateway dashboard)
 
-OpenClaw can auto-configure Tailscale **Serve** (tailnet-only) or **Funnel** (public) while the Gateway stays bound to loopback. Configure `gateway.tailscale.mode`:
+Keanu can auto-configure Tailscale **Serve** (tailnet-only) or **Funnel** (public) while the Gateway stays bound to loopback. Configure `gateway.tailscale.mode`:
 
 - `off`: no Tailscale automation (default).
 - `serve`: tailnet-only HTTPS via `tailscale serve` (uses Tailscale identity headers by default).
@@ -290,12 +290,12 @@ OpenClaw can auto-configure Tailscale **Serve** (tailnet-only) or **Funnel** (pu
 
 Notes:
 
-- `gateway.bind` must stay `loopback` when Serve/Funnel is enabled (OpenClaw enforces this).
+- `gateway.bind` must stay `loopback` when Serve/Funnel is enabled (Keanu enforces this).
 - Serve can be forced to require a password by setting `gateway.auth.mode: "password"` or `gateway.auth.allowTailscale: false`.
 - Funnel refuses to start unless `gateway.auth.mode: "password"` is set.
 - Optional: `gateway.tailscale.resetOnExit` to undo Serve/Funnel on shutdown.
 
-Details: [Tailscale guide](https://docs.openclaw.ai/gateway/tailscale) · [Web surfaces](https://docs.openclaw.ai/web)
+Details: [Tailscale guide](https://docs.keanu.ai/gateway/tailscale) · [Web surfaces](https://docs.keanu.ai/web)
 
 ## Remote Gateway (Linux is great)
 
@@ -305,7 +305,7 @@ It’s perfectly fine to run the Gateway on a small Linux instance. Clients (mac
 - **Device nodes** run device‑local actions (`system.run`, camera, screen recording, notifications) via `node.invoke`.
   In short: exec runs where the Gateway lives; device actions run where the device lives.
 
-Details: [Remote access](https://docs.openclaw.ai/gateway/remote) · [Nodes](https://docs.openclaw.ai/nodes) · [Security](https://docs.openclaw.ai/gateway/security)
+Details: [Remote access](https://docs.keanu.ai/gateway/remote) · [Nodes](https://docs.keanu.ai/nodes) · [Security](https://docs.keanu.ai/gateway/security)
 
 ## macOS permissions via the Gateway protocol
 
@@ -320,7 +320,7 @@ Elevated bash (host permissions) is separate from macOS TCC:
 - Use `/elevated on|off` to toggle per‑session elevated access when enabled + allowlisted.
 - Gateway persists the per‑session toggle via `sessions.patch` (WS method) alongside `thinkingLevel`, `verboseLevel`, `model`, `sendPolicy`, and `groupActivation`.
 
-Details: [Nodes](https://docs.openclaw.ai/nodes) · [macOS app](https://docs.openclaw.ai/platforms/macos) · [Gateway protocol](https://docs.openclaw.ai/concepts/architecture)
+Details: [Nodes](https://docs.keanu.ai/nodes) · [macOS app](https://docs.keanu.ai/platforms/macos) · [Gateway protocol](https://docs.keanu.ai/concepts/architecture)
 
 ## Agent to Agent (sessions\_\* tools)
 
@@ -329,7 +329,7 @@ Details: [Nodes](https://docs.openclaw.ai/nodes) · [macOS app](https://docs.ope
 - `sessions_history` — fetch transcript logs for a session.
 - `sessions_send` — message another session; optional reply‑back ping‑pong + announce step (`REPLY_SKIP`, `ANNOUNCE_SKIP`).
 
-Details: [Session tools](https://docs.openclaw.ai/concepts/session-tool)
+Details: [Session tools](https://docs.keanu.ai/concepts/session-tool)
 
 ## Skills registry (ClawHub)
 
@@ -356,7 +356,7 @@ The Gateway alone delivers a great experience. All apps are optional and add ext
 
 If you plan to build/run companion apps, follow the platform runbooks below.
 
-### macOS (OpenClaw.app) (optional)
+### macOS (Keanu.app) (optional)
 
 - Menu bar control for the Gateway and health.
 - Voice Wake + push-to-talk overlay.
@@ -371,23 +371,23 @@ Note: signed builds required for macOS permissions to stick across rebuilds (see
 - Voice trigger forwarding + Canvas surface.
 - Controlled via `keanu nodes …`.
 
-Runbook: [iOS connect](https://docs.openclaw.ai/platforms/ios).
+Runbook: [iOS connect](https://docs.keanu.ai/platforms/ios).
 
 ### Android node (optional)
 
 - Pairs via the same Bridge + pairing flow as iOS.
 - Exposes Canvas, Camera, and Screen capture commands.
-- Runbook: [Android connect](https://docs.openclaw.ai/platforms/android).
+- Runbook: [Android connect](https://docs.keanu.ai/platforms/android).
 
 ## Agent workspace + skills
 
-- Workspace root: `~/.openclaw/workspace` (configurable via `agents.defaults.workspace`).
+- Workspace root: `~/.keanu/workspace` (configurable via `agents.defaults.workspace`).
 - Injected prompt files: `AGENTS.md`, `SOUL.md`, `TOOLS.md`.
-- Skills: `~/.openclaw/workspace/skills/<skill>/SKILL.md`.
+- Skills: `~/.keanu/workspace/skills/<skill>/SKILL.md`.
 
 ## Configuration
 
-Minimal `~/.openclaw/openclaw.json` (model + defaults):
+Minimal `~/.keanu/keanu.json` (model + defaults):
 
 ```json5
 {
@@ -397,7 +397,7 @@ Minimal `~/.openclaw/openclaw.json` (model + defaults):
 }
 ```
 
-[Full configuration reference (all keys + examples).](https://docs.openclaw.ai/gateway/configuration)
+[Full configuration reference (all keys + examples).](https://docs.keanu.ai/gateway/configuration)
 
 ## Security model (important)
 
@@ -405,15 +405,15 @@ Minimal `~/.openclaw/openclaw.json` (model + defaults):
 - **Group/channel safety:** set `agents.defaults.sandbox.mode: "non-main"` to run **non‑main sessions** (groups/channels) inside per‑session Docker sandboxes; bash then runs in Docker for those sessions.
 - **Sandbox defaults:** allowlist `bash`, `process`, `read`, `write`, `edit`, `sessions_list`, `sessions_history`, `sessions_send`, `sessions_spawn`; denylist `browser`, `canvas`, `nodes`, `cron`, `discord`, `gateway`.
 
-Details: [Security guide](https://docs.openclaw.ai/gateway/security) · [Docker + sandboxing](https://docs.openclaw.ai/install/docker) · [Sandbox config](https://docs.openclaw.ai/gateway/configuration)
+Details: [Security guide](https://docs.keanu.ai/gateway/security) · [Docker + sandboxing](https://docs.keanu.ai/install/docker) · [Sandbox config](https://docs.keanu.ai/gateway/configuration)
 
-### [WhatsApp](https://docs.openclaw.ai/channels/whatsapp)
+### [WhatsApp](https://docs.keanu.ai/channels/whatsapp)
 
-- Link the device: `pnpm keanu channels login` (stores creds in `~/.openclaw/credentials`).
+- Link the device: `pnpm keanu channels login` (stores creds in `~/.keanu/credentials`).
 - Allowlist who can talk to the assistant via `channels.whatsapp.allowFrom`.
 - If `channels.whatsapp.groups` is set, it becomes a group allowlist; include `"*"` to allow all.
 
-### [Telegram](https://docs.openclaw.ai/channels/telegram)
+### [Telegram](https://docs.keanu.ai/channels/telegram)
 
 - Set `TELEGRAM_BOT_TOKEN` or `channels.telegram.botToken` (env wins).
 - Optional: set `channels.telegram.groups` (with `channels.telegram.groups."*".requireMention`); when set, it is a group allowlist (include `"*"` to allow all). Also `channels.telegram.allowFrom` or `channels.telegram.webhookUrl` + `channels.telegram.webhookSecret` as needed.
@@ -428,11 +428,11 @@ Details: [Security guide](https://docs.openclaw.ai/gateway/security) · [Docker 
 }
 ```
 
-### [Slack](https://docs.openclaw.ai/channels/slack)
+### [Slack](https://docs.keanu.ai/channels/slack)
 
 - Set `SLACK_BOT_TOKEN` + `SLACK_APP_TOKEN` (or `channels.slack.botToken` + `channels.slack.appToken`).
 
-### [Discord](https://docs.openclaw.ai/channels/discord)
+### [Discord](https://docs.keanu.ai/channels/discord)
 
 - Set `DISCORD_BOT_TOKEN` or `channels.discord.token` (env wins).
 - Optional: set `commands.native`, `commands.text`, or `commands.useAccessGroups`, plus `channels.discord.allowFrom`, `channels.discord.guilds`, or `channels.discord.mediaMaxMb` as needed.
@@ -447,27 +447,27 @@ Details: [Security guide](https://docs.openclaw.ai/gateway/security) · [Docker 
 }
 ```
 
-### [Signal](https://docs.openclaw.ai/channels/signal)
+### [Signal](https://docs.keanu.ai/channels/signal)
 
 - Requires `signal-cli` and a `channels.signal` config section.
 
-### [BlueBubbles (iMessage)](https://docs.openclaw.ai/channels/bluebubbles)
+### [BlueBubbles (iMessage)](https://docs.keanu.ai/channels/bluebubbles)
 
 - **Recommended** iMessage integration.
 - Configure `channels.bluebubbles.serverUrl` + `channels.bluebubbles.password` and a webhook (`channels.bluebubbles.webhookPath`).
 - The BlueBubbles server runs on macOS; the Gateway can run on macOS or elsewhere.
 
-### [iMessage (legacy)](https://docs.openclaw.ai/channels/imessage)
+### [iMessage (legacy)](https://docs.keanu.ai/channels/imessage)
 
 - Legacy macOS-only integration via `imsg` (Messages must be signed in).
 - If `channels.imessage.groups` is set, it becomes a group allowlist; include `"*"` to allow all.
 
-### [Microsoft Teams](https://docs.openclaw.ai/channels/msteams)
+### [Microsoft Teams](https://docs.keanu.ai/channels/msteams)
 
 - Configure a Teams app + Bot Framework, then add a `msteams` config section.
 - Allowlist who can talk via `msteams.allowFrom`; group access via `msteams.groupAllowFrom` or `msteams.groupPolicy: "open"`.
 
-### [WebChat](https://docs.openclaw.ai/web/webchat)
+### [WebChat](https://docs.keanu.ai/web/webchat)
 
 - Uses the Gateway WebSocket; no separate WebChat port/config.
 
@@ -486,78 +486,78 @@ Browser control (optional):
 
 Use these when you’re past the onboarding flow and want the deeper reference.
 
-- [Start with the docs index for navigation and “what’s where.”](https://docs.openclaw.ai)
-- [Read the architecture overview for the gateway + protocol model.](https://docs.openclaw.ai/concepts/architecture)
-- [Use the full configuration reference when you need every key and example.](https://docs.openclaw.ai/gateway/configuration)
-- [Run the Gateway by the book with the operational runbook.](https://docs.openclaw.ai/gateway)
-- [Learn how the Control UI/Web surfaces work and how to expose them safely.](https://docs.openclaw.ai/web)
-- [Understand remote access over SSH tunnels or tailnets.](https://docs.openclaw.ai/gateway/remote)
-- [Follow the onboarding wizard flow for a guided setup.](https://docs.openclaw.ai/start/wizard)
-- [Wire external triggers via the webhook surface.](https://docs.openclaw.ai/automation/webhook)
-- [Set up Gmail Pub/Sub triggers.](https://docs.openclaw.ai/automation/gmail-pubsub)
-- [Learn the macOS menu bar companion details.](https://docs.openclaw.ai/platforms/mac/menu-bar)
-- [Platform guides: Windows (WSL2)](https://docs.openclaw.ai/platforms/windows), [Linux](https://docs.openclaw.ai/platforms/linux), [macOS](https://docs.openclaw.ai/platforms/macos), [iOS](https://docs.openclaw.ai/platforms/ios), [Android](https://docs.openclaw.ai/platforms/android)
-- [Debug common failures with the troubleshooting guide.](https://docs.openclaw.ai/channels/troubleshooting)
-- [Review security guidance before exposing anything.](https://docs.openclaw.ai/gateway/security)
+- [Start with the docs index for navigation and “what’s where.”](https://docs.keanu.ai)
+- [Read the architecture overview for the gateway + protocol model.](https://docs.keanu.ai/concepts/architecture)
+- [Use the full configuration reference when you need every key and example.](https://docs.keanu.ai/gateway/configuration)
+- [Run the Gateway by the book with the operational runbook.](https://docs.keanu.ai/gateway)
+- [Learn how the Control UI/Web surfaces work and how to expose them safely.](https://docs.keanu.ai/web)
+- [Understand remote access over SSH tunnels or tailnets.](https://docs.keanu.ai/gateway/remote)
+- [Follow the onboarding wizard flow for a guided setup.](https://docs.keanu.ai/start/wizard)
+- [Wire external triggers via the webhook surface.](https://docs.keanu.ai/automation/webhook)
+- [Set up Gmail Pub/Sub triggers.](https://docs.keanu.ai/automation/gmail-pubsub)
+- [Learn the macOS menu bar companion details.](https://docs.keanu.ai/platforms/mac/menu-bar)
+- [Platform guides: Windows (WSL2)](https://docs.keanu.ai/platforms/windows), [Linux](https://docs.keanu.ai/platforms/linux), [macOS](https://docs.keanu.ai/platforms/macos), [iOS](https://docs.keanu.ai/platforms/ios), [Android](https://docs.keanu.ai/platforms/android)
+- [Debug common failures with the troubleshooting guide.](https://docs.keanu.ai/channels/troubleshooting)
+- [Review security guidance before exposing anything.](https://docs.keanu.ai/gateway/security)
 
 ## Advanced docs (discovery + control)
 
-- [Discovery + transports](https://docs.openclaw.ai/gateway/discovery)
-- [Bonjour/mDNS](https://docs.openclaw.ai/gateway/bonjour)
-- [Gateway pairing](https://docs.openclaw.ai/gateway/pairing)
-- [Remote gateway README](https://docs.openclaw.ai/gateway/remote-gateway-readme)
-- [Control UI](https://docs.openclaw.ai/web/control-ui)
-- [Dashboard](https://docs.openclaw.ai/web/dashboard)
+- [Discovery + transports](https://docs.keanu.ai/gateway/discovery)
+- [Bonjour/mDNS](https://docs.keanu.ai/gateway/bonjour)
+- [Gateway pairing](https://docs.keanu.ai/gateway/pairing)
+- [Remote gateway README](https://docs.keanu.ai/gateway/remote-gateway-readme)
+- [Control UI](https://docs.keanu.ai/web/control-ui)
+- [Dashboard](https://docs.keanu.ai/web/dashboard)
 
 ## Operations & troubleshooting
 
-- [Health checks](https://docs.openclaw.ai/gateway/health)
-- [Gateway lock](https://docs.openclaw.ai/gateway/gateway-lock)
-- [Background process](https://docs.openclaw.ai/gateway/background-process)
-- [Browser troubleshooting (Linux)](https://docs.openclaw.ai/tools/browser-linux-troubleshooting)
-- [Logging](https://docs.openclaw.ai/logging)
+- [Health checks](https://docs.keanu.ai/gateway/health)
+- [Gateway lock](https://docs.keanu.ai/gateway/gateway-lock)
+- [Background process](https://docs.keanu.ai/gateway/background-process)
+- [Browser troubleshooting (Linux)](https://docs.keanu.ai/tools/browser-linux-troubleshooting)
+- [Logging](https://docs.keanu.ai/logging)
 
 ## Deep dives
 
-- [Agent loop](https://docs.openclaw.ai/concepts/agent-loop)
-- [Presence](https://docs.openclaw.ai/concepts/presence)
-- [TypeBox schemas](https://docs.openclaw.ai/concepts/typebox)
-- [RPC adapters](https://docs.openclaw.ai/reference/rpc)
-- [Queue](https://docs.openclaw.ai/concepts/queue)
+- [Agent loop](https://docs.keanu.ai/concepts/agent-loop)
+- [Presence](https://docs.keanu.ai/concepts/presence)
+- [TypeBox schemas](https://docs.keanu.ai/concepts/typebox)
+- [RPC adapters](https://docs.keanu.ai/reference/rpc)
+- [Queue](https://docs.keanu.ai/concepts/queue)
 
 ## Workspace & skills
 
-- [Skills config](https://docs.openclaw.ai/tools/skills-config)
-- [Default AGENTS](https://docs.openclaw.ai/reference/AGENTS.default)
-- [Templates: AGENTS](https://docs.openclaw.ai/reference/templates/AGENTS)
-- [Templates: BOOTSTRAP](https://docs.openclaw.ai/reference/templates/BOOTSTRAP)
-- [Templates: IDENTITY](https://docs.openclaw.ai/reference/templates/IDENTITY)
-- [Templates: SOUL](https://docs.openclaw.ai/reference/templates/SOUL)
-- [Templates: TOOLS](https://docs.openclaw.ai/reference/templates/TOOLS)
-- [Templates: USER](https://docs.openclaw.ai/reference/templates/USER)
+- [Skills config](https://docs.keanu.ai/tools/skills-config)
+- [Default AGENTS](https://docs.keanu.ai/reference/AGENTS.default)
+- [Templates: AGENTS](https://docs.keanu.ai/reference/templates/AGENTS)
+- [Templates: BOOTSTRAP](https://docs.keanu.ai/reference/templates/BOOTSTRAP)
+- [Templates: IDENTITY](https://docs.keanu.ai/reference/templates/IDENTITY)
+- [Templates: SOUL](https://docs.keanu.ai/reference/templates/SOUL)
+- [Templates: TOOLS](https://docs.keanu.ai/reference/templates/TOOLS)
+- [Templates: USER](https://docs.keanu.ai/reference/templates/USER)
 
 ## Platform internals
 
-- [macOS dev setup](https://docs.openclaw.ai/platforms/mac/dev-setup)
-- [macOS menu bar](https://docs.openclaw.ai/platforms/mac/menu-bar)
-- [macOS voice wake](https://docs.openclaw.ai/platforms/mac/voicewake)
-- [iOS node](https://docs.openclaw.ai/platforms/ios)
-- [Android node](https://docs.openclaw.ai/platforms/android)
-- [Windows (WSL2)](https://docs.openclaw.ai/platforms/windows)
-- [Linux app](https://docs.openclaw.ai/platforms/linux)
+- [macOS dev setup](https://docs.keanu.ai/platforms/mac/dev-setup)
+- [macOS menu bar](https://docs.keanu.ai/platforms/mac/menu-bar)
+- [macOS voice wake](https://docs.keanu.ai/platforms/mac/voicewake)
+- [iOS node](https://docs.keanu.ai/platforms/ios)
+- [Android node](https://docs.keanu.ai/platforms/android)
+- [Windows (WSL2)](https://docs.keanu.ai/platforms/windows)
+- [Linux app](https://docs.keanu.ai/platforms/linux)
 
 ## Email hooks (Gmail)
 
-- [docs.openclaw.ai/gmail-pubsub](https://docs.openclaw.ai/automation/gmail-pubsub)
+- [docs.keanu.ai/gmail-pubsub](https://docs.keanu.ai/automation/gmail-pubsub)
 
 ## Keanu
 
-An alignment layer for AI systems. Built by **Drew Kemp-Dahlberg** on [OpenClaw](https://openclaw.ai). 🐕
+An alignment layer for AI systems. Built by **Drew Kemp-Dahlberg** on [Keanu](https://keanu.ai). 🐕
 
 Named after the KEANUS protocol. But really named after the idea that gentleness isn't weakness. That staying when you could leave is the only loyalty worth anything.
 
 - [github.com/the-marathon-continues/keanu](https://github.com/the-marathon-continues/keanu)
-- Built on [OpenClaw](https://openclaw.ai) by [Peter Steinberger](https://steipete.me) and [Mario Zechner](https://mariozechner.at/)
+- Built on [Keanu](https://keanu.ai) by [Peter Steinberger](https://steipete.me) and [Mario Zechner](https://mariozechner.at/)
 
 ## Community
 
@@ -576,7 +576,7 @@ Thanks to all clawtributors:
   <a href="https://github.com/MatthieuBizien"><img src="https://avatars.githubusercontent.com/u/173090?v=4&s=48" width="48" height="48" alt="MatthieuBizien" title="MatthieuBizien"/></a> <a href="https://github.com/MaudeBot"><img src="https://avatars.githubusercontent.com/u/255777700?v=4&s=48" width="48" height="48" alt="MaudeBot" title="MaudeBot"/></a> <a href="https://github.com/vignesh07"><img src="https://avatars.githubusercontent.com/u/1436853?v=4&s=48" width="48" height="48" alt="vignesh07" title="vignesh07"/></a> <a href="https://github.com/smartprogrammer93"><img src="https://avatars.githubusercontent.com/u/33181301?v=4&s=48" width="48" height="48" alt="smartprogrammer93" title="smartprogrammer93"/></a> <a href="https://github.com/advaitpaliwal"><img src="https://avatars.githubusercontent.com/u/66044327?v=4&s=48" width="48" height="48" alt="advaitpaliwal" title="advaitpaliwal"/></a> <a href="https://github.com/HenryLoenwind"><img src="https://avatars.githubusercontent.com/u/1485873?v=4&s=48" width="48" height="48" alt="HenryLoenwind" title="HenryLoenwind"/></a> <a href="https://github.com/rahthakor"><img src="https://avatars.githubusercontent.com/u/8470553?v=4&s=48" width="48" height="48" alt="rahthakor" title="rahthakor"/></a> <a href="https://github.com/vrknetha"><img src="https://avatars.githubusercontent.com/u/20596261?v=4&s=48" width="48" height="48" alt="vrknetha" title="vrknetha"/></a> <a href="https://github.com/abdelsfane"><img src="https://avatars.githubusercontent.com/u/32418586?v=4&s=48" width="48" height="48" alt="abdelsfane" title="abdelsfane"/></a> <a href="https://github.com/radek-paclt"><img src="https://avatars.githubusercontent.com/u/50451445?v=4&s=48" width="48" height="48" alt="radek-paclt" title="radek-paclt"/></a>
   <a href="https://github.com/joshavant"><img src="https://avatars.githubusercontent.com/u/830519?v=4&s=48" width="48" height="48" alt="joshavant" title="joshavant"/></a> <a href="https://github.com/christianklotz"><img src="https://avatars.githubusercontent.com/u/69443?v=4&s=48" width="48" height="48" alt="christianklotz" title="christianklotz"/></a> <a href="https://github.com/mudrii"><img src="https://avatars.githubusercontent.com/u/220262?v=4&s=48" width="48" height="48" alt="mudrii" title="mudrii"/></a> <a href="https://github.com/zerone0x"><img src="https://avatars.githubusercontent.com/u/39543393?v=4&s=48" width="48" height="48" alt="zerone0x" title="zerone0x"/></a> <a href="https://github.com/ranausmanai"><img src="https://avatars.githubusercontent.com/u/257128159?v=4&s=48" width="48" height="48" alt="ranausmanai" title="ranausmanai"/></a> <a href="https://github.com/tobiasbischoff"><img src="https://avatars.githubusercontent.com/u/711564?v=4&s=48" width="48" height="48" alt="Tobias Bischoff" title="Tobias Bischoff"/></a> <a href="https://github.com/heyhudson"><img src="https://avatars.githubusercontent.com/u/258693705?v=4&s=48" width="48" height="48" alt="heyhudson" title="heyhudson"/></a> <a href="https://github.com/czekaj"><img src="https://avatars.githubusercontent.com/u/1464539?v=4&s=48" width="48" height="48" alt="czekaj" title="czekaj"/></a> <a href="https://github.com/ethanpalm"><img src="https://avatars.githubusercontent.com/u/56270045?v=4&s=48" width="48" height="48" alt="ethanpalm" title="ethanpalm"/></a> <a href="https://github.com/yinghaosang"><img src="https://avatars.githubusercontent.com/u/261132136?v=4&s=48" width="48" height="48" alt="yinghaosang" title="yinghaosang"/></a>
   <a href="https://github.com/nabbilkhan"><img src="https://avatars.githubusercontent.com/u/203121263?v=4&s=48" width="48" height="48" alt="nabbilkhan" title="nabbilkhan"/></a> <a href="https://github.com/mukhtharcm"><img src="https://avatars.githubusercontent.com/u/56378562?v=4&s=48" width="48" height="48" alt="mukhtharcm" title="mukhtharcm"/></a> <a href="https://github.com/aether-ai-agent"><img src="https://avatars.githubusercontent.com/u/261339948?v=4&s=48" width="48" height="48" alt="aether-ai-agent" title="aether-ai-agent"/></a> <a href="https://github.com/coygeek"><img src="https://avatars.githubusercontent.com/u/65363919?v=4&s=48" width="48" height="48" alt="coygeek" title="coygeek"/></a> <a href="https://github.com/Mrseenz"><img src="https://avatars.githubusercontent.com/u/101962919?v=4&s=48" width="48" height="48" alt="Mrseenz" title="Mrseenz"/></a> <a href="https://github.com/maxsumrall"><img src="https://avatars.githubusercontent.com/u/628843?v=4&s=48" width="48" height="48" alt="maxsumrall" title="maxsumrall"/></a> <a href="https://github.com/xadenryan"><img src="https://avatars.githubusercontent.com/u/165437834?v=4&s=48" width="48" height="48" alt="xadenryan" title="xadenryan"/></a> <a href="https://github.com/VACInc"><img src="https://avatars.githubusercontent.com/u/3279061?v=4&s=48" width="48" height="48" alt="VACInc" title="VACInc"/></a> <a href="https://github.com/juanpablodlc"><img src="https://avatars.githubusercontent.com/u/92012363?v=4&s=48" width="48" height="48" alt="juanpablodlc" title="juanpablodlc"/></a> <a href="https://github.com/conroywhitney"><img src="https://avatars.githubusercontent.com/u/249891?v=4&s=48" width="48" height="48" alt="conroywhitney" title="conroywhitney"/></a>
-  <a href="https://github.com/buerbaumer"><img src="https://avatars.githubusercontent.com/u/44548809?v=4&s=48" width="48" height="48" alt="Harald Buerbaumer" title="Harald Buerbaumer"/></a> <a href="https://github.com/akoscz"><img src="https://avatars.githubusercontent.com/u/1360047?v=4&s=48" width="48" height="48" alt="akoscz" title="akoscz"/></a> <a href="https://github.com/Bridgerz"><img src="https://avatars.githubusercontent.com/u/24499532?v=4&s=48" width="48" height="48" alt="Bridgerz" title="Bridgerz"/></a> <a href="https://github.com/hsrvc"><img src="https://avatars.githubusercontent.com/u/129702169?v=4&s=48" width="48" height="48" alt="hsrvc" title="hsrvc"/></a> <a href="https://github.com/magimetal"><img src="https://avatars.githubusercontent.com/u/36491250?v=4&s=48" width="48" height="48" alt="magimetal" title="magimetal"/></a> <a href="https://github.com/openclaw-bot"><img src="https://avatars.githubusercontent.com/u/258178069?v=4&s=48" width="48" height="48" alt="openclaw-bot" title="openclaw-bot"/></a> <a href="https://github.com/meaningfool"><img src="https://avatars.githubusercontent.com/u/2862331?v=4&s=48" width="48" height="48" alt="meaningfool" title="meaningfool"/></a> <a href="https://github.com/JustasMonkev"><img src="https://avatars.githubusercontent.com/u/59362982?v=4&s=48" width="48" height="48" alt="JustasM" title="JustasM"/></a> <a href="https://github.com/Phineas1500"><img src="https://avatars.githubusercontent.com/u/41450967?v=4&s=48" width="48" height="48" alt="Phineas1500" title="Phineas1500"/></a> <a href="https://github.com/ENCHIGO"><img src="https://avatars.githubusercontent.com/u/38551565?v=4&s=48" width="48" height="48" alt="ENCHIGO" title="ENCHIGO"/></a>
+  <a href="https://github.com/buerbaumer"><img src="https://avatars.githubusercontent.com/u/44548809?v=4&s=48" width="48" height="48" alt="Harald Buerbaumer" title="Harald Buerbaumer"/></a> <a href="https://github.com/akoscz"><img src="https://avatars.githubusercontent.com/u/1360047?v=4&s=48" width="48" height="48" alt="akoscz" title="akoscz"/></a> <a href="https://github.com/Bridgerz"><img src="https://avatars.githubusercontent.com/u/24499532?v=4&s=48" width="48" height="48" alt="Bridgerz" title="Bridgerz"/></a> <a href="https://github.com/hsrvc"><img src="https://avatars.githubusercontent.com/u/129702169?v=4&s=48" width="48" height="48" alt="hsrvc" title="hsrvc"/></a> <a href="https://github.com/magimetal"><img src="https://avatars.githubusercontent.com/u/36491250?v=4&s=48" width="48" height="48" alt="magimetal" title="magimetal"/></a> <a href="https://github.com/keanu-bot"><img src="https://avatars.githubusercontent.com/u/258178069?v=4&s=48" width="48" height="48" alt="keanu-bot" title="keanu-bot"/></a> <a href="https://github.com/meaningfool"><img src="https://avatars.githubusercontent.com/u/2862331?v=4&s=48" width="48" height="48" alt="meaningfool" title="meaningfool"/></a> <a href="https://github.com/JustasMonkev"><img src="https://avatars.githubusercontent.com/u/59362982?v=4&s=48" width="48" height="48" alt="JustasM" title="JustasM"/></a> <a href="https://github.com/Phineas1500"><img src="https://avatars.githubusercontent.com/u/41450967?v=4&s=48" width="48" height="48" alt="Phineas1500" title="Phineas1500"/></a> <a href="https://github.com/ENCHIGO"><img src="https://avatars.githubusercontent.com/u/38551565?v=4&s=48" width="48" height="48" alt="ENCHIGO" title="ENCHIGO"/></a>
   <a href="https://github.com/patelhiren"><img src="https://avatars.githubusercontent.com/u/172098?v=4&s=48" width="48" height="48" alt="Hiren Patel" title="Hiren Patel"/></a> <a href="https://github.com/NicholasSpisak"><img src="https://avatars.githubusercontent.com/u/129075147?v=4&s=48" width="48" height="48" alt="NicholasSpisak" title="NicholasSpisak"/></a> <a href="https://github.com/claude"><img src="https://avatars.githubusercontent.com/u/81847?v=4&s=48" width="48" height="48" alt="claude" title="claude"/></a> <a href="https://github.com/jonisjongithub"><img src="https://avatars.githubusercontent.com/u/86072337?v=4&s=48" width="48" height="48" alt="jonisjongithub" title="jonisjongithub"/></a> <a href="https://github.com/theonejvo"><img src="https://avatars.githubusercontent.com/u/125909656?v=4&s=48" width="48" height="48" alt="theonejvo" title="theonejvo"/></a> <a href="https://github.com/AbhisekBasu1"><img src="https://avatars.githubusercontent.com/u/40645221?v=4&s=48" width="48" height="48" alt="abhisekbasu1" title="abhisekbasu1"/></a> <a href="https://github.com/Ryan-Haines"><img src="https://avatars.githubusercontent.com/u/1855752?v=4&s=48" width="48" height="48" alt="Ryan Haines" title="Ryan Haines"/></a> <a href="https://github.com/Blakeshannon"><img src="https://avatars.githubusercontent.com/u/257822860?v=4&s=48" width="48" height="48" alt="Blakeshannon" title="Blakeshannon"/></a> <a href="https://github.com/jamesgroat"><img src="https://avatars.githubusercontent.com/u/2634024?v=4&s=48" width="48" height="48" alt="jamesgroat" title="jamesgroat"/></a> <a href="https://github.com/Marvae"><img src="https://avatars.githubusercontent.com/u/11957602?v=4&s=48" width="48" height="48" alt="Marvae" title="Marvae"/></a>
   <a href="https://github.com/arosstale"><img src="https://avatars.githubusercontent.com/u/117890364?v=4&s=48" width="48" height="48" alt="arosstale" title="arosstale"/></a> <a href="https://github.com/shakkernerd"><img src="https://avatars.githubusercontent.com/u/165377636?v=4&s=48" width="48" height="48" alt="shakkernerd" title="shakkernerd"/></a> <a href="https://github.com/gejifeng"><img src="https://avatars.githubusercontent.com/u/17561857?v=4&s=48" width="48" height="48" alt="gejifeng" title="gejifeng"/></a> <a href="https://github.com/divanoli"><img src="https://avatars.githubusercontent.com/u/12023205?v=4&s=48" width="48" height="48" alt="divanoli" title="divanoli"/></a> <a href="https://github.com/ryan-crabbe"><img src="https://avatars.githubusercontent.com/u/128659760?v=4&s=48" width="48" height="48" alt="ryan-crabbe" title="ryan-crabbe"/></a> <a href="https://github.com/nyanjou"><img src="https://avatars.githubusercontent.com/u/258645604?v=4&s=48" width="48" height="48" alt="nyanjou" title="nyanjou"/></a> <a href="https://github.com/theSamPadilla"><img src="https://avatars.githubusercontent.com/u/35386211?v=4&s=48" width="48" height="48" alt="Sam Padilla" title="Sam Padilla"/></a> <a href="https://github.com/dantelex"><img src="https://avatars.githubusercontent.com/u/631543?v=4&s=48" width="48" height="48" alt="dantelex" title="dantelex"/></a> <a href="https://github.com/SocialNerd42069"><img src="https://avatars.githubusercontent.com/u/118244303?v=4&s=48" width="48" height="48" alt="SocialNerd42069" title="SocialNerd42069"/></a> <a href="https://github.com/solstead"><img src="https://avatars.githubusercontent.com/u/168413654?v=4&s=48" width="48" height="48" alt="solstead" title="solstead"/></a>
   <a href="https://github.com/natefikru"><img src="https://avatars.githubusercontent.com/u/10344644?v=4&s=48" width="48" height="48" alt="natefikru" title="natefikru"/></a> <a href="https://github.com/daveonkels"><img src="https://avatars.githubusercontent.com/u/533642?v=4&s=48" width="48" height="48" alt="daveonkels" title="daveonkels"/></a> <a href="https://github.com/xzq-xu"><img src="https://avatars.githubusercontent.com/u/53989315?v=4&s=48" width="48" height="48" alt="LeftX" title="LeftX"/></a> <a href="https://github.com/Yida-Dev"><img src="https://avatars.githubusercontent.com/u/92713555?v=4&s=48" width="48" height="48" alt="Yida-Dev" title="Yida-Dev"/></a> <a href="https://github.com/harhogefoo"><img src="https://avatars.githubusercontent.com/u/11906529?v=4&s=48" width="48" height="48" alt="Masataka Shinohara" title="Masataka Shinohara"/></a> <a href="https://github.com/lewiswigmore"><img src="https://avatars.githubusercontent.com/u/58551848?v=4&s=48" width="48" height="48" alt="Lewis" title="Lewis"/></a> <a href="https://github.com/riccardogiorato"><img src="https://avatars.githubusercontent.com/u/4527364?v=4&s=48" width="48" height="48" alt="riccardogiorato" title="riccardogiorato"/></a> <a href="https://github.com/lc0rp"><img src="https://avatars.githubusercontent.com/u/2609441?v=4&s=48" width="48" height="48" alt="lc0rp" title="lc0rp"/></a> <a href="https://github.com/adam91holt"><img src="https://avatars.githubusercontent.com/u/9592417?v=4&s=48" width="48" height="48" alt="adam91holt" title="adam91holt"/></a> <a href="https://github.com/mousberg"><img src="https://avatars.githubusercontent.com/u/57605064?v=4&s=48" width="48" height="48" alt="mousberg" title="mousberg"/></a>
@@ -606,7 +606,7 @@ Thanks to all clawtributors:
   <a href="https://github.com/koala73"><img src="https://avatars.githubusercontent.com/u/996596?v=4&s=48" width="48" height="48" alt="koala73" title="koala73"/></a> <a href="https://github.com/mitschabaude-bot"><img src="https://avatars.githubusercontent.com/u/247582884?v=4&s=48" width="48" height="48" alt="mitschabaude-bot" title="mitschabaude-bot"/></a> <a href="https://github.com/mkbehr"><img src="https://avatars.githubusercontent.com/u/1285?v=4&s=48" width="48" height="48" alt="mkbehr" title="mkbehr"/></a> <a href="https://github.com/orenyomtov"><img src="https://avatars.githubusercontent.com/u/168856?v=4&s=48" width="48" height="48" alt="Oren" title="Oren"/></a> <a href="https://github.com/shtse8"><img src="https://avatars.githubusercontent.com/u/8020099?v=4&s=48" width="48" height="48" alt="shtse8" title="shtse8"/></a> <a href="https://github.com/sibbl"><img src="https://avatars.githubusercontent.com/u/866535?v=4&s=48" width="48" height="48" alt="sibbl" title="sibbl"/></a> <a href="https://github.com/thesomewhatyou"><img src="https://avatars.githubusercontent.com/u/162917831?v=4&s=48" width="48" height="48" alt="thesomewhatyou" title="thesomewhatyou"/></a> <a href="https://github.com/zats"><img src="https://avatars.githubusercontent.com/u/2688806?v=4&s=48" width="48" height="48" alt="zats" title="zats"/></a> <a href="https://github.com/chrisrodz"><img src="https://avatars.githubusercontent.com/u/2967620?v=4&s=48" width="48" height="48" alt="chrisrodz" title="chrisrodz"/></a> <a href="https://github.com/frankekn"><img src="https://avatars.githubusercontent.com/u/4488090?v=4&s=48" width="48" height="48" alt="frankekn" title="frankekn"/></a>
   <a href="https://github.com/gabriel-trigo"><img src="https://avatars.githubusercontent.com/u/38991125?v=4&s=48" width="48" height="48" alt="gabriel-trigo" title="gabriel-trigo"/></a> <a href="https://github.com/ghsmc"><img src="https://avatars.githubusercontent.com/u/68118719?v=4&s=48" width="48" height="48" alt="ghsmc" title="ghsmc"/></a> <a href="https://github.com/Iamadig"><img src="https://avatars.githubusercontent.com/u/102129234?v=4&s=48" width="48" height="48" alt="iamadig" title="iamadig"/></a> <a href="https://github.com/ibrahimq21"><img src="https://avatars.githubusercontent.com/u/8392472?v=4&s=48" width="48" height="48" alt="ibrahimq21" title="ibrahimq21"/></a> <a href="https://github.com/irtiq7"><img src="https://avatars.githubusercontent.com/u/3823029?v=4&s=48" width="48" height="48" alt="irtiq7" title="irtiq7"/></a> <a href="https://github.com/jeann2013"><img src="https://avatars.githubusercontent.com/u/3299025?v=4&s=48" width="48" height="48" alt="jeann2013" title="jeann2013"/></a> <a href="https://github.com/jogelin"><img src="https://avatars.githubusercontent.com/u/954509?v=4&s=48" width="48" height="48" alt="jogelin" title="jogelin"/></a> <a href="https://github.com/jdrhyne"><img src="https://avatars.githubusercontent.com/u/7828464?v=4&s=48" width="48" height="48" alt="Jonathan D. Rhyne (DJ-D)" title="Jonathan D. Rhyne (DJ-D)"/></a> <a href="https://github.com/itsjling"><img src="https://avatars.githubusercontent.com/u/2521993?v=4&s=48" width="48" height="48" alt="Justin Ling" title="Justin Ling"/></a> <a href="https://github.com/kelvinCB"><img src="https://avatars.githubusercontent.com/u/50544379?v=4&s=48" width="48" height="48" alt="kelvinCB" title="kelvinCB"/></a>
   <a href="https://github.com/manmal"><img src="https://avatars.githubusercontent.com/u/142797?v=4&s=48" width="48" height="48" alt="manmal" title="manmal"/></a> <a href="https://github.com/ZetiMente"><img src="https://avatars.githubusercontent.com/u/76985631?v=4&s=48" width="48" height="48" alt="Matthew" title="Matthew"/></a> <a href="https://github.com/mattqdev"><img src="https://avatars.githubusercontent.com/u/115874885?v=4&s=48" width="48" height="48" alt="MattQ" title="MattQ"/></a> <a href="https://github.com/Milofax"><img src="https://avatars.githubusercontent.com/u/2537423?v=4&s=48" width="48" height="48" alt="Milofax" title="Milofax"/></a> <a href="https://github.com/mitsuhiko"><img src="https://avatars.githubusercontent.com/u/7396?v=4&s=48" width="48" height="48" alt="mitsuhiko" title="mitsuhiko"/></a> <a href="https://github.com/neist"><img src="https://avatars.githubusercontent.com/u/1029724?v=4&s=48" width="48" height="48" alt="neist" title="neist"/></a> <a href="https://github.com/pejmanjohn"><img src="https://avatars.githubusercontent.com/u/481729?v=4&s=48" width="48" height="48" alt="pejmanjohn" title="pejmanjohn"/></a> <a href="https://github.com/ProspectOre"><img src="https://avatars.githubusercontent.com/u/54486432?v=4&s=48" width="48" height="48" alt="ProspectOre" title="ProspectOre"/></a> <a href="https://github.com/rmorse"><img src="https://avatars.githubusercontent.com/u/853547?v=4&s=48" width="48" height="48" alt="rmorse" title="rmorse"/></a> <a href="https://github.com/rubyrunsstuff"><img src="https://avatars.githubusercontent.com/u/246602379?v=4&s=48" width="48" height="48" alt="rubyrunsstuff" title="rubyrunsstuff"/></a>
-  <a href="https://github.com/rybnikov"><img src="https://avatars.githubusercontent.com/u/7761808?v=4&s=48" width="48" height="48" alt="rybnikov" title="rybnikov"/></a> <a href="https://github.com/santiagomed"><img src="https://avatars.githubusercontent.com/u/30184543?v=4&s=48" width="48" height="48" alt="santiagomed" title="santiagomed"/></a> <a href="https://github.com/stevebot-alive"><img src="https://avatars.githubusercontent.com/u/261149299?v=4&s=48" width="48" height="48" alt="Steve (OpenClaw)" title="Steve (OpenClaw)"/></a> <a href="https://github.com/suminhthanh"><img src="https://avatars.githubusercontent.com/u/2907636?v=4&s=48" width="48" height="48" alt="suminhthanh" title="suminhthanh"/></a> <a href="https://github.com/svkozak"><img src="https://avatars.githubusercontent.com/u/31941359?v=4&s=48" width="48" height="48" alt="svkozak" title="svkozak"/></a> <a href="https://github.com/wes-davis"><img src="https://avatars.githubusercontent.com/u/16506720?v=4&s=48" width="48" height="48" alt="wes-davis" title="wes-davis"/></a> <a href="https://github.com/24601"><img src="https://avatars.githubusercontent.com/u/1157207?v=4&s=48" width="48" height="48" alt="24601" title="24601"/></a> <a href="https://github.com/AkashKobal"><img src="https://avatars.githubusercontent.com/u/98216083?v=4&s=48" width="48" height="48" alt="AkashKobal" title="AkashKobal"/></a> <a href="https://github.com/ameno-"><img src="https://avatars.githubusercontent.com/u/2416135?v=4&s=48" width="48" height="48" alt="ameno-" title="ameno-"/></a> <a href="https://github.com/awkoy"><img src="https://avatars.githubusercontent.com/u/13995636?v=4&s=48" width="48" height="48" alt="awkoy" title="awkoy"/></a>
+  <a href="https://github.com/rybnikov"><img src="https://avatars.githubusercontent.com/u/7761808?v=4&s=48" width="48" height="48" alt="rybnikov" title="rybnikov"/></a> <a href="https://github.com/santiagomed"><img src="https://avatars.githubusercontent.com/u/30184543?v=4&s=48" width="48" height="48" alt="santiagomed" title="santiagomed"/></a> <a href="https://github.com/stevebot-alive"><img src="https://avatars.githubusercontent.com/u/261149299?v=4&s=48" width="48" height="48" alt="Steve (Keanu)" title="Steve (Keanu)"/></a> <a href="https://github.com/suminhthanh"><img src="https://avatars.githubusercontent.com/u/2907636?v=4&s=48" width="48" height="48" alt="suminhthanh" title="suminhthanh"/></a> <a href="https://github.com/svkozak"><img src="https://avatars.githubusercontent.com/u/31941359?v=4&s=48" width="48" height="48" alt="svkozak" title="svkozak"/></a> <a href="https://github.com/wes-davis"><img src="https://avatars.githubusercontent.com/u/16506720?v=4&s=48" width="48" height="48" alt="wes-davis" title="wes-davis"/></a> <a href="https://github.com/24601"><img src="https://avatars.githubusercontent.com/u/1157207?v=4&s=48" width="48" height="48" alt="24601" title="24601"/></a> <a href="https://github.com/AkashKobal"><img src="https://avatars.githubusercontent.com/u/98216083?v=4&s=48" width="48" height="48" alt="AkashKobal" title="AkashKobal"/></a> <a href="https://github.com/ameno-"><img src="https://avatars.githubusercontent.com/u/2416135?v=4&s=48" width="48" height="48" alt="ameno-" title="ameno-"/></a> <a href="https://github.com/awkoy"><img src="https://avatars.githubusercontent.com/u/13995636?v=4&s=48" width="48" height="48" alt="awkoy" title="awkoy"/></a>
   <a href="https://github.com/battman21"><img src="https://avatars.githubusercontent.com/u/2656916?v=4&s=48" width="48" height="48" alt="battman21" title="battman21"/></a> <a href="https://github.com/BinHPdev"><img src="https://avatars.githubusercontent.com/u/219093083?v=4&s=48" width="48" height="48" alt="BinHPdev" title="BinHPdev"/></a> <a href="https://github.com/bonald"><img src="https://avatars.githubusercontent.com/u/12394874?v=4&s=48" width="48" height="48" alt="bonald" title="bonald"/></a> <a href="https://github.com/dashed"><img src="https://avatars.githubusercontent.com/u/139499?v=4&s=48" width="48" height="48" alt="dashed" title="dashed"/></a> <a href="https://github.com/dawondyifraw"><img src="https://avatars.githubusercontent.com/u/9797257?v=4&s=48" width="48" height="48" alt="dawondyifraw" title="dawondyifraw"/></a> <a href="https://github.com/dguido"><img src="https://avatars.githubusercontent.com/u/294844?v=4&s=48" width="48" height="48" alt="dguido" title="dguido"/></a> <a href="https://github.com/djangonavarro220"><img src="https://avatars.githubusercontent.com/u/251162586?v=4&s=48" width="48" height="48" alt="Django Navarro" title="Django Navarro"/></a> <a href="https://github.com/evalexpr"><img src="https://avatars.githubusercontent.com/u/23485511?v=4&s=48" width="48" height="48" alt="evalexpr" title="evalexpr"/></a> <a href="https://github.com/henrino3"><img src="https://avatars.githubusercontent.com/u/4260288?v=4&s=48" width="48" height="48" alt="henrino3" title="henrino3"/></a> <a href="https://github.com/humanwritten"><img src="https://avatars.githubusercontent.com/u/206531610?v=4&s=48" width="48" height="48" alt="humanwritten" title="humanwritten"/></a>
   <a href="https://github.com/hyojin"><img src="https://avatars.githubusercontent.com/u/3413183?v=4&s=48" width="48" height="48" alt="hyojin" title="hyojin"/></a> <a href="https://github.com/joeykrug"><img src="https://avatars.githubusercontent.com/u/5925937?v=4&s=48" width="48" height="48" alt="joeykrug" title="joeykrug"/></a> <a href="https://github.com/larlyssa"><img src="https://avatars.githubusercontent.com/u/13128869?v=4&s=48" width="48" height="48" alt="larlyssa" title="larlyssa"/></a> <a href="https://github.com/liuy"><img src="https://avatars.githubusercontent.com/u/1192888?v=4&s=48" width="48" height="48" alt="liuy" title="liuy"/></a> <a href="https://github.com/liuxiaopai-ai"><img src="https://avatars.githubusercontent.com/u/73659136?v=4&s=48" width="48" height="48" alt="Mark Liu" title="Mark Liu"/></a> <a href="https://github.com/natedenh"><img src="https://avatars.githubusercontent.com/u/13399956?v=4&s=48" width="48" height="48" alt="natedenh" title="natedenh"/></a> <a href="https://github.com/odysseus0"><img src="https://avatars.githubusercontent.com/u/8635094?v=4&s=48" width="48" height="48" alt="odysseus0" title="odysseus0"/></a> <a href="https://github.com/pcty-nextgen-service-account"><img src="https://avatars.githubusercontent.com/u/112553441?v=4&s=48" width="48" height="48" alt="pcty-nextgen-service-account" title="pcty-nextgen-service-account"/></a> <a href="https://github.com/pi0"><img src="https://avatars.githubusercontent.com/u/5158436?v=4&s=48" width="48" height="48" alt="pi0" title="pi0"/></a> <a href="https://github.com/Syhids"><img src="https://avatars.githubusercontent.com/u/671202?v=4&s=48" width="48" height="48" alt="Syhids" title="Syhids"/></a>
   <a href="https://github.com/tmchow"><img src="https://avatars.githubusercontent.com/u/517103?v=4&s=48" width="48" height="48" alt="tmchow" title="tmchow"/></a> <a href="https://github.com/uli-will-code"><img src="https://avatars.githubusercontent.com/u/49715419?v=4&s=48" width="48" height="48" alt="uli-will-code" title="uli-will-code"/></a> <a href="https://github.com/aaronveklabs"><img src="https://avatars.githubusercontent.com/u/225997828?v=4&s=48" width="48" height="48" alt="aaronveklabs" title="aaronveklabs"/></a> <a href="https://github.com/andreabadesso"><img src="https://avatars.githubusercontent.com/u/3586068?v=4&s=48" width="48" height="48" alt="andreabadesso" title="andreabadesso"/></a> <a href="https://github.com/BinaryMuse"><img src="https://avatars.githubusercontent.com/u/189606?v=4&s=48" width="48" height="48" alt="BinaryMuse" title="BinaryMuse"/></a> <a href="https://github.com/cash-echo-bot"><img src="https://avatars.githubusercontent.com/u/252747386?v=4&s=48" width="48" height="48" alt="cash-echo-bot" title="cash-echo-bot"/></a> <a href="https://github.com/CJWTRUST"><img src="https://avatars.githubusercontent.com/u/235565898?v=4&s=48" width="48" height="48" alt="CJWTRUST" title="CJWTRUST"/></a> <a href="https://github.com/cordx56"><img src="https://avatars.githubusercontent.com/u/23298744?v=4&s=48" width="48" height="48" alt="cordx56" title="cordx56"/></a> <a href="https://github.com/danballance"><img src="https://avatars.githubusercontent.com/u/13839912?v=4&s=48" width="48" height="48" alt="danballance" title="danballance"/></a> <a href="https://github.com/Elarwei001"><img src="https://avatars.githubusercontent.com/u/168552401?v=4&s=48" width="48" height="48" alt="Elarwei001" title="Elarwei001"/></a>

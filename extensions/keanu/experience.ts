@@ -10,6 +10,7 @@
 //
 // The Hexaflex isn't therapy — it's a state machine for turning grey into wisdom.
 
+import { randomUUID } from "node:crypto";
 import type { AliveState, SignalState } from "./types.js";
 
 // --- Types ---
@@ -112,7 +113,7 @@ export function createEpisode(
 ): GreyEpisode {
   const now = new Date().toISOString();
   return {
-    id: `ep-${turn}-${Date.now()}`,
+    id: `ep-${turn}-${randomUUID().slice(0, 8)}`,
     trigger,
     startTurn: turn,
     startState,
@@ -427,7 +428,7 @@ export function extractSomaticMarker(episode: GreyEpisode): SomaticMarker {
   };
 
   return {
-    id: `sm-${Date.now()}`,
+    id: `sm-${randomUUID().slice(0, 8)}`,
     episodeId: episode.id,
     trigger: episode.trigger,
     valence: valenceMap[episode.trigger] ?? -0.3,

@@ -225,15 +225,15 @@ private struct SkillRow: View {
 
     private var sourceLabel: String {
         switch self.skill.source {
-        case "openclaw-bundled":
+        case "keanu-bundled":
             "Bundled"
-        case "openclaw-managed":
+        case "keanu-managed":
             "Managed"
-        case "openclaw-workspace":
+        case "keanu-workspace":
             "Workspace"
-        case "openclaw-extra":
+        case "keanu-extra":
             "Extra"
-        case "openclaw-plugin":
+        case "keanu-plugin":
             "Plugin"
         default:
             self.skill.source
@@ -573,7 +573,7 @@ extension SkillsSettings {
         let skill = SkillStatus(
             name: "Test Skill",
             description: "Test description",
-            source: "openclaw-bundled",
+            source: "keanu-bundled",
             filePath: "/tmp/skills/test",
             baseDir: "/tmp/skills",
             skillKey: "test",

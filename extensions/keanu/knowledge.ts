@@ -87,7 +87,7 @@ const PROPER_NOUN = /(?:^|\.\s+|[,;:]\s+)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/g;
 // Common patterns that indicate entity types
 const PERSON_SIGNALS = /\b(?:drew|andrew|he|she|they|his|her|their|I)\b/i;
 const ORG_PATTERNS = /\b(?:company|org|team|hospital|university|inc|llc|corp|mercy|children's)\b/i;
-const PROJECT_PATTERNS = /\b(?:repo|project|codebase|extension|module|gateway|keanu|openclaw)\b/i;
+const PROJECT_PATTERNS = /\b(?:repo|project|codebase|extension|module|gateway|keanu|keanu)\b/i;
 const TOOL_PATTERNS =
   /\b(?:typescript|python|rust|javascript|react|vim|vscode|docker|git|bun|pnpm|npm)\b/i;
 const CONCEPT_PATTERNS =

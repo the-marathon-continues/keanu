@@ -197,7 +197,7 @@ enum AnthropicOAuth {
 enum KeanuOAuthStore {
     static let oauthFilename = "oauth.json"
     private static let providerKey = "anthropic"
-    private static let openclawOAuthDirEnv = "OPENCLAW_OAUTH_DIR"
+    private static let keanuOAuthDirEnv = "KEANU_OAUTH_DIR"
     private static let legacyPiDirEnv = "PI_CODING_AGENT_DIR"
 
     enum AnthropicOAuthStatus: Equatable {
@@ -226,7 +226,7 @@ enum KeanuOAuthStore {
     }
 
     static func oauthDir() -> URL {
-        if let override = ProcessInfo.processInfo.environment[self.openclawOAuthDirEnv]?
+        if let override = ProcessInfo.processInfo.environment[self.keanuOAuthDirEnv]?
             .trimmingCharacters(in: .whitespacesAndNewlines),
             !override.isEmpty
         {
@@ -234,7 +234,7 @@ enum KeanuOAuthStore {
             return URL(fileURLWithPath: expanded, isDirectory: true)
         }
         let home = FileManager().homeDirectoryForCurrentUser
-        return home.appendingPathComponent(".openclaw", isDirectory: true)
+        return home.appendingPathComponent(".keanu", isDirectory: true)
             .appendingPathComponent("credentials", isDirectory: true)
     }
 

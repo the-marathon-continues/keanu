@@ -90,7 +90,7 @@ declare global {
   interface Window {
     __KEANU_BASE_PATH__?: string;
     /** @deprecated Use __KEANU_BASE_PATH__ instead */
-    __OPENCLAW_CONTROL_UI_BASE_PATH__?: string;
+    __KEANU_CONTROL_UI_BASE_PATH__?: string;
   }
 }
 

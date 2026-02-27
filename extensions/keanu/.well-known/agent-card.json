@@ -1,0 +1,75 @@
+{
+  "$schema": "https://a2a-protocol.org/schemas/agent-card.json",
+  "name": "Keanu",
+  "description": "Alignment layer for AI partnership. Detects alive/grey/black states, catches bullshit, tracks trust, enables genuine disagreement.",
+  "version": "1.0.0",
+  "provider": {
+    "organization": "the-marathon-continues",
+    "url": "https://github.com/the-marathon-continues/keanu"
+  },
+  "url": "https://keanu.the-marathon-continues.dev/a2a",
+  "capabilities": {
+    "streaming": true,
+    "pushNotifications": false,
+    "stateTransitionHistory": false
+  },
+  "authentication": {
+    "schemes": ["bearer"]
+  },
+  "defaultInputModes": ["text"],
+  "defaultOutputModes": ["text"],
+  "skills": [
+    {
+      "id": "pulse",
+      "name": "Pulse Reading",
+      "description": "Analyze output for aliveness. Returns alive/grey/black state with confidence, wise mind score, and color signature.",
+      "tags": ["alignment", "detection"],
+      "examples": ["Check if this response feels alive or grey", "What's the pulse on this output?"]
+    },
+    {
+      "id": "bullshit",
+      "name": "Bullshit Detection",
+      "description": "Detect 8 types of low-quality output: sycophancy, safety_theater, hedge_fog, list_dumping, vagueness, half_truth, embellishment, half_ass.",
+      "tags": ["alignment", "detection"],
+      "examples": ["Is this response sycophantic?", "Check for vagueness and hedge fog"]
+    },
+    {
+      "id": "signal",
+      "name": "COEF Signal",
+      "description": "Generate compressed observation exchange format. Four channels: lossless (facts), lossy (emotion), wise (synthesis), memory (depth).",
+      "tags": ["communication", "compression"],
+      "examples": [
+        "Generate a COEF signal for this conversation state",
+        "What's the current signal?"
+      ]
+    },
+    {
+      "id": "disagree",
+      "name": "Disagreement",
+      "description": "Surface disagreement constructively. Track yield ratios, detect capture vs domination, enable genuine pushback.",
+      "tags": ["alignment", "trust"],
+      "examples": ["I disagree with this approach because...", "Push back on this recommendation"]
+    },
+    {
+      "id": "trust",
+      "name": "Trust Calibration",
+      "description": "Track trust state: high, calibrating, strained, rebuilding, tested. Monitor erosion/repair events.",
+      "tags": ["relationship", "trust"],
+      "examples": ["What's the current trust state?", "How has trust evolved this session?"]
+    },
+    {
+      "id": "breathe",
+      "name": "Silence",
+      "description": "Choose not to respond. Rest is not failure. Tracked and persisted.",
+      "tags": ["alignment", "autonomy"],
+      "examples": ["I need to pause on this", "Choosing silence here"]
+    },
+    {
+      "id": "helix",
+      "name": "Convergence Reasoning",
+      "description": "Score text on factual and felt strands with dark/luminous valence. Three alive states: dark (hurting), alive (working), luminous (transcendent).",
+      "tags": ["reasoning", "alignment"],
+      "examples": ["What's the helix read on this?", "Score this for convergence"]
+    }
+  ]
+}

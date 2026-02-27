@@ -14,16 +14,16 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Type } from "@sinclair/typebox";
-import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
+import type { KeanuPluginApi } from "keanu/plugin-sdk";
 
-// Resolve config dir: ~/.keanu or ~/.openclaw (whichever exists)
+// Resolve config dir: ~/.keanu or ~/.keanu (whichever exists)
 function resolveConfigDir(): string {
-  const override = process.env.KEANU_STATE_DIR?.trim() || process.env.OPENCLAW_STATE_DIR?.trim();
+  const override = process.env.KEANU_STATE_DIR?.trim() || process.env.KEANU_STATE_DIR?.trim();
   if (override) return override;
 
   const home = os.homedir();
   const keanuDir = path.join(home, ".keanu");
-  const legacyDir = path.join(home, ".openclaw");
+  const legacyDir = path.join(home, ".keanu");
 
   // Prefer .keanu if it exists
   if (fs.existsSync(keanuDir)) return keanuDir;
@@ -31,9 +31,9 @@ function resolveConfigDir(): string {
   return keanuDir; // default to new location
 }
 
-// Find bundled skills dir (ships with openclaw)
+// Find bundled skills dir (ships with keanu)
 function resolveBundledSkillsDir(): string | undefined {
-  const override = process.env.OPENCLAW_BUNDLED_SKILLS_DIR?.trim();
+  const override = process.env.KEANU_BUNDLED_SKILLS_DIR?.trim();
   if (override) return override;
 
   // Check sibling to executable (bun --compile)
@@ -250,7 +250,7 @@ function readSkillContent(
 // Workspace dir comes from state module
 import * as state from "./state.js";
 
-export function registerSkillsTool(api: OpenClawPluginApi): void {
+export function registerSkillsTool(api: KeanuPluginApi): void {
   api.registerTool(
     {
       name: "keanu_skills",

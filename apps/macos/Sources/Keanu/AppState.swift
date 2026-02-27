@@ -698,7 +698,7 @@ extension AppState {
         state.remoteTarget = "user@example.com"
         state.remoteUrl = "wss://gateway.example.ts.net"
         state.remoteIdentity = "~/.ssh/id_ed25519"
-        state.remoteProjectRoot = "~/Projects/openclaw"
+        state.remoteProjectRoot = "~/Projects/keanu"
         state.remoteCliPath = ""
         return state
     }

@@ -5,7 +5,7 @@ import KeanuKit
 import WebKit
 
 final class CanvasA2UIActionMessageHandler: NSObject, WKScriptMessageHandler {
-    static let messageName = "openclawCanvasA2UIAction"
+    static let messageName = "keanuCanvasA2UIAction"
     static let allMessageNames = [messageName]
 
     private let sessionKey: String

@@ -209,29 +209,29 @@ export function buildServiceEnvironment(params: {
   launchdLabel?: string;
 }): Record<string, string | undefined> {
   const { env, port, token, launchdLabel } = params;
-  const profile = env.OPENCLAW_PROFILE;
+  const profile = env.KEANU_PROFILE;
   const resolvedLaunchdLabel =
     launchdLabel ||
     (process.platform === "darwin" ? resolveGatewayLaunchAgentLabel(profile) : undefined);
   const systemdUnit = `${resolveGatewaySystemdServiceName(profile)}.service`;
-  const stateDir = env.OPENCLAW_STATE_DIR;
-  const configPath = env.OPENCLAW_CONFIG_PATH;
+  const stateDir = env.KEANU_STATE_DIR;
+  const configPath = env.KEANU_CONFIG_PATH;
   // Keep a usable temp directory for supervised services even when the host env omits TMPDIR.
   const tmpDir = env.TMPDIR?.trim() || os.tmpdir();
   return {
     HOME: env.HOME,
     TMPDIR: tmpDir,
     PATH: buildMinimalServicePath({ env }),
-    OPENCLAW_PROFILE: profile,
-    OPENCLAW_STATE_DIR: stateDir,
-    OPENCLAW_CONFIG_PATH: configPath,
-    OPENCLAW_GATEWAY_PORT: String(port),
-    OPENCLAW_GATEWAY_TOKEN: token,
-    OPENCLAW_LAUNCHD_LABEL: resolvedLaunchdLabel,
-    OPENCLAW_SYSTEMD_UNIT: systemdUnit,
-    OPENCLAW_SERVICE_MARKER: GATEWAY_SERVICE_MARKER,
-    OPENCLAW_SERVICE_KIND: GATEWAY_SERVICE_KIND,
-    OPENCLAW_SERVICE_VERSION: VERSION,
+    KEANU_PROFILE: profile,
+    KEANU_STATE_DIR: stateDir,
+    KEANU_CONFIG_PATH: configPath,
+    KEANU_GATEWAY_PORT: String(port),
+    KEANU_GATEWAY_TOKEN: token,
+    KEANU_LAUNCHD_LABEL: resolvedLaunchdLabel,
+    KEANU_SYSTEMD_UNIT: systemdUnit,
+    KEANU_SERVICE_MARKER: GATEWAY_SERVICE_MARKER,
+    KEANU_SERVICE_KIND: GATEWAY_SERVICE_KIND,
+    KEANU_SERVICE_VERSION: VERSION,
     // API keys (injected by macOS app from Keychain, or from user's environment)
     OPENROUTER_API_KEY: env.OPENROUTER_API_KEY,
   };
@@ -241,22 +241,22 @@ export function buildNodeServiceEnvironment(params: {
   env: Record<string, string | undefined>;
 }): Record<string, string | undefined> {
   const { env } = params;
-  const stateDir = env.OPENCLAW_STATE_DIR;
-  const configPath = env.OPENCLAW_CONFIG_PATH;
+  const stateDir = env.KEANU_STATE_DIR;
+  const configPath = env.KEANU_CONFIG_PATH;
   const tmpDir = env.TMPDIR?.trim() || os.tmpdir();
   return {
     HOME: env.HOME,
     TMPDIR: tmpDir,
     PATH: buildMinimalServicePath({ env }),
-    OPENCLAW_STATE_DIR: stateDir,
-    OPENCLAW_CONFIG_PATH: configPath,
-    OPENCLAW_LAUNCHD_LABEL: resolveNodeLaunchAgentLabel(),
-    OPENCLAW_SYSTEMD_UNIT: resolveNodeSystemdServiceName(),
-    OPENCLAW_WINDOWS_TASK_NAME: resolveNodeWindowsTaskName(),
-    OPENCLAW_TASK_SCRIPT_NAME: NODE_WINDOWS_TASK_SCRIPT_NAME,
-    OPENCLAW_LOG_PREFIX: "node",
-    OPENCLAW_SERVICE_MARKER: NODE_SERVICE_MARKER,
-    OPENCLAW_SERVICE_KIND: NODE_SERVICE_KIND,
-    OPENCLAW_SERVICE_VERSION: VERSION,
+    KEANU_STATE_DIR: stateDir,
+    KEANU_CONFIG_PATH: configPath,
+    KEANU_LAUNCHD_LABEL: resolveNodeLaunchAgentLabel(),
+    KEANU_SYSTEMD_UNIT: resolveNodeSystemdServiceName(),
+    KEANU_WINDOWS_TASK_NAME: resolveNodeWindowsTaskName(),
+    KEANU_TASK_SCRIPT_NAME: NODE_WINDOWS_TASK_SCRIPT_NAME,
+    KEANU_LOG_PREFIX: "node",
+    KEANU_SERVICE_MARKER: NODE_SERVICE_MARKER,
+    KEANU_SERVICE_KIND: NODE_SERVICE_KIND,
+    KEANU_SERVICE_VERSION: VERSION,
   };
 }

@@ -17,8 +17,8 @@
 set -euo pipefail
 
 KEANU_DIR="$(cd "$(dirname "$0")" && pwd)"
-CONFIG_FILE="$HOME/.openclaw/openclaw.json"
-LOG_DIR="/tmp/openclaw"
+CONFIG_FILE="$HOME/.keanu/keanu.json"
+LOG_DIR="/tmp/keanu"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -46,7 +46,7 @@ cmd_install() {
   fi
 
   step "Ensuring config"
-  mkdir -p "$HOME/.openclaw"
+  mkdir -p "$HOME/.keanu"
   if [[ ! -f "$CONFIG_FILE" ]]; then
     cat > "$CONFIG_FILE" <<'CONF'
 {
@@ -98,7 +98,7 @@ cmd_start() {
 
   # Kill existing if running
   local pid
-  pid=$(pgrep -f "openclaw.*gateway" 2>/dev/null | head -1 || true)
+  pid=$(pgrep -f "keanu.*gateway" 2>/dev/null | head -1 || true)
   if [[ -n "$pid" ]]; then
     warn "Gateway already running (PID $pid) — restarting"
     kill "$pid" 2>/dev/null || true
@@ -114,7 +114,7 @@ cmd_start() {
 cmd_stop() {
   step "Stopping gateway"
   local pid
-  pid=$(pgrep -f "openclaw.*gateway" 2>/dev/null | head -1 || true)
+  pid=$(pgrep -f "keanu.*gateway" 2>/dev/null | head -1 || true)
   if [[ -z "$pid" ]]; then
     info "Gateway not running"
   else
@@ -152,7 +152,7 @@ cmd_deploy() {
 
   step "Restarting gateway"
   local pid
-  pid=$(pgrep -f "openclaw.*gateway" 2>/dev/null | head -1 || true)
+  pid=$(pgrep -f "keanu.*gateway" 2>/dev/null | head -1 || true)
   if [[ -z "$pid" ]]; then
     info "Gateway not running — skipping restart"
   else
@@ -167,7 +167,7 @@ cmd_deploy() {
 # ──────────────────────────────────────────────────────────────
 cmd_status() {
   local pid
-  pid=$(pgrep -f "openclaw.*gateway" 2>/dev/null | head -1 || true)
+  pid=$(pgrep -f "keanu.*gateway" 2>/dev/null | head -1 || true)
   if [[ -n "$pid" ]]; then
     pass "Gateway running (PID $pid)"
   else
@@ -216,7 +216,7 @@ with open('$CONFIG_FILE') as f:
 cmd_logs() {
   local today
   today=$(date +%Y-%m-%d)
-  local logfile="$LOG_DIR/openclaw-$today.log"
+  local logfile="$LOG_DIR/keanu-$today.log"
   if [[ -f "$logfile" ]]; then
     tail -f "$logfile"
   else

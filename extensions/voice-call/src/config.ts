@@ -1,9 +1,4 @@
-import {
-  TtsAutoSchema,
-  TtsConfigSchema,
-  TtsModeSchema,
-  TtsProviderSchema,
-} from "openclaw/plugin-sdk";
+import { TtsAutoSchema, TtsConfigSchema, TtsModeSchema, TtsProviderSchema } from "keanu/plugin-sdk";
 import { z } from "zod";
 
 // -----------------------------------------------------------------------------

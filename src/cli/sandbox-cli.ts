@@ -14,30 +14,30 @@ type CommandOptions = Record<string, unknown>;
 
 const SANDBOX_EXAMPLES = {
   main: [
-    ["openclaw sandbox list", "List all sandbox containers."],
-    ["openclaw sandbox list --browser", "List only browser containers."],
-    ["openclaw sandbox recreate --all", "Recreate all containers."],
-    ["openclaw sandbox recreate --session main", "Recreate a specific session."],
-    ["openclaw sandbox recreate --agent mybot", "Recreate agent containers."],
-    ["openclaw sandbox explain", "Explain effective sandbox config."],
+    ["keanu sandbox list", "List all sandbox containers."],
+    ["keanu sandbox list --browser", "List only browser containers."],
+    ["keanu sandbox recreate --all", "Recreate all containers."],
+    ["keanu sandbox recreate --session main", "Recreate a specific session."],
+    ["keanu sandbox recreate --agent mybot", "Recreate agent containers."],
+    ["keanu sandbox explain", "Explain effective sandbox config."],
   ],
   list: [
-    ["openclaw sandbox list", "List all sandbox containers."],
-    ["openclaw sandbox list --browser", "List only browser containers."],
-    ["openclaw sandbox list --json", "JSON output."],
+    ["keanu sandbox list", "List all sandbox containers."],
+    ["keanu sandbox list --browser", "List only browser containers."],
+    ["keanu sandbox list --json", "JSON output."],
   ],
   recreate: [
-    ["openclaw sandbox recreate --all", "Recreate all containers."],
-    ["openclaw sandbox recreate --session main", "Recreate a specific session."],
-    ["openclaw sandbox recreate --agent mybot", "Recreate a specific agent (includes sub-agents)."],
-    ["openclaw sandbox recreate --browser --all", "Recreate only browser containers."],
-    ["openclaw sandbox recreate --all --force", "Skip confirmation."],
+    ["keanu sandbox recreate --all", "Recreate all containers."],
+    ["keanu sandbox recreate --session main", "Recreate a specific session."],
+    ["keanu sandbox recreate --agent mybot", "Recreate a specific agent (includes sub-agents)."],
+    ["keanu sandbox recreate --browser --all", "Recreate only browser containers."],
+    ["keanu sandbox recreate --all --force", "Skip confirmation."],
   ],
   explain: [
-    ["openclaw sandbox explain", "Show effective sandbox config."],
-    ["openclaw sandbox explain --session agent:main:main", "Explain a specific session."],
-    ["openclaw sandbox explain --agent work", "Explain an agent sandbox."],
-    ["openclaw sandbox explain --json", "JSON output."],
+    ["keanu sandbox explain", "Show effective sandbox config."],
+    ["keanu sandbox explain --session agent:main:main", "Explain a specific session."],
+    ["keanu sandbox explain --agent work", "Explain an agent sandbox."],
+    ["keanu sandbox explain --json", "JSON output."],
   ],
 } as const;
 
@@ -67,7 +67,7 @@ export function registerSandboxCli(program: Command) {
     .addHelpText(
       "after",
       () =>
-        `\n${theme.muted("Docs:")} ${formatDocsLink("/cli/sandbox", "docs.openclaw.ai/cli/sandbox")}\n`,
+        `\n${theme.muted("Docs:")} ${formatDocsLink("/cli/sandbox", "docs.keanu.ai/cli/sandbox")}\n`,
     )
     .action(() => {
       sandbox.help({ error: true });

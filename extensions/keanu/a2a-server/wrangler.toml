@@ -1,0 +1,13 @@
+name = "keanu-a2a"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+# Custom domain (configure in Cloudflare dashboard)
+# routes = [{ pattern = "keanu.the-marathon-continues.dev/*", zone_name = "the-marathon-continues.dev" }]
+
+[vars]
+AGENT_NAME = "Keanu"
+
+# Secrets (set via wrangler secret put):
+# - KEANU_API_KEY: Bearer token for authentication
+# - ANTHROPIC_API_KEY: For calling Claude when processing messages

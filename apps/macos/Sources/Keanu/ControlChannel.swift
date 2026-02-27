@@ -423,6 +423,6 @@ final class ControlChannel {
 }
 
 extension Notification.Name {
-    static let controlHeartbeat = Notification.Name("openclaw.control.heartbeat")
-    static let controlAgentEvent = Notification.Name("openclaw.control.agent")
+    static let controlHeartbeat = Notification.Name("keanu.control.heartbeat")
+    static let controlAgentEvent = Notification.Name("keanu.control.agent")
 }

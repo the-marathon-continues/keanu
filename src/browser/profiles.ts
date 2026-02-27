@@ -79,16 +79,16 @@ export function getUsedPorts(
 }
 
 export const PROFILE_COLORS = [
-  "#FF4500", // Orange-red (openclaw default)
+  "#00A86B", // Jade green (keanu default)
   "#0066CC", // Blue
   "#00AA00", // Green
   "#9933FF", // Purple
   "#FF6699", // Pink
   "#00CCCC", // Cyan
-  "#FF9900", // Orange
+  "#40B090", // Teal green
   "#6666FF", // Indigo
   "#CC3366", // Magenta
-  "#339966", // Teal
+  "#339966", // Sea green
 ];
 
 export function allocateColor(usedColors: Set<string>): string {

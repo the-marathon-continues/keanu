@@ -3,9 +3,9 @@ import Foundation
 import SwiftUI
 
 enum DebugActions {
-    private static let verboseDefaultsKey = "openclaw.debug.verboseMain"
+    private static let verboseDefaultsKey = "keanu.debug.verboseMain"
     private static let sessionMenuLimit = 12
-    private static let onboardingSeenKey = "openclaw.onboardingSeen"
+    private static let onboardingSeenKey = "keanu.onboardingSeen"
 
     @MainActor
     static func openAgentEventsWindow() {

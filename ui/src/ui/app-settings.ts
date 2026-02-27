@@ -258,7 +258,7 @@ export function inferBasePath() {
     return "";
   }
   // Check new name first, then legacy name for backwards compatibility
-  const configured = window.__KEANU_BASE_PATH__ ?? window.__OPENCLAW_CONTROL_UI_BASE_PATH__;
+  const configured = window.__KEANU_BASE_PATH__ ?? window.__KEANU_CONTROL_UI_BASE_PATH__;
   if (typeof configured === "string" && configured.trim()) {
     return normalizeBasePath(configured);
   }

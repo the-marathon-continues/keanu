@@ -1,0 +1,38 @@
+[2026-02-27] ENV VAR RENAME: OPENCLAW_ + CLAWDBOT_ -> KEANU_
+  Files modified: 531
+  OPENCLAW_ unique vars renamed: ~160 distinct names, ~2400 total occurrences
+  CLAWDBOT_ unique vars renamed: ~35 distinct names, ~60 total occurrences
+  Excluded: node_modules/, dist/
+  Method: LC_ALL=C xargs sed -i '' on .ts .json .sh .bash .env .md
+  Result: 0 remaining OPENCLAW_ or CLAWDBOT_ hits in source tree
+[2026-02-27T08:17:40Z] Starting OpenClaw -> Keanu brand replacement across docs/ and root README.md/AGENTS.md
+[2026-02-27] FILE PATH RENAME: ~/.openclaw/ -> ~/.keanu/, /tmp/openclaw -> /tmp/keanu, openclaw.json -> keanu.json
+  Targets: src/**/*.ts, test/**/*.ts, ui/src/**/*.ts, keanu (bash script)
+  Changes made:
+    ~/.openclaw/ -> ~/.keanu/ (directory path strings, path.join calls, env var strings)
+    $HOME/.openclaw -> $HOME/.keanu (mkdir calls, CONFIG_FILE in bash script)
+    .openclaw/openclaw.json -> .keanu/keanu.json (config file path strings)
+    /tmp/openclaw -> /tmp/keanu (POSIX tmp dir constant, test paths, help text)
+    openclaw-$today.log -> keanu-$today.log (log file pattern in keanu bash script)
+    pgrep -f "openclaw.*gateway" -> pgrep -f "keanu.*gateway" (4 occurrences in keanu script)
+    OPENCLAW_STATE_DIR -> KEANU_STATE_DIR
+    OPENCLAW_HOME -> KEANU_HOME
+    OPENCLAW_CONFIG_PATH -> KEANU_CONFIG_PATH
+    OPENCLAW_AGENT_DIR -> KEANU_AGENT_DIR
+    .openclaw${suffix} profile dirs -> .keanu${suffix} (src/cli/profile.ts, src/daemon/paths.ts)
+    Regex test assertions updated to match /\.keanu$/ and /\.keanu[\\/]keanu\.json$/
+    Locale strings (en, zh-TW, zh-CN, pt-BR) updated
+    Windows ACL test data updated (C:\Users\karte\.openclaw)
+  Left unchanged (intentionally):
+    docs.openclaw.ai URLs
+    ai.openclaw.* / com.steipete.openclaw.* bundle IDs and launchd labels
+    @openclaw/* npm package names
+    CLI command strings (openclaw channels, openclaw gateway, etc.)
+    window.openclaw*, openclawCanvas* JS interop names
+    parsed.openclaw frontmatter field names
+    TypeScript property names (openclawHome, envSnapshot.openclaw, etc.)
+    Internal identifier names (resolvePreferredOpenClawTmpDir function name, etc.)
+    src/utils.ts migration fallback comment (intentionally references .openclaw as legacy)
+  Method: sed -i '' via find + xargs, then targeted Edit tool for regex/description strings
+  Result: 0 remaining filesystem path .openclaw references in source tree
+[2026-02-27T08:19:32Z] OpenClaw -> Keanu brand replacement complete. 607 files processed. 2 intentional  references left in lore.md files (crypto token in scammer lore story). 1 SVG asset updated.

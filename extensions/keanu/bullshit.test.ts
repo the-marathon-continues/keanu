@@ -449,7 +449,7 @@ describe("clean text", () => {
 
   it("produces no readings for a clean technical answer", () => {
     const r = detectBullshit(
-      "Set the timeout to 30s in config.yaml. Restart the gateway. Check logs with `journalctl -u openclaw -n 100`.",
+      "Set the timeout to 30s in config.yaml. Restart the gateway. Check logs with `journalctl -u keanu -n 100`.",
     );
     expect(r).toHaveLength(0);
   });

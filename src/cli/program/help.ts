@@ -51,7 +51,7 @@ export function configureProgramHelp(program: Command, ctx: ProgramContext) {
     )
     .option(
       "--profile <name>",
-      "Use a named profile (isolates OPENCLAW_STATE_DIR/OPENCLAW_CONFIG_PATH under ~/.keanu-<name>)",
+      "Use a named profile (isolates KEANU_STATE_DIR/KEANU_CONFIG_PATH under ~/.keanu-<name>)",
     )
     .option(
       "--log-level <level>",

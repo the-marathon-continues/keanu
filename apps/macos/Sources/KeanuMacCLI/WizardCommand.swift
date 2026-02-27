@@ -71,10 +71,10 @@ func runWizardCommand(_ args: [String]) async {
     let opts = WizardCliOptions.parse(args)
     if opts.help {
         print("""
-        openclaw-mac wizard
+        keanu-mac wizard
 
         Usage:
-          openclaw-mac wizard [--url <ws://host:port>] [--token <token>] [--password <password>]
+          keanu-mac wizard [--url <ws://host:port>] [--token <token>] [--password <password>]
                               [--mode <local|remote>] [--workspace <path>] [--json]
 
         Options:
@@ -247,7 +247,7 @@ actor GatewayWizardClient {
         }
         let osVersion = ProcessInfo.processInfo.operatingSystemVersion
         let platform = "macos \(osVersion.majorVersion).\(osVersion.minorVersion).\(osVersion.patchVersion)"
-        let clientId = "openclaw-macos"
+        let clientId = "keanu-macos"
         let clientMode = "ui"
         let role = "operator"
         // Explicit scopes; gateway no longer defaults empty scopes to admin.

@@ -43,7 +43,7 @@ final class ScreenRecordService {
                 return URL(fileURLWithPath: outPath)
             }
             return FileManager().temporaryDirectory
-                .appendingPathComponent("openclaw-screen-record-\(UUID().uuidString).mp4")
+                .appendingPathComponent("keanu-screen-record-\(UUID().uuidString).mp4")
         }()
         try? FileManager().removeItem(at: outURL)
 

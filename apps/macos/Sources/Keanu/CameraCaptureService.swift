@@ -170,7 +170,7 @@ actor CameraCaptureService {
         await Self.warmUpCaptureSession()
 
         let tmpMovURL = FileManager().temporaryDirectory
-            .appendingPathComponent("openclaw-camera-\(UUID().uuidString).mov")
+            .appendingPathComponent("keanu-camera-\(UUID().uuidString).mov")
         defer { try? FileManager().removeItem(at: tmpMovURL) }
 
         let outputURL: URL = {
@@ -178,7 +178,7 @@ actor CameraCaptureService {
                 return URL(fileURLWithPath: outPath)
             }
             return FileManager().temporaryDirectory
-                .appendingPathComponent("openclaw-camera-\(UUID().uuidString).mp4")
+                .appendingPathComponent("keanu-camera-\(UUID().uuidString).mp4")
         }()
 
         // Ensure we don't fail exporting due to an existing file.

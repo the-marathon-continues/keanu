@@ -52,7 +52,7 @@ enum WideAreaGatewayDiscovery {
 
         guard let domain = KeanuBonjour.wideAreaGatewayServiceDomain else { return [] }
         let domainTrimmed = domain.trimmingCharacters(in: CharacterSet(charactersIn: "."))
-        let probeName = "_openclaw-gw._tcp.\(domainTrimmed)"
+        let probeName = "_keanu-gw._tcp.\(domainTrimmed)"
         guard let ptrLines = context.dig(
             ["+short", "+time=1", "+tries=1", "@\(nameserver)", probeName, "PTR"],
             min(defaultTimeoutSeconds, remaining()))?.split(whereSeparator: \.isNewline),
@@ -66,7 +66,7 @@ enum WideAreaGatewayDiscovery {
             let ptr = raw.trimmingCharacters(in: .whitespacesAndNewlines)
             if ptr.isEmpty { continue }
             let ptrName = ptr.hasSuffix(".") ? String(ptr.dropLast()) : ptr
-            let suffix = "._openclaw-gw._tcp.\(domainTrimmed)"
+            let suffix = "._keanu-gw._tcp.\(domainTrimmed)"
             let rawInstanceName = ptrName.hasSuffix(suffix)
                 ? String(ptrName.dropLast(suffix.count))
                 : ptrName
@@ -155,7 +155,7 @@ enum WideAreaGatewayDiscovery {
     {
         guard let domain = KeanuBonjour.wideAreaGatewayServiceDomain else { return nil }
         let domainTrimmed = domain.trimmingCharacters(in: CharacterSet(charactersIn: "."))
-        let probeName = "_openclaw-gw._tcp.\(domainTrimmed)"
+        let probeName = "_keanu-gw._tcp.\(domainTrimmed)"
 
         let ips = candidates
         candidates.removeAll(keepingCapacity: true)

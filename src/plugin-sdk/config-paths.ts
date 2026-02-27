@@ -1,7 +1,7 @@
-import type { OpenClawConfig } from "../config/config.js";
+import type { KeanuConfig } from "../config/config.js";
 
 export function resolveChannelAccountConfigBasePath(params: {
-  cfg: OpenClawConfig;
+  cfg: KeanuConfig;
   channelKey: string;
   accountId: string;
 }): string {

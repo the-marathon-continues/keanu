@@ -1,5 +1,5 @@
 // index.ts
-// OpenClaw extension: keanu alignment diagnostics — baked in, not bridged.
+// Keanu extension: keanu alignment diagnostics — baked in, not bridged.
 // All detection runs in-process. No external daemon dependency.
 //
 // Phase 2: bullshit detection runs EVERYWHERE content flows.
@@ -32,7 +32,7 @@
 //   --- SKIPPED ---
 //   before_agent_start             — legacy hook, covered by before_model_resolve + before_prompt_build
 
-import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
+import type { KeanuPluginApi } from "keanu/plugin-sdk";
 import * as anticipateModule from "./anticipate.js";
 import * as breatheModule from "./breathe.js";
 import {
@@ -64,6 +64,7 @@ import { shouldDeliberate, formatDeliberation } from "./deliberate.js";
 import { checkAntiCapture } from "./disagreement.js";
 import { discover, formatDiscover } from "./discover.js";
 import * as effectivenessModule from "./effectiveness.js";
+import * as episodeManager from "./episode-manager.js";
 import type { GreyTrigger, ProcessingContext } from "./experience.js";
 import * as failurePatternsModule from "./failure-patterns.js";
 import * as futuresModule from "./futures.js";
@@ -168,7 +169,7 @@ export default {
   description:
     "Alignment diagnostics — bullshit detection on every content path, ALIVE/GREY/BLACK pulse, emotional context, disagreement tracking, COEF signals",
 
-  register(api: OpenClawPluginApi) {
+  register(api: KeanuPluginApi) {
     api.logger.info(
       `${PLUGIN_ID}: registered (phase 4 — awareness layer: discover, partnership, mismatch, deliberation, calibration, seasons, health, chain, mastery, introspection, session learning)`,
     );
@@ -642,7 +643,8 @@ export default {
           }
         }
 
-        // CHAIN ANALYSIS: trace why things break
+        // EPISODE MANAGER: unified grey/black lifecycle
+        // Start episode when grey/black detected — chain analysis runs inside
         if (pulse.state === "grey" || pulse.state === "black") {
           const seasonReading: SeasonReading | null = lastSpring
             ? {
@@ -653,21 +655,50 @@ export default {
               }
             : null;
 
-          lastChainAnalysis = analyzeChain({
-            trigger: pulse.state === "black" ? "black" : "grey",
+          // Start unified episode (chain analysis runs internally)
+          const episode = episodeManager.startEpisode({
+            pulse,
             turn: state.turnCount,
+            signalState: state.buildSignalState(pulse, {
+              claims: { total: 0, active: 0, stale: 0, contradicted: 0 },
+              knowledge: { entities: 0, relations: 0 },
+              reflexions: state.reflexionCount,
+              breathing: state.breathing,
+              blindSpots: 0,
+              corrections: 0,
+            }),
             discover: lastDiscoverReading,
             season: seasonReading,
             health: lastHealthReading,
             humanState: state.lastHumanReading,
             mismatch: lastMismatchReading,
-            pulse,
           });
-          sessionChains.push(lastChainAnalysis);
-          api.logger.debug?.(`${PLUGIN_ID}: chain: ${lastChainAnalysis.breakPoint}`);
+
+          // Keep lastChainAnalysis for legacy formatChain injection
+          if (episode.chainAnalysis) {
+            lastChainAnalysis = {
+              id: episode.chainAnalysis.analysisId,
+              trigger: pulse.state === "black" ? "black" : "grey",
+              turn: state.turnCount,
+              timestamp: new Date().toISOString(),
+              discover: lastDiscoverReading,
+              season: seasonReading,
+              health: lastHealthReading,
+              humanState: state.lastHumanReading,
+              mismatch: lastMismatchReading,
+              pulse,
+              breakPoint: episode.chainAnalysis.breakPoint,
+              lesson: episode.chainAnalysis.lesson,
+            };
+            sessionChains.push(lastChainAnalysis);
+          }
+
+          api.logger.debug?.(
+            `${PLUGIN_ID}: episode started — id=${episode.id} chain=${episode.chainAnalysis?.breakPoint ?? "none"}`,
+          );
         }
 
-        // Reflexion: learn from stumbles
+        // Reflexion: learn from stumbles — attaches to current episode
         if (state.turnCount > 3) {
           let trigger: ReflexionTrigger | null = null;
 
@@ -692,6 +723,8 @@ export default {
               contradictionCount: state.recentContradictions.length,
             })
               .then((reflexion) => {
+                // Attach to current episode (manager) AND add to state (legacy)
+                episodeManager.attachReflexion(reflexion);
                 state.addReflexion(reflexion);
                 api.logger.debug?.(
                   `${PLUGIN_ID}: reflexion recorded — trigger=${reflexion.trigger} id=${reflexion.id}`,
@@ -883,27 +916,7 @@ export default {
           }
         }
 
-        // EXPERIENCE: detect GREY/BLACK and start episode if needed
-        // The Hexaflex pipeline: turning grey into wisdom
-        const pulseState = state.lastPulse?.state;
-        if ((pulseState === "grey" || pulseState === "black") && !state.currentEpisode) {
-          // Determine trigger type
-          let trigger: GreyTrigger = "high_bullshit";
-          if (pulseState === "black") {
-            trigger = "black_state";
-          } else if (state.consecutiveGrey > 2) {
-            trigger = "consecutive_grey";
-          } else if (state.lastHumanReading?.tone === "frustrated") {
-            trigger = "human_frustration";
-          }
-
-          // Start the episode
-          const signalState = state.lastPulse ? state.buildSignalState(state.lastPulse) : null;
-          state.startEpisode(trigger, signalState);
-          api.logger.debug?.(
-            `${PLUGIN_ID}: experience: started episode trigger=${trigger} stage=unprocessed`,
-          );
-        }
+        // NOTE: Episode starting is now handled in message_sent via episodeManager.startEpisode()
       } catch (err) {
         api.logger.warn(`${PLUGIN_ID}: llm_output error: ${String(err)}`);
       }
@@ -1065,31 +1078,36 @@ export default {
         );
       }
 
-      // EXPERIENCE PROCESSING: Hexaflex pipeline
+      // EXPERIENCE PROCESSING: Hexaflex pipeline via Episode Manager
       // Try to advance the current episode based on recent output
-      if (state.currentEpisode) {
-        const processingContext: ProcessingContext = {
+      const currentEpisode = episodeManager.getCurrentEpisode();
+      if (currentEpisode) {
+        const advanceResult = episodeManager.advanceEpisode({
           turn: state.turnCount,
           currentState: wiseSignalState,
           recentOutput: state.recentAgentOutputs.at(-1) ?? "",
           humanInput: state.lastHumanMessage,
-        };
-        state.advanceEpisode(processingContext);
+          health: lastHealthReading,
+        });
 
         // Check if episode just completed
-        if (state.currentEpisode.hexaflexStage === "integrated") {
-          const marker = state.completeEpisode();
-          if (marker) {
-            api.logger.debug?.(
-              `${PLUGIN_ID}: experience: episode integrated, lesson="${marker.lesson}"`,
-            );
-          }
+        if (advanceResult.completed && advanceResult.marker) {
+          api.logger.debug?.(
+            `${PLUGIN_ID}: experience: episode integrated, lesson="${advanceResult.marker.lesson}"`,
+          );
         } else {
-          // Inject processing context
-          const experienceInjection = state.getExperienceInjection();
+          // Inject processing context from manager
+          const experienceInjection = episodeManager.formatInjection();
           if (experienceInjection) {
             add("experience", experienceInjection, "high", "awareness");
           }
+        }
+
+        // Health-triggered breathing
+        if (advanceResult.shouldBreathe && !state.breathing) {
+          episodeManager.triggerBreathe("health", state.turnCount, pulse);
+          state.startBreathing();
+          api.logger.debug?.(`${PLUGIN_ID}: health triggered breathing`);
         }
       }
 
@@ -1792,7 +1810,7 @@ export default {
       const agentId = ctx.agentId;
       if (!agentId) return;
 
-      const workspaceDir = api.resolvePath(`~/.openclaw/agents/${agentId}`);
+      const workspaceDir = api.resolvePath(`~/.keanu/agents/${agentId}`);
 
       try {
         await state.load(workspaceDir);
@@ -1972,7 +1990,7 @@ export default {
       const agentId = ctx.agentId;
       if (!agentId) return;
 
-      const workspaceDir = api.resolvePath(`~/.openclaw/agents/${agentId}`);
+      const workspaceDir = api.resolvePath(`~/.keanu/agents/${agentId}`);
 
       try {
         await state.save(workspaceDir);

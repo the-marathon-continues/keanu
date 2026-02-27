@@ -11,7 +11,7 @@ struct ConnectOptions {
     var timeoutMs: Int = 15000
     var json: Bool = false
     var probe: Bool = false
-    var clientId: String = "openclaw-macos"
+    var clientId: String = "keanu-macos"
     var clientMode: String = "ui"
     var displayName: String?
     var role: String = "operator"
@@ -99,10 +99,10 @@ func runConnect(_ args: [String]) async {
     let opts = ConnectOptions.parse(args)
     if opts.help {
         print("""
-        openclaw-mac connect
+        keanu-mac connect
 
         Usage:
-          openclaw-mac connect [--url <ws://host:port>] [--token <token>] [--password <password>]
+          keanu-mac connect [--url <ws://host:port>] [--token <token>] [--password <password>]
                                [--mode <local|remote>] [--timeout <ms>] [--probe] [--json]
                                [--client-id <id>] [--client-mode <mode>] [--display-name <name>]
                                [--role <role>] [--scopes <a,b,c>]
@@ -115,7 +115,7 @@ func runConnect(_ args: [String]) async {
           --timeout <ms>     Request timeout (default: 15000)
           --probe            Force a fresh health probe
           --json             Emit JSON
-          --client-id <id>   Override client id (default: openclaw-macos)
+          --client-id <id>   Override client id (default: keanu-macos)
           --client-mode <m>  Override client mode (default: ui)
           --display-name <n> Override display name
           --role <role>      Override role (default: operator)

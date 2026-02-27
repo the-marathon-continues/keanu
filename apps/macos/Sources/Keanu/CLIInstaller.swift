@@ -37,14 +37,14 @@ enum CLIInstaller {
     static func install(statusHandler: @escaping @MainActor @Sendable (String) async -> Void) async {
         let expected = GatewayEnvironment.expectedGatewayVersionString() ?? "latest"
         let prefix = Self.installPrefix()
-        await statusHandler("Installing openclaw CLI…")
+        await statusHandler("Installing keanu CLI…")
         let cmd = self.installScriptCommand(version: expected, prefix: prefix)
         let response = await ShellExecutor.runDetailed(command: cmd, cwd: nil, env: nil, timeout: 900)
 
         if response.success {
             let parsed = self.parseInstallEvents(response.stdout)
             let installedVersion = parsed.last { $0.event == "done" }?.version
-            let summary = installedVersion.map { "Installed openclaw \($0)." } ?? "Installed openclaw."
+            let summary = installedVersion.map { "Installed keanu \($0)." } ?? "Installed keanu."
             await statusHandler(summary)
             return
         }
@@ -62,7 +62,7 @@ enum CLIInstaller {
 
     private static func installPrefix() -> String {
         FileManager().homeDirectoryForCurrentUser
-            .appendingPathComponent(".openclaw")
+            .appendingPathComponent(".keanu")
             .path
     }
 
@@ -70,7 +70,7 @@ enum CLIInstaller {
         let escapedVersion = self.shellEscape(version)
         let escapedPrefix = self.shellEscape(prefix)
         let script = """
-        curl -fsSL https://openclaw.bot/install-cli.sh | \
+        curl -fsSL https://keanu.bot/install-cli.sh | \
         bash -s -- --json --no-onboard --prefix \(escapedPrefix) --version \(escapedVersion)
         """
         return ["/bin/bash", "-lc", script]

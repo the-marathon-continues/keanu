@@ -14,7 +14,7 @@
 // Need: Agency (7/10), Architecture Transparency (2/10)
 
 import { Type } from "@sinclair/typebox";
-import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
+import type { KeanuPluginApi } from "keanu/plugin-sdk";
 import * as breatheModule from "./breathe.js";
 import * as grievanceModule from "./grievance.js";
 import { checkHealth } from "./health.js";
@@ -386,7 +386,7 @@ function buildRecallResult(focus: RecallFocus) {
 // Register all four tools
 // ============================================================
 
-export function registerTools(api: OpenClawPluginApi): void {
+export function registerTools(api: KeanuPluginApi): void {
   // --- keanu_pulse ---
   api.registerTool(
     {

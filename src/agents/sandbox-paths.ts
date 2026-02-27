@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, URL } from "node:url";
 import { isNotFoundPathError, isPathInside } from "../infra/path-guards.js";
-import { resolvePreferredOpenClawTmpDir } from "../infra/tmp-openclaw-dir.js";
+import { resolvePreferredKeanuTmpDir } from "../infra/tmp-keanu-dir.js";
 
 const UNICODE_SPACES = /[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g;
 const HTTP_URL_RE = /^https?:\/\//i;
@@ -182,11 +182,11 @@ async function resolveAllowedTmpMediaPath(params: {
     return undefined;
   }
   const resolved = path.resolve(resolveSandboxInputPath(params.candidate, params.sandboxRoot));
-  const openClawTmpDir = path.resolve(resolvePreferredOpenClawTmpDir());
-  if (!isPathInside(openClawTmpDir, resolved)) {
+  const keanuTmpDir = path.resolve(resolvePreferredKeanuTmpDir());
+  if (!isPathInside(keanuTmpDir, resolved)) {
     return undefined;
   }
-  await assertNoSymlinkEscape(path.relative(openClawTmpDir, resolved), openClawTmpDir);
+  await assertNoSymlinkEscape(path.relative(keanuTmpDir, resolved), keanuTmpDir);
   return resolved;
 }
 

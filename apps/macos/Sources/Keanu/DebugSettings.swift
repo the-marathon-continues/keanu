@@ -203,7 +203,7 @@ struct DebugSettings: View {
                     Button("Copy sample URL") {
                         let msg = "Hello from deep link"
                         let encoded = msg.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? msg
-                        let url = "openclaw://agent?message=\(encoded)&key=\(key)"
+                        let url = "keanu://agent?message=\(encoded)&key=\(key)"
                         NSPasteboard.general.clearContents()
                         NSPasteboard.general.setString(url, forType: .string)
                     }
@@ -211,7 +211,7 @@ struct DebugSettings: View {
                     Spacer(minLength: 0)
                 }
 
-                Text("Deep links (openclaw://…) are always enabled; the key controls unattended runs.")
+                Text("Deep links (keanu://…) are always enabled; the key controls unattended runs.")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
 
@@ -385,7 +385,7 @@ struct DebugSettings: View {
                     Text("Keanu project root")
                         .font(.caption.weight(.semibold))
                     HStack(spacing: 8) {
-                        TextField("Path to openclaw repo", text: self.$gatewayRootInput)
+                        TextField("Path to keanu repo", text: self.$gatewayRootInput)
                             .textFieldStyle(.roundedBorder)
                             .font(.caption.monospaced())
                             .onSubmit { self.saveRelayRoot() }
@@ -393,7 +393,7 @@ struct DebugSettings: View {
                             .buttonStyle(.borderedProminent)
                         Button("Reset") {
                             let def = FileManager().homeDirectoryForCurrentUser
-                                .appendingPathComponent("Projects/openclaw").path
+                                .appendingPathComponent("Projects/keanu").path
                             self.gatewayRootInput = def
                             self.saveRelayRoot()
                         }
@@ -423,7 +423,7 @@ struct DebugSettings: View {
                                     .font(.footnote)
                                     .foregroundStyle(.secondary)
                             } else {
-                                Text("Used by the CLI session loader; stored in ~/.openclaw/openclaw.json.")
+                                Text("Used by the CLI session loader; stored in ~/.keanu/keanu.json.")
                                     .font(.footnote)
                                     .foregroundStyle(.secondary)
                             }
@@ -979,7 +979,7 @@ extension DebugSettings {
         view.modelsCount = 3
         view.modelsLoading = false
         view.modelsError = "Failed to load models"
-        view.gatewayRootInput = "/tmp/openclaw"
+        view.gatewayRootInput = "/tmp/keanu"
         view.sessionStorePath = "/tmp/sessions.json"
         view.sessionStoreSaveError = "Save failed"
         view.debugSendInFlight = true

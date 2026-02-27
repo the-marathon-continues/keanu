@@ -14,8 +14,8 @@ enum KeanuEnv {
 }
 
 enum KeanuPaths {
-    private static let configPathEnv = ["OPENCLAW_CONFIG_PATH"]
-    private static let stateDirEnv = ["OPENCLAW_STATE_DIR"]
+    private static let configPathEnv = ["KEANU_CONFIG_PATH"]
+    private static let stateDirEnv = ["KEANU_STATE_DIR"]
 
     static var stateDirURL: URL {
         for key in self.stateDirEnv {
@@ -24,12 +24,12 @@ enum KeanuPaths {
             }
         }
         let home = FileManager().homeDirectoryForCurrentUser
-        return home.appendingPathComponent(".openclaw", isDirectory: true)
+        return home.appendingPathComponent(".keanu", isDirectory: true)
     }
 
     private static func resolveConfigCandidate(in dir: URL) -> URL? {
         let candidates = [
-            dir.appendingPathComponent("openclaw.json"),
+            dir.appendingPathComponent("keanu.json"),
         ]
         return candidates.first(where: { FileManager().fileExists(atPath: $0.path) })
     }
@@ -44,7 +44,7 @@ enum KeanuPaths {
         if let existing = self.resolveConfigCandidate(in: stateDir) {
             return existing
         }
-        return stateDir.appendingPathComponent("openclaw.json")
+        return stateDir.appendingPathComponent("keanu.json")
     }
 
     static var workspaceURL: URL {

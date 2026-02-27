@@ -5,7 +5,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import { HEARTBEAT_PROMPT } from "../auto-reply/heartbeat.js";
 import * as replyModule from "../auto-reply/reply.js";
 import { whatsappOutbound } from "../channels/plugins/outbound/whatsapp.js";
-import type { OpenClawConfig } from "../config/config.js";
+import type { KeanuConfig } from "../config/config.js";
 import {
   resolveAgentIdFromSessionKey,
   resolveAgentMainSessionKey,
@@ -103,7 +103,7 @@ beforeAll(async () => {
   ]);
   setActivePluginRegistry(testRegistry);
 
-  fixtureRoot = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-heartbeat-suite-"));
+  fixtureRoot = await fs.mkdtemp(path.join(os.tmpdir(), "keanu-heartbeat-suite-"));
 });
 
 beforeEach(() => {
@@ -172,11 +172,11 @@ describe("resolveHeartbeatIntervalMs", () => {
 describe("resolveHeartbeatPrompt", () => {
   it("uses default or trimmed override prompts", () => {
     const cases = [
-      { cfg: {} as OpenClawConfig, expected: HEARTBEAT_PROMPT },
+      { cfg: {} as KeanuConfig, expected: HEARTBEAT_PROMPT },
       {
         cfg: {
           agents: { defaults: { heartbeat: { prompt: "  ping  " } } },
-        } as OpenClawConfig,
+        } as KeanuConfig,
         expected: "ping",
       },
     ] as const;
@@ -188,7 +188,7 @@ describe("resolveHeartbeatPrompt", () => {
 
 describe("isHeartbeatEnabledForAgent", () => {
   it("enables only explicit heartbeat agents when configured", () => {
-    const cfg: OpenClawConfig = {
+    const cfg: KeanuConfig = {
       agents: {
         defaults: { heartbeat: { every: "30m" } },
         list: [{ id: "main" }, { id: "ops", heartbeat: { every: "1h" } }],
@@ -199,7 +199,7 @@ describe("isHeartbeatEnabledForAgent", () => {
   });
 
   it("falls back to default agent when no explicit heartbeat entries", () => {
-    const cfg: OpenClawConfig = {
+    const cfg: KeanuConfig = {
       agents: {
         defaults: { heartbeat: { every: "30m" } },
         list: [{ id: "main" }, { id: "ops" }],
@@ -219,7 +219,7 @@ describe("resolveHeartbeatDeliveryTarget", () => {
   it("resolves target variants across route and allowlist rules", () => {
     const cases: Array<{
       name: string;
-      cfg: OpenClawConfig;
+      cfg: KeanuConfig;
       entry: typeof baseEntry & {
         lastChannel?: "whatsapp" | "telegram" | "webchat";
         lastTo?: string;
@@ -335,7 +335,7 @@ describe("resolveHeartbeatDeliveryTarget", () => {
       { to: "-100111", expectedTo: "-100111", expectedThreadId: undefined },
     ] as const;
     for (const testCase of cases) {
-      const cfg: OpenClawConfig = {
+      const cfg: KeanuConfig = {
         agents: {
           defaults: {
             heartbeat: { target: "telegram", to: testCase.to },
@@ -374,7 +374,7 @@ describe("resolveHeartbeatDeliveryTarget", () => {
     ] as const;
 
     for (const testCase of cases) {
-      const cfg: OpenClawConfig = {
+      const cfg: KeanuConfig = {
         agents: {
           defaults: {
             heartbeat: { target: "telegram", to: "123", accountId: testCase.accountId },
@@ -387,7 +387,7 @@ describe("resolveHeartbeatDeliveryTarget", () => {
   });
 
   it("prefers per-agent heartbeat overrides when provided", () => {
-    const cfg: OpenClawConfig = {
+    const cfg: KeanuConfig = {
       agents: { defaults: { heartbeat: { target: "telegram", to: "123" } } },
     };
     const heartbeat = { target: "whatsapp", to: "+1555" } as const;
@@ -409,7 +409,7 @@ describe("resolveHeartbeatDeliveryTarget", () => {
 
 describe("resolveHeartbeatSenderContext", () => {
   it("prefers delivery accountId for allowFrom resolution", () => {
-    const cfg: OpenClawConfig = {
+    const cfg: KeanuConfig = {
       channels: {
         telegram: {
           allowFrom: ["111"],
@@ -453,7 +453,7 @@ describe("runHeartbeatOnce", () => {
   });
 
   it("skips when agent heartbeat is not enabled", async () => {
-    const cfg: OpenClawConfig = {
+    const cfg: KeanuConfig = {
       agents: {
         defaults: { heartbeat: { every: "30m" } },
         list: [{ id: "main" }, { id: "ops", heartbeat: { every: "1h" } }],
@@ -468,7 +468,7 @@ describe("runHeartbeatOnce", () => {
   });
 
   it("skips outside active hours", async () => {
-    const cfg: OpenClawConfig = {
+    const cfg: KeanuConfig = {
       agents: {
         defaults: {
           userTimezone: "UTC",
@@ -496,7 +496,7 @@ describe("runHeartbeatOnce", () => {
     const storePath = path.join(tmpDir, "sessions.json");
     const replySpy = vi.spyOn(replyModule, "getReplyFromConfig");
     try {
-      const cfg: OpenClawConfig = {
+      const cfg: KeanuConfig = {
         agents: {
           defaults: {
             workspace: tmpDir,
@@ -543,7 +543,7 @@ describe("runHeartbeatOnce", () => {
     const storePath = path.join(tmpDir, "sessions.json");
     const replySpy = vi.spyOn(replyModule, "getReplyFromConfig");
     try {
-      const cfg: OpenClawConfig = {
+      const cfg: KeanuConfig = {
         agents: {
           defaults: {
             heartbeat: { every: "30m", prompt: "Default prompt" },
@@ -609,7 +609,7 @@ describe("runHeartbeatOnce", () => {
     const replySpy = vi.spyOn(replyModule, "getReplyFromConfig");
     const agentId = "ops";
     try {
-      const cfg: OpenClawConfig = {
+      const cfg: KeanuConfig = {
         agents: {
           defaults: {
             heartbeat: { every: "30m", prompt: "Default prompt" },
@@ -685,7 +685,7 @@ describe("runHeartbeatOnce", () => {
         peerKind: "group" | "direct";
         peerId: string;
         message: string;
-        applyOverride: (params: { cfg: OpenClawConfig; sessionKey: string }) => void;
+        applyOverride: (params: { cfg: KeanuConfig; sessionKey: string }) => void;
         runOptions: (params: { sessionKey: string }) => { sessionKey?: string };
       }>([
         {
@@ -694,7 +694,7 @@ describe("runHeartbeatOnce", () => {
           peerKind: "group" as const,
           peerId: "120363401234567890@g.us",
           message: "Group alert",
-          applyOverride: ({ cfg, sessionKey }: { cfg: OpenClawConfig; sessionKey: string }) => {
+          applyOverride: ({ cfg, sessionKey }: { cfg: KeanuConfig; sessionKey: string }) => {
             if (cfg.agents?.defaults?.heartbeat) {
               cfg.agents.defaults.heartbeat.session = sessionKey;
             }
@@ -717,7 +717,7 @@ describe("runHeartbeatOnce", () => {
       for (const testCase of cases) {
         const tmpDir = await createCaseDir(testCase.caseDir);
         const storePath = path.join(tmpDir, "sessions.json");
-        const cfg: OpenClawConfig = {
+        const cfg: KeanuConfig = {
           agents: {
             defaults: {
               workspace: tmpDir,
@@ -797,7 +797,7 @@ describe("runHeartbeatOnce", () => {
     const storePath = path.join(tmpDir, "sessions.json");
     const replySpy = vi.spyOn(replyModule, "getReplyFromConfig");
     try {
-      const cfg: OpenClawConfig = {
+      const cfg: KeanuConfig = {
         agents: {
           defaults: {
             workspace: tmpDir,
@@ -865,7 +865,7 @@ describe("runHeartbeatOnce", () => {
       for (const testCase of cases) {
         const tmpDir = await createCaseDir(testCase.caseDir);
         const storePath = path.join(tmpDir, "sessions.json");
-        const cfg: OpenClawConfig = {
+        const cfg: KeanuConfig = {
           agents: {
             defaults: {
               workspace: tmpDir,
@@ -921,11 +921,11 @@ describe("runHeartbeatOnce", () => {
   });
 
   it("loads the default agent session from templated stores", async () => {
-    const tmpDir = await createCaseDir("openclaw-hb");
+    const tmpDir = await createCaseDir("keanu-hb");
     const storeTemplate = path.join(tmpDir, "agents", "{agentId}", "sessions.json");
     const replySpy = vi.spyOn(replyModule, "getReplyFromConfig");
     try {
-      const cfg: OpenClawConfig = {
+      const cfg: KeanuConfig = {
         agents: {
           defaults: { workspace: tmpDir, heartbeat: { every: "5m" } },
           list: [{ id: "work", default: true }],
@@ -981,7 +981,7 @@ describe("runHeartbeatOnce", () => {
     queueCronEvent?: boolean;
     replyText?: string;
   }) {
-    const tmpDir = await createCaseDir("openclaw-hb");
+    const tmpDir = await createCaseDir("keanu-hb");
     const storePath = path.join(tmpDir, "sessions.json");
     const workspaceDir = path.join(tmpDir, "workspace");
     await fs.mkdir(workspaceDir, { recursive: true });
@@ -1003,7 +1003,7 @@ describe("runHeartbeatOnce", () => {
       await fs.mkdir(path.join(workspaceDir, "HEARTBEAT.md"), { recursive: true });
     }
 
-    const cfg: OpenClawConfig = {
+    const cfg: KeanuConfig = {
       agents: {
         defaults: {
           workspace: workspaceDir,

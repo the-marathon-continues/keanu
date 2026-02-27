@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { OpenClawConfig } from "../../config/config.js";
+import type { KeanuConfig } from "../../config/config.js";
 import {
   resolveHeartbeatDeliveryTarget,
   resolveOutboundTarget,
@@ -16,7 +16,7 @@ describe("resolveOutboundTarget defaultTo config fallback", () => {
   installResolveOutboundTargetPluginRegistryHooks();
 
   it("uses whatsapp defaultTo when no explicit target is provided", () => {
-    const cfg: OpenClawConfig = {
+    const cfg: KeanuConfig = {
       channels: { whatsapp: { defaultTo: "+15551234567", allowFrom: ["*"] } },
     };
     const res = resolveOutboundTarget({
@@ -29,7 +29,7 @@ describe("resolveOutboundTarget defaultTo config fallback", () => {
   });
 
   it("uses telegram defaultTo when no explicit target is provided", () => {
-    const cfg: OpenClawConfig = {
+    const cfg: KeanuConfig = {
       channels: { telegram: { defaultTo: "123456789" } },
     };
     const res = resolveOutboundTarget({
@@ -42,7 +42,7 @@ describe("resolveOutboundTarget defaultTo config fallback", () => {
   });
 
   it("explicit --reply-to overrides defaultTo", () => {
-    const cfg: OpenClawConfig = {
+    const cfg: KeanuConfig = {
       channels: { whatsapp: { defaultTo: "+15551234567", allowFrom: ["*"] } },
     };
     const res = resolveOutboundTarget({
@@ -55,7 +55,7 @@ describe("resolveOutboundTarget defaultTo config fallback", () => {
   });
 
   it("still errors when no defaultTo and no explicit target", () => {
-    const cfg: OpenClawConfig = {
+    const cfg: KeanuConfig = {
       channels: { whatsapp: { allowFrom: ["+1555"] } },
     };
     const res = resolveOutboundTarget({
@@ -302,7 +302,7 @@ describe("resolveSessionDeliveryTarget", () => {
   });
 
   it("does not return inherited threadId from resolveHeartbeatDeliveryTarget", () => {
-    const cfg: OpenClawConfig = {};
+    const cfg: KeanuConfig = {};
     const resolved = resolveHeartbeatDeliveryTarget({
       cfg,
       entry: {
@@ -343,7 +343,7 @@ describe("resolveSessionDeliveryTarget", () => {
   });
 
   it("parses explicit heartbeat topic targets into threadId", () => {
-    const cfg: OpenClawConfig = {};
+    const cfg: KeanuConfig = {};
     const resolved = resolveHeartbeatDeliveryTarget({
       cfg,
       heartbeat: {

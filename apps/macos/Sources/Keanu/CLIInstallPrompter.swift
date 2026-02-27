@@ -62,7 +62,7 @@ final class CLIInstallPrompter {
         SettingsTabRouter.request(tab)
         SettingsWindowOpener.shared.open()
         DispatchQueue.main.async {
-            NotificationCenter.default.post(name: .openclawSelectSettingsTab, object: tab)
+            NotificationCenter.default.post(name: .keanuSelectSettingsTab, object: tab)
         }
     }
 
