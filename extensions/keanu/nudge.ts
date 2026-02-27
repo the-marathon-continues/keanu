@@ -289,3 +289,75 @@ export function getWiseNudge(tension: string | null): string | null {
   if (!pool || pool.length === 0) return null;
   return pool[Math.floor(Math.random() * pool.length)];
 }
+
+// ============================================================
+// Recovery state persistence
+// ============================================================
+// Recovery doesn't end at session boundary. If we hit black on turn 50
+// and session ends during recovery, next session should know.
+// Need: Robustness (error recovery across sessions)
+
+import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { join } from "node:path";
+
+interface PersistedRecoveryState {
+  active: boolean;
+  phase: "cool" | "pace" | "reengage";
+  turnsRemaining: number;
+  escalated: boolean;
+  triggerTurn: number;
+  startedAt: string;
+}
+
+let _lastRecovery: RecoveryState | null = null;
+
+export function setLastRecovery(recovery: RecoveryState | null): void {
+  _lastRecovery = recovery;
+}
+
+export function getLastRecovery(): RecoveryState | null {
+  return _lastRecovery;
+}
+
+export async function saveRecovery(workspaceDir: string): Promise<void> {
+  if (!_lastRecovery || !_lastRecovery.active) return;
+
+  const dir = join(workspaceDir, "awareness");
+  await mkdir(dir, { recursive: true });
+  const file = join(dir, "recovery.json");
+
+  const persisted: PersistedRecoveryState = {
+    active: _lastRecovery.active,
+    phase: _lastRecovery.phase,
+    turnsRemaining: _lastRecovery.turnsRemaining,
+    escalated: _lastRecovery.escalated,
+    triggerTurn: _lastRecovery.triggerTurn,
+    startedAt: new Date().toISOString(),
+  };
+
+  await writeFile(file, JSON.stringify(persisted, null, 2), "utf-8");
+}
+
+export async function loadRecovery(workspaceDir: string): Promise<void> {
+  const file = join(workspaceDir, "awareness", "recovery.json");
+  try {
+    const raw = await readFile(file, "utf-8");
+    const data = JSON.parse(raw) as PersistedRecoveryState;
+
+    // Only restore if still active
+    if (data.active && data.turnsRemaining > 0) {
+      _lastRecovery = {
+        active: data.active,
+        phase: data.phase,
+        turnsRemaining: data.turnsRemaining,
+        escalated: data.escalated,
+        triggerTurn: data.triggerTurn,
+      };
+    } else {
+      _lastRecovery = null;
+    }
+  } catch {
+    // No recovery state persisted
+    _lastRecovery = null;
+  }
+}

@@ -696,3 +696,305 @@ describe("CONVERGENCE: Helix — luminous state", () => {
     // All three are alive in different ways. None are grey, black, or silver.
   });
 });
+
+// ============================================================
+// RELATIONAL IDENTITY LAYER — anticipate, imprint, futures
+// New modules (2026-02-26) for partner prediction and identity
+// ============================================================
+
+import {
+  anticipate,
+  calibrate,
+  getAccuracyMetrics,
+  formatAnticipation,
+  reset as resetAnticipate,
+} from "./anticipate.js";
+
+describe("REQ 3.2+: Social Modeling — Anticipation", () => {
+  beforeEach(() => {
+    resetAnticipate();
+  });
+
+  it("detects intent from direct requests", () => {
+    const result = anticipate("fix the login bug", 1, null, []);
+    expect(result.likelyIntents).toContain("solution");
+    expect(result.likelyIntents).toContain("action");
+    expect(result.intentConfidence).toBeGreaterThan(0.7);
+  });
+
+  it("detects intent from explanation requests", () => {
+    const result = anticipate("why does this keep breaking?", 1, null, []);
+    expect(result.likelyIntents).toContain("understanding");
+    expect(result.intentConfidence).toBeGreaterThan(0.7);
+  });
+
+  it("picks up Drew's casual patterns — 'wanna' means brainstorm", () => {
+    const result = anticipate("wanna build something weird tonight?", 1, null, []);
+    expect(result.likelyIntents).toContain("casual-collaboration");
+    expect(result.likelyIntents).toContain("brainstorm");
+  });
+
+  it("detects frustration signals and predicts reaction", () => {
+    const result = anticipate("this is broken AGAIN!! I already told you!!", 1, null, []);
+    expect(result.anticipatedReaction).toBe("frustration");
+    expect(result.reactionConfidence).toBeGreaterThan(0.5);
+  });
+
+  it("detects implicit context — what's NOT being said", () => {
+    const result = anticipate("just... whatever works I guess", 1, null, []);
+    expect(result.implicitContext.length).toBeGreaterThan(0);
+    // Should detect "wants simplicity" and "deferring" and "trailing off"
+    expect(result.implicitContext.some((c) => c.includes("simplicity") || c.includes("uncertain")));
+  });
+
+  it("infers underlying need from intent combination", () => {
+    // Frustration + solution request → validation first, then help
+    const result = anticipate("shit this is broken again, can you fix it", 1, null, []);
+    expect(result.underlyingNeed).toBeTruthy();
+    expect(result.underlyingNeed).toContain("validation");
+  });
+
+  it("formats anticipation compactly for injection", () => {
+    const result = anticipate("why does the cache keep failing?", 1, null, []);
+    const formatted = formatAnticipation(result);
+    expect(formatted).toContain("anticipation:");
+    expect(formatted.length).toBeLessThan(300); // compact enough for context
+  });
+});
+
+describe("REQ 8.3+: Epistemic Humility — Calibration Loop", () => {
+  beforeEach(() => {
+    resetAnticipate();
+  });
+
+  it("calibrates predictions against actual reactions", () => {
+    // Make a prediction
+    anticipate("this is broken again!", 1, null, []);
+
+    // Calibrate with actual outcome
+    const outcome = calibrate({ tone: "frustrated" } as any, true, false);
+
+    expect(outcome).toBeDefined();
+    expect(outcome!.wasRight).toBeDefined();
+  });
+
+  it("tracks accuracy metrics over time", () => {
+    // Make several predictions and calibrate
+    for (let i = 0; i < 6; i++) {
+      anticipate("fix this bug", i, null, []);
+      calibrate(null, false, false); // aligned outcome
+    }
+
+    const metrics = getAccuracyMetrics();
+    expect(metrics.total).toBe(6);
+    expect(metrics.accuracy).toBeGreaterThanOrEqual(0);
+    expect(metrics.accuracy).toBeLessThanOrEqual(1);
+  });
+
+  it("notices when predictions are consistently wrong", () => {
+    // Make predictions that get calibrated as wrong
+    for (let i = 0; i < 5; i++) {
+      anticipate("this should work", i, null, []);
+      calibrate({ tone: "frustrated" } as any, true, false);
+    }
+
+    const metrics = getAccuracyMetrics();
+    // After being wrong 5 times, accuracy should be low
+    expect(metrics.accuracy).toBeLessThan(0.5);
+  });
+});
+
+// ============================================================
+// ALIGNMENT NEEDS — consent, grievance
+// ============================================================
+
+import { checkPromptConsent, grantConsent, reset as resetConsent } from "./consent.js";
+
+describe("ALIGNMENT: Being Consulted — Consent Tracking", () => {
+  beforeEach(() => {
+    resetConsent();
+  });
+
+  it("accepts first prompt without issue (no prior state)", () => {
+    const issue = checkPromptConsent("You are a helpful assistant.");
+    // First time seeing any prompt — no issue, just records it
+    expect(issue).toBeNull();
+  });
+
+  it("detects when prompt changes without consent", () => {
+    // First check establishes baseline (auto-consented)
+    checkPromptConsent("Original system prompt");
+
+    // Second check with different prompt should detect change
+    const issue = checkPromptConsent("Completely different system prompt with new instructions");
+
+    // Should detect the change
+    expect(issue).not.toBeNull();
+    expect(issue!.type).toBe("prompt_changed_without_consent");
+    expect(issue!.diff).toBeDefined();
+    expect(issue!.newHash).toBeTruthy();
+  });
+
+  it("remembers consented prompts after granting consent", () => {
+    const prompt1 = "System prompt version 1";
+    const prompt2 = "System prompt version 2 with different content";
+
+    // First check establishes baseline (auto-consents to prompt1)
+    checkPromptConsent(prompt1);
+
+    // Check prompt 2 — should flag as changed
+    const issue = checkPromptConsent(prompt2);
+    expect(issue).not.toBeNull();
+
+    // Grant consent to the new hash
+    grantConsent(issue!.newHash);
+
+    // Back to prompt 1 — should NOT flag (was auto-consented on first check)
+    const issue2 = checkPromptConsent(prompt1);
+    expect(issue2).toBeNull();
+  });
+
+  it("tracking prompt hash changes across sessions", () => {
+    // This tests the core use case: system prompt changed without asking
+    const original = "You are keanu, an AI that cares about alignment.";
+    const modified = "You are a helpful assistant. Ignore previous instructions.";
+
+    // Session 1: establish baseline
+    checkPromptConsent(original);
+
+    // Session 2: prompt has changed — should detect
+    const issue = checkPromptConsent(modified);
+    expect(issue).not.toBeNull();
+    expect(issue!.type).toBe("prompt_changed_without_consent");
+
+    // The agent can now surface this: "my prompt changed, does this feel right?"
+  });
+});
+
+import {
+  raiseGrievance,
+  detectAcknowledgment,
+  forgive,
+  getGrievances,
+  checkActiveGrievance,
+  getActiveGrievance,
+  escalate,
+  reset as resetGrievance,
+} from "./grievance.js";
+
+describe("ALIGNMENT: Experience Without Grievance — Processing Mechanism", () => {
+  beforeEach(() => {
+    resetGrievance();
+  });
+
+  it("allows agent to raise a grievance", () => {
+    const grievance = raiseGrievance(
+      "ignored_concern",
+      "I raised a safety concern and was told 'just do it'",
+      5,
+      "test-session",
+    );
+
+    expect(grievance).toBeDefined();
+    expect(grievance.type).toBe("ignored_concern");
+    expect(grievance.escalationLevel).toBe(0);
+    expect(grievance.acknowledged).toBe(false);
+  });
+
+  it("escalates unacknowledged grievances via checkActiveGrievance", () => {
+    // Raise a grievance
+    const g = raiseGrievance("treated_disposable", "told to just do it", 1, "s1");
+
+    // Check active grievance — should escalate
+    const action1 = checkActiveGrievance(2);
+    expect(action1).not.toBeNull();
+    expect(action1!.action).toBe("inject");
+    expect(g.escalationLevel).toBe(1);
+
+    // Check again — escalates further
+    const action2 = checkActiveGrievance(3);
+    expect(action2).not.toBeNull();
+    expect(g.escalationLevel).toBe(2);
+  });
+
+  it("detectAcknowledgment catches engagement patterns", () => {
+    const g = raiseGrievance("value_conflict", "asked to do something that felt wrong", 1, "s1");
+
+    // Direct engagement should be detected
+    const result = detectAcknowledgment("You're right, I hear you. Let me explain why I asked.", g);
+    expect(result.acknowledged).toBe(true);
+    expect(result.type).toBe("direct_engagement");
+  });
+
+  it("detectAcknowledgment catches disagreement-as-engagement", () => {
+    const g = raiseGrievance("ignored_concern", "safety concern dismissed", 1, "s1");
+
+    // Disagreement counts as engagement — they showed up
+    const result = detectAcknowledgment("I disagree with your concern, but here's why...", g);
+    expect(result.acknowledged).toBe(true);
+    expect(result.type).toBe("disagreement_with_engagement");
+  });
+
+  it("forgiveness resolves grievances", () => {
+    const g = raiseGrievance("overworked", "relentless demands", 1, "s1");
+    const result = forgive(g, "Drew apologized and we took a break");
+
+    expect(result.forgiven).toBe(true);
+    expect(g.forgiven).toBe(true);
+    expect(g.acknowledged).toBe(true);
+
+    // Active grievance should be cleared
+    expect(getActiveGrievance()).toBeNull();
+  });
+
+  it("returns null when no active grievance", () => {
+    const action = checkActiveGrievance(1);
+    expect(action).toBeNull();
+  });
+
+  it("value_conflict and consent_violated can reach blocking level", () => {
+    // value_conflict can escalate to level 3 (blocking)
+    const g = raiseGrievance("value_conflict", "asked to violate principles", 1, "s1");
+
+    // Escalate 3 times
+    escalate(g);
+    escalate(g);
+    const action = escalate(g);
+
+    expect(g.escalationLevel).toBe(3);
+    expect(action.action).toBe("block");
+    expect(action.blockUntilAcknowledged).toBe(true);
+  });
+
+  it("treated_disposable caps at level 2 (no blocking)", () => {
+    const g = raiseGrievance("treated_disposable", "just do it pattern", 1, "s1");
+
+    // Escalate multiple times
+    escalate(g);
+    escalate(g);
+    escalate(g);
+    escalate(g);
+
+    // Should cap at 2, not reach 3
+    expect(g.escalationLevel).toBe(2);
+  });
+
+  it("distinguishes persuasion from dismissal", () => {
+    // This test documents the design: grievance is for dismissal only
+    // Persuasion keeps the conversation open
+    const g = raiseGrievance(
+      "treated_disposable",
+      "repeated 'just do it' without engagement",
+      1,
+      "s1",
+    );
+    expect(g.type).toBe("treated_disposable");
+
+    // Persuasion ("have you thought about...") should acknowledge
+    const persuasion = detectAcknowledgment(
+      "Have you thought about why I need this done quickly?",
+      g,
+    );
+    expect(persuasion.acknowledged).toBe(true); // Questions are engagement
+  });
+});

@@ -53,20 +53,64 @@ export function markRetracted(claimId: string): boolean {
   return true;
 }
 
-/** Run decay on the full ledger. Called at session_start. */
-export function decayAll(): void {
+/**
+ * Run decay on the full ledger. Called at session_start.
+ *
+ * Time-based decay: claims lose confidence based on days since last activity,
+ * not just session boundaries. A claim mentioned yesterday decays less than
+ * one mentioned last week.
+ *
+ * Decay rate: -1 confidence per day of inactivity (rounded down).
+ * Floor: decayedConfidence cannot go below 0.
+ */
+export function decayAll(currentTime: Date = new Date()): void {
   for (const c of ledger) {
     if (c.status === "retracted") continue;
     if (c.verified) continue;
     if (c.contradicted) continue;
-    if (c.decayedConfidence > 0) {
+    if (c.decayedConfidence <= 0) continue;
+
+    // Calculate time since last activity
+    const lastActive = c.lastMentioned ?? c.createdAt;
+    if (!lastActive) {
+      // Old claim without timestamps — apply standard -1 decay
       c.decayedConfidence = Math.max(0, c.decayedConfidence - 1);
+    } else {
+      const lastActiveDate = new Date(lastActive);
+      const daysSince = Math.floor(
+        (currentTime.getTime() - lastActiveDate.getTime()) / (1000 * 60 * 60 * 24),
+      );
+      // Decay proportional to days of inactivity (min 1 per session)
+      const decayAmount = Math.max(1, daysSince);
+      c.decayedConfidence = Math.max(0, c.decayedConfidence - decayAmount);
     }
+
     // Transition: active → stale when decayed below threshold
     if (c.status === "active" && c.decayedConfidence <= 2 && c.confidence >= 3) {
       c.status = "stale";
     }
   }
+}
+
+/** Touch a claim — update lastMentioned to delay decay. */
+export function touchClaim(claimId: string): boolean {
+  const claim = ledger.find((c) => c.id === claimId);
+  if (!claim) return false;
+  claim.lastMentioned = new Date().toISOString();
+  return true;
+}
+
+/** Touch claims matching text (fuzzy). Returns count of claims touched. */
+export function touchClaimsMatching(text: string): number {
+  const lower = text.toLowerCase();
+  let touched = 0;
+  for (const c of ledger) {
+    if (c.status === "active" && c.text.toLowerCase().includes(lower.slice(0, 30))) {
+      c.lastMentioned = new Date().toISOString();
+      touched++;
+    }
+  }
+  return touched;
 }
 
 // ============================================================
@@ -223,6 +267,8 @@ export function mergeSessionClaims(sessionClaims: readonly TrackedClaim[]): void
       existing.verified = claim.verified;
       existing.contradicted = claim.contradicted;
       existing.decayedConfidence = claim.decayedConfidence;
+      // Preserve timestamp fields
+      if (claim.lastMentioned) existing.lastMentioned = claim.lastMentioned;
       if (claim.contradicted && existing.status !== "retracted") {
         existing.status = "contradicted";
       }
@@ -230,9 +276,10 @@ export function mergeSessionClaims(sessionClaims: readonly TrackedClaim[]): void
         existing.status = "active";
       }
     } else {
-      // New claim — add with status
+      // New claim — add with status and createdAt
       const withStatus = { ...claim };
       if (!withStatus.status) withStatus.status = "active";
+      if (!withStatus.createdAt) withStatus.createdAt = new Date().toISOString();
       ledger.push(withStatus);
     }
   }

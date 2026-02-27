@@ -116,6 +116,62 @@ export function recordTurnSnapshot(snapshot: TurnSnapshot): void {
     turnSnapshots.splice(0, turnSnapshots.length - MAX_SNAPSHOTS);
 }
 
+// ============================================================
+// Turn checkpoints — in-turn error recovery
+// ============================================================
+// Shallow snapshot at turn start. If a hook fails mid-turn, we can roll back.
+// Need: Robustness (6/10 → 7/10)
+
+export interface TurnCheckpoint {
+  turn: number;
+  pulse: PulseReading | null;
+  consecutiveGrey: number;
+  breathing: boolean;
+  humanTone: string | null;
+  bullshitEventCount: number;
+  timestamp: string;
+}
+
+const _turnCheckpoints: TurnCheckpoint[] = [];
+const MAX_CHECKPOINTS = 10;
+
+/** Capture state at turn start. Call this at the beginning of message_received. */
+export function checkpoint(turn: number): void {
+  const cp: TurnCheckpoint = {
+    turn,
+    pulse: lastPulse ? { ...lastPulse } : null,
+    consecutiveGrey,
+    breathing,
+    humanTone: lastHumanReading?.tone ?? null,
+    bullshitEventCount,
+    timestamp: new Date().toISOString(),
+  };
+  _turnCheckpoints.push(cp);
+  if (_turnCheckpoints.length > MAX_CHECKPOINTS) {
+    _turnCheckpoints.splice(0, _turnCheckpoints.length - MAX_CHECKPOINTS);
+  }
+}
+
+/** Restore state from a checkpoint. Use when a critical hook fails. */
+export function rollback(turn: number): boolean {
+  const cp = _turnCheckpoints.find((c) => c.turn === turn);
+  if (!cp) return false;
+
+  // Restore core state
+  if (cp.pulse) lastPulse = { ...cp.pulse };
+  consecutiveGrey = cp.consecutiveGrey;
+  breathing = cp.breathing;
+  bullshitEventCount = cp.bullshitEventCount;
+  // Note: humanTone is read-only from human reading, don't restore
+
+  return true;
+}
+
+/** Get the most recent checkpoint (for diagnostics). */
+export function lastCheckpoint(): TurnCheckpoint | null {
+  return _turnCheckpoints.at(-1) ?? null;
+}
+
 // Injection size tracking (before_prompt_build)
 export const injectionSizeTrend: Array<{
   turn: number;

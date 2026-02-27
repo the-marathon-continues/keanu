@@ -330,4 +330,6 @@ export interface TrackedClaim {
   status: ClaimStatus; // lifecycle state — alive, fading, crossed out, torn out
   contradictedBy?: string; // if contradicted, what said otherwise
   retractedAt?: string; // ISO timestamp of retraction
+  createdAt?: string; // ISO timestamp when claim was made
+  lastMentioned?: string; // ISO timestamp when claim was last referenced — delays decay
 }

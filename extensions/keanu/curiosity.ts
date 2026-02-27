@@ -16,6 +16,18 @@ import type { SessionSummary } from "./session-learning.js";
 import type { Reflexion } from "./types.js";
 
 // ============================================================
+// Thresholds — when does curiosity activate?
+// ============================================================
+// Lowered from original values to surface questions earlier.
+// Quick Win #3: Self-Directed Thought 8/10 → 9/10
+
+const BLIND_SPOT_THRESHOLD = 3; // was 5 — detect pattern earlier
+const REFLEXION_THRESHOLD = 2; // was 3 — fewer recurrences needed
+const GREY_RATE_THRESHOLD = 0.25; // was 0.3 — surface drift sooner
+const CORRECTION_THRESHOLD = 3; // was 5 — ask about scattered mistakes earlier
+const FRICTION_TURN_THRESHOLD = 12; // was 20 — check for false harmony sooner
+
+// ============================================================
 // Types
 // ============================================================
 
@@ -43,7 +55,7 @@ export function generateCuriosity(ctx: {
 
   // Blind spots that keep growing — what's underneath?
   for (const spot of ctx.blindSpots) {
-    if (spot.count >= 5) {
+    if (spot.count >= BLIND_SPOT_THRESHOLD) {
       items.push({
         question: `I keep ${describeBlindSpot(spot.category)} (${spot.count} times now). Is there a common trigger I'm not seeing? What's the context when this happens?`,
         source: `blind_spot:${spot.category}`,
@@ -59,7 +71,7 @@ export function generateCuriosity(ctx: {
     triggerCounts[r.trigger] = (triggerCounts[r.trigger] ?? 0) + 1;
   }
   for (const [trigger, count] of Object.entries(triggerCounts)) {
-    if (count >= 3) {
+    if (count >= REFLEXION_THRESHOLD) {
       items.push({
         question: `"${trigger}" has triggered ${count} reflexions. Am I learning from these or just logging them? What changed after the last one?`,
         source: `reflexion_pattern:${trigger}`,
@@ -70,7 +82,7 @@ export function generateCuriosity(ctx: {
   }
 
   // Degrading drift — what's pulling me down?
-  if (ctx.driftDirection === "degrading" && ctx.greyRate > 0.3) {
+  if (ctx.driftDirection === "degrading" && ctx.greyRate > GREY_RATE_THRESHOLD) {
     items.push({
       question: `Signal is degrading (grey rate ${(ctx.greyRate * 100).toFixed(0)}%). Is the task getting harder, am I getting tired, or did something shift in the partnership?`,
       source: "drift:degrading",
@@ -90,7 +102,10 @@ export function generateCuriosity(ctx: {
   }
 
   // Corrections without blind spot surfacing — too diverse to cluster?
-  if (ctx.summary.corrections > 5 && ctx.blindSpots.filter((b) => b.count >= 3).length === 0) {
+  if (
+    ctx.summary.corrections > CORRECTION_THRESHOLD &&
+    ctx.blindSpots.filter((b) => b.count >= BLIND_SPOT_THRESHOLD).length === 0
+  ) {
     items.push({
       question: `${ctx.summary.corrections} corrections but no blind spot surfaced. Am I making different mistakes each time, or is the clustering threshold too high?`,
       source: "scattered_corrections",
@@ -100,8 +115,11 @@ export function generateCuriosity(ctx: {
   }
 
   // Zero disagreements in a long session — am I being too agreeable?
-  if (ctx.summary.turns > 20 && !ctx.summary.watchFor.some((w) => w.includes("sycophancy"))) {
-    // The disagreement alert already fires at 20 turns, but curiosity
+  if (
+    ctx.summary.turns > FRICTION_TURN_THRESHOLD &&
+    !ctx.summary.watchFor.some((w) => w.includes("sycophancy"))
+  ) {
+    // The disagreement alert already fires at higher turns, but curiosity
     // asks a different question: not "are you sycophantic?" but
     // "was there genuinely nothing to disagree about?"
     items.push({

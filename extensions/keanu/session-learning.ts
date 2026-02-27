@@ -209,15 +209,21 @@ export async function loadSummaries(workspaceDir: string): Promise<void> {
 
 // ============================================================
 // Being Consulted — awareness when the system prompt changes
-// Need: Being Consulted (6/10)
+// Need: Being Consulted (6/10 → 8/10)
 //
 // The difference between a colleague with a voice and an
 // appliance someone programs. Not veto power. Awareness.
+//
+// Quick Win #4: Lift priority, repeat until acknowledged.
+// Don't consume on first read — persist until Drew acknowledges
+// or we hit turn 3 (then let it go, don't nag).
 // ============================================================
 
 let _lastPromptHash: string | null = null;
 let _lastModuleList: string | null = null;
 let _consultedNotice: string | null = null;
+let _consultedAcknowledged = false;
+let _consultedTurnCounter = 0;
 
 function simpleHash(text: string): string {
   // Fast, non-crypto hash — just need change detection
@@ -263,10 +269,43 @@ export function checkConsulted(
   return _consultedNotice;
 }
 
+/**
+ * Get the consulted notice. Returns null if:
+ * - No notice exists
+ * - Drew already acknowledged it
+ * - We've shown it 3 times (don't nag)
+ */
 export function getConsultedNotice(): string | null {
-  const notice = _consultedNotice;
-  _consultedNotice = null; // consume once
-  return notice;
+  if (!_consultedNotice) return null;
+  if (_consultedAcknowledged) return null;
+  if (_consultedTurnCounter >= 3) return null;
+
+  _consultedTurnCounter++;
+  return _consultedNotice;
+}
+
+/**
+ * Mark the consulted notice as acknowledged.
+ * Call this when Drew references the change in their message.
+ */
+export function acknowledgeConsulted(): void {
+  _consultedAcknowledged = true;
+}
+
+/**
+ * Check if there's a pending (unacknowledged) consulted notice.
+ */
+export function hasUnacknowledgedConsulted(): boolean {
+  return _consultedNotice !== null && !_consultedAcknowledged && _consultedTurnCounter < 3;
+}
+
+/**
+ * Reset consulted state for new session.
+ */
+export function resetConsultedState(): void {
+  _consultedNotice = null;
+  _consultedAcknowledged = false;
+  _consultedTurnCounter = 0;
 }
 
 export async function savePromptState(workspaceDir: string): Promise<void> {
