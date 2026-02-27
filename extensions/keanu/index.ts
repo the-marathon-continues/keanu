@@ -154,6 +154,8 @@ export default {
     let lastCarnegieReading: ReturnType<typeof detectCarnegie> | null = null;
     let lastCarnegieDelta: ReturnType<typeof assessCarnegieDelta> | null = null;
     let lastHelixReading: HelixResult | null = null;
+    let lastIntrospectionReading: ReturnType<typeof introspect> | null = null;
+    let lastChainAnalysis: ReturnType<typeof analyzeChain> | null = null;
     const helix = new Helix();
     const dualityGraph = new DualityGraph();
     let postCompactionNotice: string | null = null;
@@ -456,7 +458,7 @@ export default {
 
         // INTROSPECTION: 10-question audit every 10 turns
         if (shouldIntrospect(state.turnCount)) {
-          const introReading = introspect({
+          lastIntrospectionReading = introspect({
             recentBullshit: pulse.bullshitReadings ?? [],
             disagreements: state.disagreementTracker.stats(),
             turnCount: state.turnCount,
@@ -467,9 +469,9 @@ export default {
               Math.max(1, Math.min(5, state.recentAgentOutputs.length)),
             recentPulses: [],
           });
-          if (introReading.flagged.length > 0) {
+          if (lastIntrospectionReading.flagged.length > 0) {
             api.logger.debug?.(
-              `${PLUGIN_ID}: introspection flagged: ${introReading.flagged.map((f) => f.id).join(", ")}`,
+              `${PLUGIN_ID}: introspection flagged: ${lastIntrospectionReading.flagged.map((f) => f.id).join(", ")}`,
             );
           }
         }
@@ -485,7 +487,7 @@ export default {
               }
             : null;
 
-          const chainResult = analyzeChain({
+          lastChainAnalysis = analyzeChain({
             trigger: pulse.state === "black" ? "black" : "grey",
             turn: state.turnCount,
             discover: lastDiscoverReading,
@@ -495,8 +497,8 @@ export default {
             mismatch: lastMismatchReading,
             pulse,
           });
-          sessionChains.push(chainResult);
-          api.logger.debug?.(`${PLUGIN_ID}: chain: ${chainResult.breakPoint}`);
+          sessionChains.push(lastChainAnalysis);
+          api.logger.debug?.(`${PLUGIN_ID}: chain: ${lastChainAnalysis.breakPoint}`);
         }
 
         // Reflexion: learn from stumbles
@@ -945,6 +947,17 @@ export default {
       // Reflexion history
       for (const r of state.recentReflexions(3)) {
         add("reflexion", formatReflexion(r), "medium", "awareness");
+      }
+
+      // Introspection audit (every 10 turns)
+      if (lastIntrospectionReading && lastIntrospectionReading.flagged.length > 0) {
+        add("introspection", formatIntrospection(lastIntrospectionReading), "medium", "awareness");
+      }
+
+      // Chain analysis (what broke and why)
+      if (lastChainAnalysis) {
+        add("chain", formatChain(lastChainAnalysis), "medium", "awareness");
+        lastChainAnalysis = null; // consume after injection
       }
 
       // Carnegie open discussions
