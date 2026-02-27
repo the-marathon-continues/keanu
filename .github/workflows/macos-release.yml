@@ -52,40 +52,13 @@ jobs:
       - name: Bundle canvas a2ui
         run: pnpm canvas:a2ui:bundle
 
-      - name: Import signing certificate
-        env:
-          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
-          MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
-          KEYCHAIN_PWD: ${{ secrets.KEYCHAIN_PWD }}
-        run: |
-          echo "$MACOS_CERTIFICATE" | base64 --decode > certificate.p12
-          security create-keychain -p "$KEYCHAIN_PWD" build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p "$KEYCHAIN_PWD" build.keychain
-          security import certificate.p12 -k build.keychain -P "$MACOS_CERTIFICATE_PWD" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PWD" build.keychain
-
       - name: Build and package macOS app
         env:
           BUILD_ARCHS: all
           APP_VERSION: ${{ github.ref_name }}
+          ALLOW_ADHOC_SIGNING: "1"
         run: |
           scripts/package-mac-app.sh
-
-      - name: Notarize app
-        if: env.BUILD_CONFIG == 'release'
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_ID_PWD: ${{ secrets.APPLE_ID_PWD }}
-          APPLE_TEAM_ID: CLVGRN98H3
-        run: |
-          ditto -c -k --keepParent dist/Keanu.app dist/Keanu.zip
-          xcrun notarytool submit dist/Keanu.zip \
-            --apple-id "$APPLE_ID" \
-            --password "$APPLE_ID_PWD" \
-            --team-id "$APPLE_TEAM_ID" \
-            --wait
-          xcrun stapler staple dist/Keanu.app
 
       - name: Create DMG
         run: |
