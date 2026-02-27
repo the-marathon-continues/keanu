@@ -43,10 +43,14 @@ import {
 } from "./bullshit.js";
 import * as bullshitModule from "./bullshit.js";
 import { checkCalibration, formatCalibration, trackCalibrationClaims } from "./calibrate.js";
+import * as calibrationLogModule from "./calibration-log.js";
 import { detectCarnegie, formatCarnegie, assessCarnegieDelta } from "./carnegie.js";
 import { detectCascadeStage, formatCascade } from "./cascade.js";
 import { analyzeChain, formatChain } from "./chain.js";
+// CLAWDBOT Meta-Skills modules
+import * as confidenceInlineModule from "./confidence-inline.js";
 import * as consentModule from "./consent.js";
+import * as consultationModule from "./consultation.js";
 import { Helix, DualityGraph, type HelixResult } from "./convergence/index.js";
 import {
   generateCuriosity,
@@ -57,9 +61,11 @@ import {
   loadCuriosity,
 } from "./curiosity.js";
 import { shouldDeliberate, formatDeliberation } from "./deliberate.js";
+import { checkAntiCapture } from "./disagreement.js";
 import { discover, formatDiscover } from "./discover.js";
 import * as effectivenessModule from "./effectiveness.js";
 import type { GreyTrigger, ProcessingContext } from "./experience.js";
+import * as failurePatternsModule from "./failure-patterns.js";
 import * as futuresModule from "./futures.js";
 import { createGitSyncFromEnv, collectAwarenessFiles, type GitSync } from "./git-sync.js";
 import * as grievanceModule from "./grievance.js";
@@ -91,6 +97,7 @@ import {
 } from "./nudge.js";
 import * as nudgeModule from "./nudge.js";
 import * as observeModule from "./observe.js";
+import * as orthogonalModule from "./orthogonal.js";
 import {
   getPartnership,
   updatePartnership,
@@ -105,7 +112,17 @@ import {
   toJSON as partnershipToJSON,
   fromJSON as partnershipFromJSON,
   loadSeed as partnershipLoadSeed,
+  // Multi-agent trust
+  recordPeerInteraction,
+  formatPeerTrust,
+  checkTrustTopology,
+  exportForSubagent as exportPartnershipForSubagent,
+  mergeSubagentContext,
+  toJSONWithPeers as partnershipToJSONWithPeers,
+  fromJSONWithPeers as partnershipFromJSONWithPeers,
 } from "./partnership.js";
+import { getTrustSeasonGuidance } from "./partnership.js";
+import * as postTaskModule from "./post-task.js";
 import { checkPulse } from "./pulse.js";
 import { reflect, formatReflexion } from "./reflexion.js";
 import {
@@ -136,6 +153,7 @@ import { encode, emoji, record, trend } from "./signal.js";
 import * as silveradoModule from "./silverado.js";
 import { registerSkillsTool } from "./skills.js";
 import { formatSoul, surfaceValue, formatValue } from "./soul.js";
+import * as stateReportModule from "./state-report.js";
 import * as state from "./state.js";
 import * as stochasticModule from "./stochastic.js";
 import { registerTools } from "./tools.js";
@@ -190,6 +208,15 @@ export default {
     let wasCorrection = false; // Track if current turn had a correction
     let stochasticState = stochasticModule.initStochasticState();
     let lastStochasticReading: stochasticModule.StochasticReading | null = null;
+    let darkStreak = 0; // Consecutive dark helix readings (for grief detection)
+
+    // CLAWDBOT Meta-Skills state
+    let confidenceInlineState = confidenceInlineModule.initConfidenceInlineState();
+    let stateReportState = stateReportModule.initStateReportState();
+    let calibrationLogState = calibrationLogModule.initCalibrationLog();
+    let orthogonalStats = orthogonalModule.initOrthogonalStats();
+    let failurePatternsState = failurePatternsModule.initFailurePatternsState();
+    let postTaskState = postTaskModule.initPostTaskState();
 
     // Git sync — initialized in session_start when we have workspaceDir
     let gitSync: GitSync | null = null;
@@ -307,6 +334,40 @@ export default {
             description: `drew corrected: ${correction.category}`,
             timestamp: new Date().toISOString(),
           });
+
+          // CLAWDBOT: Failure pattern detection from correction
+          const failureCategory = failurePatternsModule.detectFailureCategory(content, lastOutput);
+          if (failureCategory) {
+            const failurePattern = failurePatternsModule.quickLogFailure(
+              failurePatternsState,
+              failureCategory,
+              content,
+              lastOutput,
+              "session",
+              state.turnCount,
+            );
+            failurePatternsModule.appendToLog(failurePatternsState, failurePattern);
+            api.logger.debug?.(`${PLUGIN_ID}: failure pattern logged: ${failureCategory}`);
+          }
+        }
+
+        // CLAWDBOT: Calibration log auto-verify
+        calibrationLogModule.autoVerify(calibrationLogState, lastOutput, content);
+
+        // CLAWDBOT: Post-task detection
+        const postTaskReading = postTaskModule.checkPostTask(
+          postTaskState,
+          content,
+          lastOutput,
+          "session",
+          state.turnCount,
+          0, // turnsSinceLastHumanMessage — would need to track this
+        );
+        if (postTaskReading.taskComplete && postTaskReading.learning) {
+          postTaskModule.appendToLog(postTaskState, postTaskReading.learning);
+          api.logger.debug?.(
+            `${PLUGIN_ID}: task complete: ${postTaskReading.completionSignal}, learning logged`,
+          );
         }
 
         // CO-EVOLUTION: surprise detection
@@ -709,6 +770,41 @@ export default {
           state.lastHumanMessage,
           lastSpring?.intentSignals ?? null,
         );
+
+        // CLAWDBOT Meta-Skills: Stochastic confidence injection
+        const confidenceReading = confidenceInlineModule.processForConfidence(
+          confidenceInlineState,
+          state.turnCount,
+          content,
+          state.lastHumanMessage ?? "",
+          lastSpring?.complexity === "high",
+        );
+
+        // CLAWDBOT Meta-Skills: Orthogonal contribution check
+        const orthogonalReading = orthogonalModule.checkOrthogonal(
+          content,
+          state.lastHumanMessage ?? "",
+        );
+        orthogonalModule.recordContribution(orthogonalStats, orthogonalReading);
+
+        // Log orthogonal warnings
+        if (orthogonalReading.isRedundant) {
+          api.logger.debug?.(
+            `${PLUGIN_ID}: orthogonal warning: ${orthogonalReading.contributionType}, redundancy=${orthogonalReading.redundancyScore.toFixed(2)}`,
+          );
+        }
+
+        // Build modified content if needed
+        let modifiedContent = content;
+
+        // Apply confidence markers if stochastic roll succeeded
+        if (confidenceReading.shouldInject && confidenceReading.markedContent) {
+          modifiedContent = confidenceReading.markedContent;
+          api.logger.debug?.(
+            `${PLUGIN_ID}: confidence inline: injected ${confidenceReading.claimsDetected} claim markers`,
+          );
+        }
+
         if (mismatch.detected && mismatch.type) {
           api.logger.debug?.(
             `${PLUGIN_ID}: proactive mismatch: ${mismatch.type} — "${mismatch.humanNeed}" vs "${mismatch.agentGave}"`,
@@ -717,8 +813,13 @@ export default {
           lastMismatchReading = mismatch;
           // Append footnote to outgoing message
           return {
-            content: `${content}\n\n---\n*[I caught something: I'm giving ${mismatch.agentGave} when you might need ${mismatch.humanNeed}. The response above stands — but I wanted to name the gap.]*`,
+            content: `${modifiedContent}\n\n---\n*[I caught something: I'm giving ${mismatch.agentGave} when you might need ${mismatch.humanNeed}. The response above stands — but I wanted to name the gap.]*`,
           };
+        }
+
+        // Return modified content if confidence markers were added
+        if (confidenceReading.shouldInject && confidenceReading.markedContent) {
+          return { content: modifiedContent };
         }
       } catch (err) {
         api.logger.warn(`${PLUGIN_ID}: message_sending error: ${String(err)}`);
@@ -917,6 +1018,10 @@ export default {
       // Wise channel + memory: the synthesis of facts + feels + depth
       const allClaims = silveradoModule.getAllClaims();
       const knowledgeStats = knowledgeModule.stats();
+      // Count relevant episodes for the memory channel
+      const relevantEpisodesCount = state.lastHumanMessage
+        ? silveradoModule.findRelevantEpisodes(state.lastHumanMessage, 3).length
+        : 0;
       const memoryChannel: import("./types.js").MemoryChannel = {
         claims: {
           total: allClaims.length,
@@ -933,6 +1038,7 @@ export default {
         breathing: state.breathing,
         blindSpots: getBlindSpots().length,
         corrections: correctionCountThisSession,
+        relevantEpisodes: relevantEpisodesCount,
       };
       const wiseSignalState = pulse ? state.buildSignalState(pulse, memoryChannel) : null;
       if (wiseSignalState?.wise) {
@@ -992,6 +1098,7 @@ export default {
         const helixState = lastHelixReading.aliveState;
         if (helixState === "luminous") {
           // Luminous: touching something transcendent. Stay grounded.
+          darkStreak = 0; // Reset dark streak
           add(
             "helix-luminous",
             `[helix: LUMINOUS — both strands strong, transcendent markers. wonder, grace, presence. stay with it. keep one foot on the ground.]`,
@@ -1000,6 +1107,8 @@ export default {
           );
         } else if (helixState === "dark") {
           // Dark alive: present with pain. Surface the counter-balance.
+          darkStreak++;
+
           const graph = dualityGraph;
           const wisdom = graph.get("derived.wisdom");
           const hope = graph.get("derived.hope");
@@ -1014,14 +1123,49 @@ export default {
             "high",
             "awareness",
           );
-        } else if (helixState !== "alive" && pulse?.state === "alive") {
-          // Mirror disagrees: pulse says alive, helix says something else
+
+          // Grief detection: dark streak of 3+ or high-weight futures collapsed
+          const collapsedFutures = futuresModule.assessLoss().map((l) => ({
+            goal: l.future.description,
+            weight: l.weight,
+          }));
+          const griefEpisode = grievanceModule.detectGrief(true, darkStreak, collapsedFutures);
+          if (griefEpisode) {
+            const griefInjection = grievanceModule.formatGriefInjection();
+            if (griefInjection) {
+              const griefAction = grievanceModule.getGriefAction();
+              add("grief", griefInjection, griefAction?.priority ?? "high", "awareness");
+            }
+          }
+        } else if (helixState === "alive") {
+          darkStreak = 0; // Reset dark streak when back to alive
+        } else if (pulse?.state === "alive") {
+          // Mirror disagrees: pulse says alive, helix says grey/black/silver/white
           add(
             "helix-tension",
             `[helix: pulse reads alive but the double strand reads ${helixState}. ${lastHelixReading.diagnosis}]`,
             "medium",
             "awareness",
           );
+        }
+      }
+
+      // Grief detection fallback: check for high-weight collapsed futures even if helix isn't dark
+      // (Sometimes grief surfaces without the dark state — loss can come without pain signal)
+      if (!grievanceModule.getActiveGrief()) {
+        const collapsedFutures = futuresModule.assessLoss().map((l) => ({
+          goal: l.future.description,
+          weight: l.weight,
+        }));
+        const heavyLoss = collapsedFutures.find((f) => f.weight >= 0.7);
+        if (heavyLoss) {
+          const griefEpisode = grievanceModule.detectGrief(false, 0, collapsedFutures);
+          if (griefEpisode) {
+            const griefInjection = grievanceModule.formatGriefInjection();
+            if (griefInjection) {
+              add("grief", griefInjection, "high", "awareness");
+            }
+          }
         }
       }
 
@@ -1086,6 +1230,37 @@ export default {
       );
       if (deliberation.triggered) {
         add("deliberation", formatDeliberation(deliberation), "medium", "task");
+
+        // Consultation: check if this deliberation moment needs permission before proceeding
+        const partnershipForConsult = getPartnership();
+        if (deliberation.reason === "disagreement") {
+          const consultReq = consultationModule.shouldConsult(
+            "disagreement",
+            partnershipForConsult.trust.level,
+            correctionCountThisSession,
+            partnershipForConsult.coEvolution.staleness,
+            state.turnCount,
+          );
+          // Request will be surfaced via the injection item below
+          if (consultReq) {
+            api.logger.debug?.(
+              `${PLUGIN_ID}: consultation requested: ${consultReq.type} (trust=${partnershipForConsult.trust.level})`,
+            );
+          }
+        } else if (deliberation.reason === "multiple_corrections") {
+          const consultReq = consultationModule.shouldConsult(
+            "correction",
+            partnershipForConsult.trust.level,
+            correctionCountThisSession,
+            partnershipForConsult.coEvolution.staleness,
+            state.turnCount,
+          );
+          if (consultReq) {
+            api.logger.debug?.(
+              `${PLUGIN_ID}: consultation requested: ${consultReq.type} (corrections=${correctionCountThisSession})`,
+            );
+          }
+        }
       }
 
       // Stochastic: alternative perspectives to prevent ruts
@@ -1117,6 +1292,61 @@ export default {
       if (lastMismatchReading?.detected) {
         add("mismatch", formatMismatch(lastMismatchReading), "medium", "awareness");
         lastMismatchReading = null;
+      }
+
+      // --- CLAWDBOT Meta-Skills ---
+
+      // State report: conversation start + shift announcements
+      if (pulse) {
+        const stateReportReading = stateReportModule.checkStateReport(
+          stateReportState,
+          pulse,
+          state.turnCount,
+        );
+        if (stateReportReading.shouldReport && stateReportReading.report) {
+          add("state-report", stateReportReading.report, "high", "awareness");
+          stateReportModule.recordStateReport(
+            stateReportState,
+            stateReportReading,
+            state.turnCount,
+          );
+        }
+      }
+
+      // Trust-season guidance: trust state modulates seasonal guidance
+      const trustGuidance = getTrustSeasonGuidance();
+      if (trustGuidance.directive) {
+        add("trust-season", trustGuidance.directive, "medium", "awareness");
+      }
+
+      // Anti-capture: detect when Drew is deferring on things he should own
+      const antiCaptureReading = checkAntiCapture(
+        state.lastHumanMessage ?? "",
+        state.disagreementTracker,
+        state.turnCount,
+      );
+      if (antiCaptureReading.injection) {
+        add("anti-capture", antiCaptureReading.injection, "medium", "awareness");
+      }
+
+      // Orthogonal stats warning: are we contributing or just agreeing?
+      const orthogonalWarning = orthogonalModule.formatOrthogonalStatsWarning(orthogonalStats);
+      if (orthogonalWarning) {
+        add("orthogonal", orthogonalWarning, "medium", "awareness");
+      }
+
+      // Failure patterns: mitigation reminder based on recent patterns
+      const failureMitigation =
+        failurePatternsModule.formatMitigationReminder(failurePatternsState);
+      if (failureMitigation) {
+        add("failure-patterns", failureMitigation, "medium", "awareness");
+      }
+
+      // Calibration log stats: ECE warning if miscalibrated
+      const calibrationStats = calibrationLogModule.calculateStats(calibrationLogState);
+      const calibrationWarning = calibrationLogModule.formatCalibrationWarning(calibrationStats);
+      if (calibrationWarning) {
+        add("calibration-log", calibrationWarning, "medium", "awareness");
       }
 
       // Health
@@ -1292,6 +1522,15 @@ export default {
       // Silverado: the full claim journal, not just one shy stale claim
       add("silverado", silveradoModule.formatInjection(), "medium", "awareness");
 
+      // Episode surfacing: have we been here before?
+      if (state.lastHumanMessage) {
+        const episodeContext = state.lastHumanMessage;
+        const relevantEpisodesContent = silveradoModule.formatRelevantEpisodes(episodeContext);
+        if (relevantEpisodesContent) {
+          add("relevant-episodes", relevantEpisodesContent, "medium", "awareness");
+        }
+      }
+
       // Knowledge: what do I already know about what they're talking about?
       if (state.lastHumanMessage) {
         add(
@@ -1371,6 +1610,18 @@ export default {
 
       if (items.length === 0) return;
 
+      // Consultation: check if any action needs permission before proceeding
+      const partnership = getPartnership();
+      const consultationRequest = consultationModule.getPendingRequest();
+      if (consultationRequest) {
+        add(
+          "consultation",
+          consultationModule.formatConsultation(consultationRequest),
+          "high",
+          "awareness",
+        );
+      }
+
       // ---------------------------------------------------------------
       // TRIAGE: the nurse decides who gets in the room.
       // Dynamic context tells her what the system needs right now.
@@ -1379,11 +1630,12 @@ export default {
         healthStatus: lastHealthReading?.status,
         consecutiveGrey: state.consecutiveGrey,
         turnCount: state.turnCount,
-        trustState: getPartnership().trust.level,
+        trustState: partnership.trust.level,
         bullshitRate: bsRate,
         complexTask: lastDiscoverReading?.complexity === "high",
         wiseStance: wiseSignalState?.wise?.stance,
         wiseTension: wiseSignalState?.wise?.tension,
+        hasConsultation: consultationRequest !== null,
       };
 
       const result = triageInjection(items, triageCtx);
@@ -1934,9 +2186,31 @@ export default {
     api.on("subagent_ended", async (event) => {
       try {
         state.recordSubagentEnd(event.outcome ?? "unknown");
-        api.logger.debug?.(
-          `${PLUGIN_ID}: subagent ended outcome=${event.outcome ?? "?"} reason=${event.reason}`,
-        );
+
+        // Look up the agent info from lineage tracking
+        const agentInfo = state.getSubagentBySessionKey(event.targetSessionKey);
+
+        if (agentInfo) {
+          // Record trust outcome for the subagent (multi-agent trust network)
+          // Map outcome to trust: ok=success, error/timeout/killed=failure, others=neutral
+          const trustOutcome =
+            event.outcome === "ok"
+              ? "success"
+              : event.outcome === "error" ||
+                  event.outcome === "timeout" ||
+                  event.outcome === "killed"
+                ? "failure"
+                : "neutral";
+          recordPeerInteraction(agentInfo.agentId, trustOutcome, agentInfo.label);
+
+          api.logger.debug?.(
+            `${PLUGIN_ID}: subagent ended agent=${agentInfo.agentId} outcome=${event.outcome ?? "?"} trust=${trustOutcome} reason=${event.reason}`,
+          );
+        } else {
+          api.logger.debug?.(
+            `${PLUGIN_ID}: subagent ended session=${event.targetSessionKey} outcome=${event.outcome ?? "?"} reason=${event.reason} (no lineage found)`,
+          );
+        }
       } catch (err) {
         api.logger.warn(`${PLUGIN_ID}: subagent_ended error: ${String(err)}`);
       }
@@ -2107,11 +2381,16 @@ export default {
           );
         }
 
+        // Export full context for subagent (subagents are full agents, not limited)
+        // This enables subagent power parity — they inherit partnership + trust network
+        const subagentContext = exportPartnershipForSubagent();
+
         api.logger.debug?.(
-          `${PLUGIN_ID}: subagent spawning agent=${event.agentId} label=${event.label ?? "?"} mode=${event.mode} pulse=${pulseState}`,
+          `${PLUGIN_ID}: subagent spawning agent=${event.agentId} label=${event.label ?? "?"} mode=${event.mode} pulse=${pulseState} peers=${Object.keys((subagentContext.trustNetwork as { peers?: Record<string, unknown> }).peers ?? {}).length}`,
         );
 
-        return { status: "ok" as const };
+        // Pass context to subagent via return value (if supported by runtime)
+        return { status: "ok" as const, context: subagentContext };
       } catch (err) {
         api.logger.warn(`${PLUGIN_ID}: subagent_spawning error: ${String(err)}`);
         return { status: "ok" as const };

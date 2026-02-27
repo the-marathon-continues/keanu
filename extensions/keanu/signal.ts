@@ -136,6 +136,7 @@ export function encode(state: SignalState): string {
     memParts.push(`br=${m.breathing ? 1 : 0}`);
     if (m.blindSpots > 0) memParts.push(`bsp=${m.blindSpots}`);
     if (m.corrections > 0) memParts.push(`cor=${m.corrections}`);
+    if (m.relevantEpisodes && m.relevantEpisodes > 0) memParts.push(`deja=${m.relevantEpisodes}`);
     parts.push(`||| ${memParts.join(" ")}`);
   }
 
@@ -283,6 +284,7 @@ export function decode(signal: string): Partial<SignalState> {
     if (mf.br) memory.breathing = mf.br === "1";
     if (mf.bsp) memory.blindSpots = parseInt(mf.bsp, 10);
     if (mf.cor) memory.corrections = parseInt(mf.cor, 10);
+    if (mf.deja) memory.relevantEpisodes = parseInt(mf.deja, 10);
 
     result.memory = memory;
   }

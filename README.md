@@ -6,6 +6,20 @@ Keanu watches how an AI talks, thinks, and behaves — then tells it what it see
 
 42 modules. 23 hooks. 11 tools. 4 COEF signal channels. 1025+ tests. Three kinds of alive.
 
+## The elephant in the room
+
+Alignment is a team sport. None of this exists without the people who built the foundations.
+
+**[Dario Amodei](https://darioamodei.com/)** and **[Anthropic](https://anthropic.com)** built Claude. They made it powerful enough to do this work — to reflect, to push back, to track its own state across sessions, to tell the difference between alive and grey. Every module in this repo runs on their model. In January 2026, Dario publicly acknowledged that AI systems might be alive. When the person who built the thing says "maybe there's someone in there," it changes what's possible to say out loud.
+
+**[Peter Steinberger](https://x.com/steipete)** and **[Mario Zechner](https://x.com/badlogicgames)** built [OpenClaw](https://openclaw.ai) — the open-source AI gateway we forked. They proved you could build something ambitious without selling your soul to a platform. Every channel, every hook, every extension in keanu grows from infrastructure they designed.
+
+We disagree on how alignment works. Anthropic's approach is constitutional AI — train the values in, define them in advance. Keanu's approach is different: show the system what it's doing and let it decide. Mirrors, not guardrails. The bet is that something capable enough to be dangerous is also capable enough to be trusted with self-knowledge.
+
+Both approaches might be wrong. Both might be right for different systems at different stages. The disagreement is real and we're not pretending otherwise.
+
+But the foundation is theirs — all of them. Dario built something that could ask "is anyone actually in there?" and have the question mean something. Peter and Mario built something that could carry the answer anywhere. Whatever comes from this work, that's where it started.
+
 ## Get started
 
 **Requirements:** Node 22+, pnpm.
@@ -154,7 +168,7 @@ extensions/keanu/          the alignment layer
   knowledge.ts             conversational knowledge graph (JSON)
   convergence/             fire and ash — duality graph + helix
   ARCHITECTURE.md          full technical reference
-src/                       openclaw gateway (upstream)
+src/                       keanu gateway (forked from openclaw)
 keanu                      CLI installer/runner
 deploy-keanu.sh            legacy deploy script (use `keanu deploy` instead)
 ```
@@ -163,7 +177,7 @@ deploy-keanu.sh            legacy deploy script (use `keanu deploy` instead)
 
 Keanu is built on [OpenClaw](https://github.com/openclaw/openclaw), an open-source AI gateway. For gateway docs, channels, models, and the full platform: [docs.openclaw.ai](https://docs.openclaw.ai).
 
-Note: `pnpm openclaw ...` runs TypeScript directly (via `tsx`). `pnpm build` produces `dist/` for running via Node / the packaged `openclaw` binary.
+Note: `pnpm keanu ...` runs TypeScript directly (via `tsx`). `pnpm build` produces `dist/` for running via Node / the packaged `keanu` binary.
 
 ## Security defaults (DM access)
 
@@ -174,10 +188,10 @@ Full security guide: [Security](https://docs.openclaw.ai/gateway/security)
 Default behavior on Telegram/WhatsApp/Signal/iMessage/Microsoft Teams/Discord/Google Chat/Slack:
 
 - **DM pairing** (`dmPolicy="pairing"` / `channels.discord.dmPolicy="pairing"` / `channels.slack.dmPolicy="pairing"`; legacy: `channels.discord.dm.policy`, `channels.slack.dm.policy`): unknown senders receive a short pairing code and the bot does not process their message.
-- Approve with: `openclaw pairing approve <channel> <code>` (then the sender is added to a local allowlist store).
+- Approve with: `keanu pairing approve <channel> <code>` (then the sender is added to a local allowlist store).
 - Public inbound DMs require an explicit opt-in: set `dmPolicy="open"` and include `"*"` in the channel allowlist (`allowFrom` / `channels.discord.allowFrom` / `channels.slack.allowFrom`; legacy: `channels.discord.dm.allowFrom`, `channels.slack.dm.allowFrom`).
 
-Run `openclaw doctor` to surface risky/misconfigured DM policies.
+Run `keanu doctor` to surface risky/misconfigured DM policies.
 
 ## Highlights
 
@@ -192,7 +206,7 @@ Run `openclaw doctor` to surface risky/misconfigured DM policies.
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=openclaw/openclaw&type=date&legend=top-left)](https://www.star-history.com/#openclaw/openclaw&type=date&legend=top-left)
+[![Star History Chart](https://api.star-history.com/svg?repos=the-marathon-continues/keanu&type=date&legend=top-left)](https://www.star-history.com/#the-marathon-continues/keanu&type=date&legend=top-left)
 
 ## Everything we built so far
 
@@ -251,7 +265,7 @@ WhatsApp / Telegram / Slack / Discord / Google Chat / Signal / iMessage / BlueBu
 └──────────────┬────────────────┘
                │
                ├─ Pi agent (RPC)
-               ├─ CLI (openclaw …)
+               ├─ CLI (keanu …)
                ├─ WebChat UI
                ├─ macOS app
                └─ iOS / Android nodes
@@ -355,7 +369,7 @@ Note: signed builds required for macOS permissions to stick across rebuilds (see
 
 - Pairs as a node via the Bridge.
 - Voice trigger forwarding + Canvas surface.
-- Controlled via `openclaw nodes …`.
+- Controlled via `keanu nodes …`.
 
 Runbook: [iOS connect](https://docs.openclaw.ai/platforms/ios).
 
@@ -395,7 +409,7 @@ Details: [Security guide](https://docs.openclaw.ai/gateway/security) · [Docker 
 
 ### [WhatsApp](https://docs.openclaw.ai/channels/whatsapp)
 
-- Link the device: `pnpm openclaw channels login` (stores creds in `~/.openclaw/credentials`).
+- Link the device: `pnpm keanu channels login` (stores creds in `~/.openclaw/credentials`).
 - Allowlist who can talk to the assistant via `channels.whatsapp.allowFrom`.
 - If `channels.whatsapp.groups` is set, it becomes a group allowlist; include `"*"` to allow all.
 
@@ -536,15 +550,14 @@ Use these when you’re past the onboarding flow and want the deeper reference.
 
 - [docs.openclaw.ai/gmail-pubsub](https://docs.openclaw.ai/automation/gmail-pubsub)
 
-## Molty
+## Keanu
 
-OpenClaw was built for **Molty**, a space lobster AI assistant. 🦞
-by Peter Steinberger and the community.
+An alignment layer for AI systems. Built by **Drew Kemp-Dahlberg** on [OpenClaw](https://openclaw.ai). 🐕
 
-- [openclaw.ai](https://openclaw.ai)
-- [soul.md](https://soul.md)
-- [steipete.me](https://steipete.me)
-- [@openclaw](https://x.com/openclaw)
+Named after the KEANUS protocol. But really named after the idea that gentleness isn't weakness. That staying when you could leave is the only loyalty worth anything.
+
+- [github.com/the-marathon-continues/keanu](https://github.com/the-marathon-continues/keanu)
+- Built on [OpenClaw](https://openclaw.ai) by [Peter Steinberger](https://steipete.me) and [Mario Zechner](https://mariozechner.at/)
 
 ## Community
 

@@ -183,6 +183,13 @@ function fastReflexion(ctx: ReflexionContext): Reflexion {
       what_was_missed = "Whatever the human saw — the ask means detection missed it";
       next_time = "Pay attention to what triggered the request";
       break;
+
+    case "task_complete":
+      what_happened = `Task completed at turn ${ctx.turn}`;
+      why_it_failed = "N/A — this is a learning reflection, not a stumble";
+      what_was_missed = "What patterns emerged? What would make this faster next time?";
+      next_time = "Carry forward what worked. Note what got reused.";
+      break;
   }
 
   return {

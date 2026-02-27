@@ -15,6 +15,8 @@ import {
   stats,
   reset,
   getGraph,
+  getStaleEntities,
+  verifyEntity,
 } from "./knowledge.js";
 
 // ============================================================
@@ -319,5 +321,114 @@ describe("stats", () => {
     expect(s.entities).toBe(2);
     expect(s.relations).toBe(1);
     expect(s.avgConfidence).toBeGreaterThan(0);
+  });
+});
+
+// ============================================================
+// Time-based decay
+// ============================================================
+
+describe("time-based decay", () => {
+  beforeEach(() => reset());
+
+  it("applies time decay based on days since lastSeen", () => {
+    const entity = upsertEntity("OldEntity", "concept", "s-1");
+    const initialConfidence = entity.confidence;
+
+    // Simulate 10 days passing
+    const tenDaysAgo = new Date();
+    tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
+    entity.lastSeen = tenDaysAgo.toISOString();
+
+    decayAll("s-2", new Date());
+
+    const graph = getGraph();
+    const decayed = graph.entities.get("oldentity");
+    expect(decayed).toBeDefined();
+    // Should have session decay (-0.05) + time decay (-0.1 max)
+    // Initial: 0.3, after: 0.3 - 0.05 - 0.1 = 0.15
+    expect(decayed!.confidence).toBeLessThan(initialConfidence);
+    expect(decayed!.confidence).toBeLessThanOrEqual(0.15);
+  });
+
+  it("caps time decay at 10%", () => {
+    const entity = upsertEntity("AncientEntity", "concept", "s-1");
+
+    // Simulate 100 days passing (should still cap at 10%)
+    const longAgo = new Date();
+    longAgo.setDate(longAgo.getDate() - 100);
+    entity.lastSeen = longAgo.toISOString();
+
+    const initialConfidence = entity.confidence;
+    decayAll("s-2", new Date());
+
+    const graph = getGraph();
+    const decayed = graph.entities.get("anciententity");
+    // Session: -0.05, Time: -0.1 (capped)
+    expect(decayed!.confidence).toBeCloseTo(initialConfidence - 0.05 - 0.1, 2);
+  });
+});
+
+// ============================================================
+// Stale entity detection
+// ============================================================
+
+describe("getStaleEntities", () => {
+  beforeEach(() => reset());
+
+  it("returns entities with low confidence but high mentions", () => {
+    const entity = upsertEntity("FrequentEntity", "concept", "s-1");
+    // Simulate many mentions
+    entity.mentions = 10;
+    entity.confidence = 0.2; // Faded
+
+    const stale = getStaleEntities();
+    expect(stale).toHaveLength(1);
+    expect(stale[0].name).toBe("FrequentEntity");
+  });
+
+  it("ignores entities with too few mentions", () => {
+    const entity = upsertEntity("RareEntity", "concept", "s-1");
+    entity.mentions = 1;
+    entity.confidence = 0.1;
+
+    const stale = getStaleEntities();
+    expect(stale).toHaveLength(0);
+  });
+
+  it("sorts by mentions (most first)", () => {
+    const e1 = upsertEntity("Entity1", "concept", "s-1");
+    e1.mentions = 5;
+    e1.confidence = 0.2;
+
+    const e2 = upsertEntity("Entity2", "concept", "s-1");
+    e2.mentions = 15;
+    e2.confidence = 0.2;
+
+    const stale = getStaleEntities();
+    expect(stale[0].name).toBe("Entity2"); // More mentions = first
+  });
+});
+
+// ============================================================
+// Entity verification
+// ============================================================
+
+describe("verifyEntity", () => {
+  beforeEach(() => reset());
+
+  it("resets confidence and sets lastVerified", () => {
+    const entity = upsertEntity("VerifiedEntity", "person", "s-1");
+    entity.confidence = 0.1; // Faded
+
+    const result = verifyEntity("VerifiedEntity");
+    expect(result).toBeDefined();
+    expect(result!.confidence).toBe(0.9);
+    expect(result!.lastVerified).toBeDefined();
+  });
+
+  it("returns null for unknown entities", () => {
+    const result = verifyEntity("NonExistent");
+    expect(result).toBeNull();
   });
 });

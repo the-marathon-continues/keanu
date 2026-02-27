@@ -70,6 +70,7 @@ describe("stochastic", () => {
           consecutiveGrey: 0,
         },
         pacing: null,
+        suggestBreathe: true,
       };
       // Low health should increase exploration rate
       let explored = false;
@@ -269,6 +270,7 @@ describe("stochastic", () => {
               consecutiveGrey: 0,
             },
             pacing: null,
+            suggestBreathe: true,
           },
           taskComplexity: "high",
           humanTone: "confused",

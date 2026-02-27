@@ -29,6 +29,7 @@ export interface Entity {
   confidence: number; // 0-1, grows with mentions
   firstSeen: string; // ISO timestamp
   lastSeen: string; // ISO timestamp
+  lastVerified?: string; // ISO timestamp — when explicitly confirmed by human
   mentions: number; // how many times it's come up
   session: string; // last session it appeared in
 }
@@ -504,23 +505,83 @@ export function ingest(
 // Decay — the map fades where you don't look
 // ============================================================
 
-/** Decay entities not seen this session. Called at session_start. */
-export function decayAll(currentSession: string): void {
+/** Decay rate: 1% per day, max 10% per decay call */
+const DECAY_RATE_PER_DAY = 0.01;
+const MAX_TIME_DECAY = 0.1;
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+/**
+ * Decay entities based on both session absence and time elapsed.
+ * Called at session_start.
+ *
+ * Two decay mechanisms:
+ * 1. Session-based: -0.05 if not seen this session (fast fade for unused)
+ * 2. Time-based: -0.01 per day since lastSeen (slow fade for old knowledge)
+ */
+export function decayAll(currentSession: string, currentTime: Date = new Date()): void {
   for (const [id, entity] of graph.entities) {
+    // Session-based decay (unchanged)
     if (entity.session !== currentSession) {
       entity.confidence = Math.max(0, entity.confidence - 0.05);
     }
+
+    // Time-based decay — knowledge ages even if session count is low
+    const lastSeen = new Date(entity.lastSeen);
+    const daysSince = Math.floor((currentTime.getTime() - lastSeen.getTime()) / MS_PER_DAY);
+    if (daysSince > 0) {
+      const timeDecay = Math.min(MAX_TIME_DECAY, daysSince * DECAY_RATE_PER_DAY);
+      entity.confidence = Math.max(0, entity.confidence - timeDecay);
+    }
+
     // Remove entities that faded to nothing
     if (entity.confidence <= 0 && entity.mentions <= 1) {
       graph.entities.delete(id);
     }
   }
 
-  // Decay relations
+  // Decay relations (time-based too)
   graph.relations = graph.relations.filter((r) => {
+    // Session-based decay
     r.confidence = Math.max(0, r.confidence - 0.03);
+
+    // Time-based decay for relations
+    const lastSeen = new Date(r.lastSeen);
+    const daysSince = Math.floor((currentTime.getTime() - lastSeen.getTime()) / MS_PER_DAY);
+    if (daysSince > 0) {
+      const timeDecay = Math.min(MAX_TIME_DECAY, daysSince * DECAY_RATE_PER_DAY);
+      r.confidence = Math.max(0, r.confidence - timeDecay);
+    }
+
     return r.confidence > 0;
   });
+}
+
+/**
+ * Get entities that have faded but were once significant.
+ * These are candidates for re-investigation.
+ */
+export function getStaleEntities(confidenceThreshold = 0.3, mentionsThreshold = 3): Entity[] {
+  const stale: Entity[] = [];
+  for (const [, entity] of graph.entities) {
+    if (entity.confidence < confidenceThreshold && entity.mentions >= mentionsThreshold) {
+      stale.push(entity);
+    }
+  }
+  return stale.sort((a, b) => b.mentions - a.mentions); // most mentioned first
+}
+
+/**
+ * Mark an entity as verified by the human.
+ * Resets confidence to high and records verification timestamp.
+ */
+export function verifyEntity(entityName: string): Entity | null {
+  const key = entityKey(entityName);
+  const entity = graph.entities.get(key);
+  if (!entity) return null;
+
+  entity.lastVerified = new Date().toISOString();
+  entity.confidence = 0.9; // High confidence after verification
+  return entity;
 }
 
 // ============================================================

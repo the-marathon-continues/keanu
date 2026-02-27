@@ -48,6 +48,7 @@ function makeHealth(status: HealthReading["status"]): HealthReading {
       consecutiveGrey: 1,
     },
     pacing: null,
+    suggestBreathe: status === "hot" || status === "fading",
   };
 }
 

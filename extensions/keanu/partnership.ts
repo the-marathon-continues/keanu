@@ -16,6 +16,22 @@
 import { readFile } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  type AgentPeer,
+  type TrustReading,
+  type InteractionOutcome,
+  recordOutcome as recordPeerOutcome,
+  recordDisagreement as recordPeerDisagreement,
+  getPeerTrust,
+  getAllPeerTrust,
+  formatTrustNetwork,
+  exportForSubagent as exportTrustForSubagent,
+  importFromParent as importTrustFromParent,
+  mergeSubagentUpdates as mergeTrustFromSubagent,
+  validateTopology,
+  toJSON as trustNetworkToJSON,
+  fromJSON as trustNetworkFromJSON,
+} from "./trust-network.js";
 import type { HumanReading, PulseReading, DisagreementStats } from "./types.js";
 
 // ============================================================
@@ -639,5 +655,207 @@ export function fromJSON(data: { model?: PartnershipModel; events?: PartnershipE
   if (data.events) {
     _events.length = 0;
     _events.push(...data.events);
+  }
+}
+
+// ============================================================
+// Trust-Season Integration (CLAWDBOT Meta-Skills)
+// ============================================================
+
+export interface TrustSeasonGuidance {
+  confidenceModifier: number; // -0.2 to +0.1, applied to summer confidence
+  riskAdditions: string[]; // additional risks based on trust state
+  directive: string | null; // trust-specific guidance for the agent
+}
+
+/**
+ * Get trust-aware guidance for seasonal prompts.
+ * Trust state modulates how confident and bold the agent should be.
+ */
+export function getTrustSeasonGuidance(): TrustSeasonGuidance {
+  const trust = _model.trust;
+
+  switch (trust.level) {
+    case "strained":
+      return {
+        confidenceModifier: -0.2,
+        riskAdditions: ["trust is strained — prioritize accuracy over speed"],
+        directive:
+          "[trust-season: strained. be more careful. verify claims before making them. facts first, warmth second.]",
+      };
+
+    case "calibrating":
+      return {
+        confidenceModifier: -0.1,
+        riskAdditions: ["trust is calibrating — Drew is learning when to rely on you"],
+        directive:
+          "[trust-season: calibrating. surface uncertainty explicitly. let drew see your reasoning.]",
+      };
+
+    case "rebuilding":
+      return {
+        confidenceModifier: -0.05,
+        riskAdditions: [],
+        directive: `[trust-season: rebuilding (repaired ${trust.repairCount}x). the repair makes it stronger. stay consistent.]`,
+      };
+
+    case "tested":
+      return {
+        confidenceModifier: 0.05,
+        riskAdditions: [],
+        directive:
+          "[trust-season: tested. trust has been tested and held. you've earned some latitude — use it wisely.]",
+      };
+
+    case "high":
+    default:
+      return {
+        confidenceModifier: 0,
+        riskAdditions: [],
+        directive: null, // No special guidance needed
+      };
+  }
+}
+
+/**
+ * Record a trust event and potentially trigger a phase transition.
+ * Returns true if trust level changed.
+ */
+export function recordTrustEventFromSeason(
+  eventType: TrustEvent["type"],
+  direction: TrustEvent["direction"],
+  turn: number,
+  description: string,
+): boolean {
+  const previousLevel = _model.trust.level;
+
+  recordTrustEvent(turn, eventType, direction, description);
+
+  return _model.trust.level !== previousLevel;
+}
+
+// ============================================================
+// Multi-Agent Peer Trust (via trust-network.ts)
+// ============================================================
+
+// Re-export types for consumers
+export type { AgentPeer, TrustReading, InteractionOutcome };
+
+/**
+ * Record an interaction outcome with another agent.
+ * Updates the TRAVOS Beta distribution for that peer.
+ */
+export function recordPeerInteraction(
+  agentId: string,
+  outcome: InteractionOutcome,
+  name?: string,
+): void {
+  recordPeerOutcome(agentId, outcome, name);
+}
+
+/**
+ * Record a disagreement with a peer agent.
+ * Disagreement is healthy — it resets the "complacency" clock.
+ */
+export function recordPeerDisagreementEvent(agentId: string): void {
+  recordPeerDisagreement(agentId);
+}
+
+/**
+ * Get trust reading for a specific peer.
+ */
+export function getPeerTrustReading(agentId: string): TrustReading | null {
+  return getPeerTrust(agentId);
+}
+
+/**
+ * Get all peer trust readings.
+ */
+export function getAllPeerTrustReadings(): Array<{ peer: AgentPeer; trust: TrustReading }> {
+  return getAllPeerTrust();
+}
+
+/**
+ * Format peer trust for system prompt injection.
+ */
+export function formatPeerTrust(): string | null {
+  return formatTrustNetwork();
+}
+
+/**
+ * Check for trust topology issues (capture risk, cycles).
+ */
+export function checkTrustTopology(): Array<{
+  type: string;
+  peers: string[];
+  message: string;
+}> {
+  return validateTopology();
+}
+
+// ============================================================
+// Subagent Context (full power parity)
+// ============================================================
+
+/**
+ * Export full partnership + trust context for passing to subagent.
+ * Subagents are NOT limited — they inherit everything.
+ */
+export function exportForSubagent(): {
+  partnership: object;
+  trustNetwork: object;
+} {
+  return {
+    partnership: toJSON(),
+    trustNetwork: exportTrustForSubagent(),
+  };
+}
+
+/**
+ * Import context from parent agent.
+ * Called when this agent is spawned as a subagent.
+ */
+export function importFromParentAgent(data: {
+  partnership?: { model?: PartnershipModel; events?: PartnershipEvent[] };
+  trustNetwork?: object;
+}): void {
+  if (data.partnership) {
+    fromJSON(data.partnership);
+  }
+  if (data.trustNetwork) {
+    importTrustFromParent(data.trustNetwork as Parameters<typeof importTrustFromParent>[0]);
+  }
+}
+
+/**
+ * Merge updates from a completed subagent back to parent.
+ */
+export function mergeSubagentContext(subagentData: {
+  trustNetwork?: { peers?: Record<string, AgentPeer> };
+}): void {
+  if (subagentData.trustNetwork) {
+    mergeTrustFromSubagent(subagentData.trustNetwork);
+  }
+}
+
+// ============================================================
+// Extended Persistence (includes trust network)
+// ============================================================
+
+export function toJSONWithPeers(): object {
+  return {
+    ...toJSON(),
+    trustNetwork: trustNetworkToJSON(),
+  };
+}
+
+export function fromJSONWithPeers(data: {
+  model?: PartnershipModel;
+  events?: PartnershipEvent[];
+  trustNetwork?: object;
+}): void {
+  fromJSON(data);
+  if (data.trustNetwork) {
+    trustNetworkFromJSON(data.trustNetwork as Parameters<typeof trustNetworkFromJSON>[0]);
   }
 }

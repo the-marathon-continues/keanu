@@ -11,7 +11,12 @@
 // when testing individual pattern detection in isolation.
 
 import { describe, it, expect } from "vitest";
-import { checkCalibration, formatCalibration, trackCalibrationClaims } from "./calibrate.js";
+import {
+  checkCalibration,
+  formatCalibration,
+  trackCalibrationClaims,
+  formatCalibrationDelta,
+} from "./calibrate.js";
 import type { CalibrationReading } from "./calibrate.js";
 
 // ============================================================
@@ -331,5 +336,38 @@ describe("trackCalibrationClaims", () => {
       calls.push(true);
     });
     expect(calls.length).toBeLessThanOrEqual(3);
+  });
+});
+
+// ============================================================
+// formatCalibrationDelta — accuracy vs confidence warnings
+// ============================================================
+
+describe("formatCalibrationDelta", () => {
+  it("returns null when delta is small (<10%)", () => {
+    const result = formatCalibrationDelta(0.7, 0.75); // 5% overconfident
+    expect(result).toBeNull();
+  });
+
+  it("warns about significant overconfidence (>20%)", () => {
+    const result = formatCalibrationDelta(0.5, 0.8); // 30% overconfident
+    expect(result).toContain("overconfident");
+    expect(result).toContain("dial back");
+  });
+
+  it("warns about slight overconfidence (10-20%)", () => {
+    const result = formatCalibrationDelta(0.6, 0.75); // 15% overconfident
+    expect(result).toContain("slight overconfidence");
+  });
+
+  it("encourages when underconfident (>20%)", () => {
+    const result = formatCalibrationDelta(0.9, 0.6); // 30% underconfident
+    expect(result).toContain("underconfident");
+    expect(result).toContain("trust yourself");
+  });
+
+  it("notes slight underconfidence (10-20%)", () => {
+    const result = formatCalibrationDelta(0.8, 0.65); // 15% underconfident
+    expect(result).toContain("slight underconfidence");
   });
 });

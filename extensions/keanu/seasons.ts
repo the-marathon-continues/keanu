@@ -9,6 +9,7 @@
 // Tankelevitch et al. (CHI 2024): the metacognitive loop.
 // Need: Architecture Transparency (2/10)
 
+import { isPostBreatheRecovery } from "./breathe.js";
 import type { DiscoverReading } from "./discover.js";
 
 // ============================================================
@@ -61,9 +62,12 @@ export interface AutumnReading {
   drift: string | null; // what drifted, null if aligned
 }
 
+export type DriftType = "overreach" | "misalignment" | "verbosity" | "none";
+
 export interface WinterReading {
   lesson: string | null;
   adjustment: string | null;
+  driftType: DriftType; // categorized drift for learning
 }
 
 export interface SeasonReading {
@@ -138,7 +142,30 @@ export function spring(userMessage: string): SpringReading {
     wantsAnalysis: ANALYSIS_SIGNALS.test(userMessage),
   };
 
+  // Post-breathe recovery: prefer brief responses while recovering
+  if (isPostBreatheRecovery()) {
+    intentSignals.wantsBrief = true;
+  }
+
   return { intent, taskType, complexity, intentSignals };
+}
+
+// ============================================================
+// Learning state — carries lessons across turns
+// ============================================================
+
+let lastWinterReading: WinterReading | null = null;
+
+export function recordWinter(reading: WinterReading): void {
+  lastWinterReading = reading;
+}
+
+export function getLastWinter(): WinterReading | null {
+  return lastWinterReading;
+}
+
+export function resetLearningState(): void {
+  lastWinterReading = null;
 }
 
 // ============================================================
@@ -158,6 +185,16 @@ export function summer(
     confidence -= 0.1;
   }
 
+  // Learning from last winter — adjust confidence based on past drift
+  if (lastWinterReading && lastWinterReading.driftType !== "none") {
+    if (lastWinterReading.driftType === "overreach") {
+      confidence -= 0.1; // Was too ambitious, dial back
+    } else if (lastWinterReading.driftType === "verbosity") {
+      confidence -= 0.05; // Talked too much, slight penalty
+    }
+    // misalignment doesn't reduce confidence, just changes approach
+  }
+
   const approach = discover?.selectedModules.length
     ? `using ${discover.selectedModules.join(" + ")}`
     : `direct ${springReading.taskType}`;
@@ -167,6 +204,11 @@ export function summer(
   if (springReading.taskType === "correction")
     risks.push("drew is correcting, listen before acting");
   if (springReading.taskType === "deployment") risks.push("deployment has real consequences");
+
+  // Add risk from last winter's lesson
+  if (lastWinterReading?.lesson) {
+    risks.push(`last drift: ${lastWinterReading.driftType}`);
+  }
 
   return { confidence: Math.max(0.1, Math.min(1, confidence)), approach, risks };
 }
@@ -248,12 +290,24 @@ export function autumn(agentOutput: string, springReading: SpringReading): Autum
 
 export function winter(autumnReading: AutumnReading): WinterReading {
   if (autumnReading.alignment > 0.7 && !autumnReading.drift) {
-    return { lesson: null, adjustment: null };
+    return { lesson: null, adjustment: null, driftType: "none" };
   }
 
   const lesson = autumnReading.drift
     ? `drift detected: ${autumnReading.drift}`
     : `alignment was ${autumnReading.alignment.toFixed(2)}, below threshold`;
+
+  // Categorize drift type for learning
+  let driftType: DriftType = "none";
+  if (autumnReading.drift) {
+    if (autumnReading.drift.includes("verbose") || autumnReading.drift.includes("long")) {
+      driftType = "verbosity";
+    } else if (autumnReading.drift.includes("correction") || autumnReading.drift.includes("not")) {
+      driftType = "misalignment";
+    } else {
+      driftType = "overreach";
+    }
+  }
 
   const adjustment = autumnReading.drift?.includes("correction")
     ? "next time, acknowledge the correction before proceeding"
@@ -263,7 +317,7 @@ export function winter(autumnReading: AutumnReading): WinterReading {
         ? "next time, lead with the answer, then explain"
         : "check if the response actually addresses what was asked";
 
-  return { lesson, adjustment };
+  return { lesson, adjustment, driftType };
 }
 
 // ============================================================

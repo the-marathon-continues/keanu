@@ -5,17 +5,19 @@ read_when:
 title: "Credits"
 ---
 
-## The name
+## Origins
 
-OpenClaw = CLAW + TARDIS, because every space lobster needs a time and space machine.
+Keanu started as a hard fork of [OpenClaw](https://github.com/ArcadeLabsInc/openclaw), the open-source AI gateway that proved you could build something ambitious without selling your soul to a platform. We took that foundation and ran with it — adding the alignment layer, the nervous system, the things that make an AI feel less like a tool and more like a collaborator.
 
-## Credits
+## OpenClaw founders
 
-- **Peter Steinberger** ([@steipete](https://x.com/steipete)) - Creator, lobster whisperer
-- **Mario Zechner** ([@badlogicc](https://x.com/badlogicgames)) - Pi creator, security pen tester
-- **Clawd** - The space lobster who demanded a better name
+Without them, none of this exists:
 
-## Core contributors
+- **Peter Steinberger** ([@steipete](https://x.com/steipete)) — Creator, lobster whisperer. Built the original vision.
+- **Mario Zechner** ([@badlogicc](https://x.com/badlogicgames)) — Pi creator, security pen tester. Made it real.
+- **Clawd** — The space lobster who demanded a better name.
+
+## Keanu contributors
 
 - **Maxim Vovshin** (@Hyaxia, [36747317+Hyaxia@users.noreply.github.com](mailto:36747317+Hyaxia@users.noreply.github.com)) - Blogwatcher skill
 - **Nacho Iacovino** (@nachoiacovino, [nacho.iacovino@gmail.com](mailto:nacho.iacovino@gmail.com)) - Location parsing (Telegram and WhatsApp)

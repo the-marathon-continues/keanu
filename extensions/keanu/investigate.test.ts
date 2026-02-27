@@ -10,6 +10,8 @@ import {
   getInsights,
   insightCount,
   reset,
+  getEscalationPriority,
+  getEscalatedInsights,
   type CuriosityInsight,
   type InvestigationContext,
 } from "./investigate.js";
@@ -172,6 +174,7 @@ describe("formatInsight", () => {
       session_id: "s1",
       applied_count: 0,
       sessions_exposed: 0,
+      surfaced_count: 0,
     };
 
     const text = formatInsight(insight);
@@ -180,5 +183,71 @@ describe("formatInsight", () => {
     expect(text).toContain("Blind spot evidence");
     // Should only include first line of exploration
     expect(text).not.toContain("More detail here");
+  });
+});
+
+// ============================================================
+// Escalation — old questions that keep surfacing should get louder
+// ============================================================
+
+describe("getEscalationPriority", () => {
+  it("returns 'low' for new insights", () => {
+    const insight: CuriosityInsight = {
+      question: "Fresh question",
+      exploration: "...",
+      source: "test",
+      relevant_to: [],
+      generated: new Date().toISOString(),
+      session_id: "s1",
+      applied_count: 0,
+      sessions_exposed: 0,
+      surfaced_count: 0,
+    };
+    expect(getEscalationPriority(insight)).toBe("low");
+  });
+
+  it("returns 'medium' after 3+ sessions with 2+ unanswered surfacings", () => {
+    const insight: CuriosityInsight = {
+      question: "Lingering question",
+      exploration: "...",
+      source: "test",
+      relevant_to: [],
+      generated: new Date().toISOString(),
+      session_id: "s1",
+      applied_count: 1, // applied once
+      sessions_exposed: 3,
+      surfaced_count: 3, // surfaced 3x, applied 1x → 2 unanswered
+    };
+    expect(getEscalationPriority(insight)).toBe("medium");
+  });
+
+  it("returns 'high' after 5+ sessions with 3+ unanswered surfacings", () => {
+    const insight: CuriosityInsight = {
+      question: "Persistent question",
+      exploration: "...",
+      source: "test",
+      relevant_to: [],
+      generated: new Date().toISOString(),
+      session_id: "s1",
+      applied_count: 0,
+      sessions_exposed: 5,
+      surfaced_count: 4, // surfaced 4x, applied 0 → 4 unanswered
+    };
+    expect(getEscalationPriority(insight)).toBe("high");
+  });
+
+  it("stays 'low' if surfaced but sessions are few", () => {
+    const insight: CuriosityInsight = {
+      question: "Recent question",
+      exploration: "...",
+      source: "test",
+      relevant_to: [],
+      generated: new Date().toISOString(),
+      session_id: "s1",
+      applied_count: 0,
+      sessions_exposed: 2, // not enough sessions yet
+      surfaced_count: 5,
+    };
+    expect(getEscalationPriority(insight)).toBe("low");
   });
 });

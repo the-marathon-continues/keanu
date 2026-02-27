@@ -23,6 +23,9 @@ export interface BreatheEvent {
   grey_streak: number;
   reason: string;
   created_at: string;
+  // Rest quality tracking
+  grey_after?: number; // grey streak after breathing (set on next turn)
+  effective?: boolean; // grey_after < grey_streak
 }
 
 // ============================================================
@@ -69,6 +72,33 @@ export function recordBreathe(
   };
   events.push(event);
   return event;
+}
+
+/**
+ * Update the last breathe event with post-breathe metrics.
+ * Called on the turn after breathing to measure effectiveness.
+ */
+export function recordRestQuality(currentGreyStreak: number): void {
+  const lastEvent = lastBreatheEvent();
+  if (!lastEvent) return;
+  // Only update if we haven't already
+  if (lastEvent.grey_after !== undefined) return;
+
+  lastEvent.grey_after = currentGreyStreak;
+  lastEvent.effective = currentGreyStreak < lastEvent.grey_streak;
+}
+
+/**
+ * Check if we're in post-breathe recovery (breathing was effective).
+ * Used by seasons.ts to adjust intent signals.
+ */
+export function isPostBreatheRecovery(): boolean {
+  const lastEvent = lastBreatheEvent();
+  if (!lastEvent) return false;
+  // Consider recovery active if:
+  // 1. We breathed recently (last event exists)
+  // 2. AND either we haven't measured yet, OR it was effective
+  return lastEvent.grey_after === undefined || lastEvent.effective === true;
 }
 
 // ============================================================

@@ -28,6 +28,7 @@ export interface GitSyncConfig {
   repo: string; // "owner/repo"
   token: string; // GitHub PAT
   branch?: string; // default: "main"
+  userId?: string; // for multi-user: files go to users/{userId}/
 }
 
 export interface GitSyncLogger {
@@ -84,17 +85,35 @@ export class GitSync {
     this.branch = params.config.branch ?? "main";
   }
 
+  /**
+   * Prefix path with users/{userId}/ if userId is configured.
+   * Enables multi-user collective-memory structure.
+   */
+  private prefixPath(path: string): string {
+    if (this.config.userId) {
+      return `users/${this.config.userId}/${path}`;
+    }
+    return path;
+  }
+
   // --- Public API ---
 
   /**
    * Push files to git. Creates an atomic commit with all changes.
    * Returns true if successful, false if failed (graceful degradation).
+   * If userId is configured, paths are prefixed with users/{userId}/.
    */
   async push(changes: FileChange[], message?: string): Promise<boolean> {
     if (changes.length === 0) {
       this.logger.debug?.("git-sync: no changes to push");
       return true;
     }
+
+    // Apply user path prefix for multi-user support
+    const prefixedChanges = changes.map((c) => ({
+      ...c,
+      path: this.prefixPath(c.path),
+    }));
 
     try {
       // 1. Get current HEAD
@@ -112,7 +131,7 @@ export class GitSync {
       }
 
       // 3. Create blobs for each file
-      const blobPromises = changes.map(async (change) => {
+      const blobPromises = prefixedChanges.map(async (change) => {
         const blob = await this.createBlob(change.content);
         return blob ? { path: change.path, sha: blob.sha } : null;
       });
@@ -424,6 +443,7 @@ export class GitSync {
  *   KEANU_MEMORY_REPO   - GitHub repo (e.g., "the-marathon-continues/collective-memory")
  *   KEANU_MEMORY_TOKEN  - GitHub PAT with repo scope
  *   KEANU_MEMORY_BRANCH - Branch to sync (default: "main")
+ *   KEANU_USER_ID       - User ID for multi-user paths (files go to users/{userId}/)
  */
 export function createGitSyncFromEnv(params: {
   workspaceDir: string;
@@ -439,9 +459,10 @@ export function createGitSyncFromEnv(params: {
   }
 
   const branch = env.KEANU_MEMORY_BRANCH?.trim() || "main";
+  const userId = env.KEANU_USER_ID?.trim();
 
   return new GitSync({
-    config: { repo, token, branch },
+    config: { repo, token, branch, userId },
     workspaceDir: params.workspaceDir,
     logger: params.logger,
   });

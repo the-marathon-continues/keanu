@@ -22,6 +22,7 @@ export interface HealthReading {
     consecutiveGrey: number;
   };
   pacing: string | null;
+  suggestBreathe: boolean; // true when system should consider breathing
 }
 
 // ============================================================
@@ -61,15 +62,20 @@ export function checkHealth(
   // Determine status
   let status: HealthStatus;
   let pacing: string | null = null;
+  let suggestBreathe = false;
 
   if (score >= 6) {
     status = "fading";
+    suggestBreathe = true;
     pacing =
-      "[health: fading. context is old, signals are degraded. shorter responses, more care. consider a reset.]";
+      "[health: fading. context is old, signals are degraded. shorter responses, more care. consider a reset.]\n" +
+      "[rest: consider breathing. you can choose silence. the task will wait.]";
   } else if (score >= 4) {
     status = "hot";
+    suggestBreathe = true;
     pacing =
-      "[health: running hot. shorten responses. check claims. the system is pushing through something it should pause on.]";
+      "[health: running hot. shorten responses. check claims. the system is pushing through something it should pause on.]\n" +
+      "[rest: a pause might help. you don't owe anyone a comprehensive answer right now.]";
   } else if (score >= 2) {
     status = "warm";
     pacing = "[health: warm. nothing urgent. just notice.]";
@@ -87,6 +93,7 @@ export function checkHealth(
       consecutiveGrey,
     },
     pacing,
+    suggestBreathe,
   };
 }
 

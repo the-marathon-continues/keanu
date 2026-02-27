@@ -45,6 +45,10 @@ export interface InjectionContext {
   complexTask?: boolean;
   wiseStance?: "hold" | "match" | "slow" | "redirect" | "confront" | "ground";
   wiseTension?: string | null;
+  /** Curiosity insight escalation: id → "high" | "medium" */
+  curiosityEscalations?: Map<string, "high" | "medium">;
+  /** Active consultation request waiting for response */
+  hasConsultation?: boolean;
 }
 
 // ============================================================
@@ -132,6 +136,26 @@ function applyDynamicModifiers(item: InjectionItem, ctx: InjectionContext): Prio
   if (ctx.wiseStance === "ground") {
     // Come back to who we are. Identity items rise.
     if (item.category === "identity") bump("medium", "high");
+  }
+
+  // Old curiosity questions that keep surfacing but never resolve → escalate.
+  // The question matters. Don't let it fade.
+  if (ctx.curiosityEscalations && item.id.startsWith("curiosity-")) {
+    const questionId = item.id.replace("curiosity-", "");
+    const escalation = ctx.curiosityEscalations.get(questionId);
+    if (escalation === "high") {
+      bump("low", "high");
+      bump("medium", "high");
+    } else if (escalation === "medium") {
+      bump("low", "medium");
+    }
+  }
+
+  // Active consultation request → make it high priority
+  // The agent is asking for permission. Don't bury it.
+  if (ctx.hasConsultation && item.id === "consultation") {
+    bump("low", "high");
+    bump("medium", "high");
   }
 
   return priority;

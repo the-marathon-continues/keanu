@@ -170,6 +170,93 @@ export function claimsAbout(topic: string): TrackedClaim[] {
   return ledger.filter((c) => c.status !== "retracted" && c.text.toLowerCase().includes(lower));
 }
 
+/**
+ * Find relevant past claims for the current context.
+ * Used for active memory surfacing — "we've been here before."
+ *
+ * @param context - current conversation context (human message + agent task)
+ * @param limit - max claims to return
+ * @returns claims sorted by relevance (keyword overlap + confidence)
+ */
+export function findRelevantEpisodes(context: string, limit = 3): TrackedClaim[] {
+  const words = context
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((w) => w.length > 4);
+
+  // No searchable words means no matches
+  if (words.length === 0) return [];
+
+  const scored = ledger
+    .filter((c) => c.status !== "retracted")
+    .map((c) => {
+      const claimWords = c.text.toLowerCase().split(/\s+/);
+      const overlap = words.filter((w) =>
+        claimWords.some((cw) => cw.includes(w) || w.includes(cw)),
+      ).length;
+      // Require at least 1 keyword overlap — confidence/recency are tiebreakers, not bypasses
+      if (overlap === 0) return { claim: c, score: 0 };
+      const confidenceBonus = c.decayedConfidence * 0.2;
+      const recencyBonus = c.lastMentioned ? 0.5 : 0;
+      const score = overlap + confidenceBonus + recencyBonus;
+      return { claim: c, score };
+    })
+    .filter((s) => s.score > 0.5)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit);
+
+  return scored.map((s) => s.claim);
+}
+
+/**
+ * Format relevant episodes for injection.
+ * Returns a memory nudge if relevant past claims exist.
+ */
+export function formatRelevantEpisodes(context: string): string | null {
+  const relevant = findRelevantEpisodes(context, 2);
+  if (relevant.length === 0) return null;
+
+  const items = relevant.map((c) => {
+    const status = c.contradicted ? "contradicted" : c.verified ? "verified" : "unverified";
+    return `"${c.text.slice(0, 60)}" (${status}, conf=${c.decayedConfidence})`;
+  });
+
+  return `[memory: we've discussed this before. ${items.join("; ")}]`;
+}
+
+/**
+ * Check if an upcoming claim contradicts past beliefs.
+ * Used to surface contradictions BEFORE the agent commits to them.
+ */
+export function checkUpcomingContradiction(newClaimText: string): TrackedClaim | null {
+  const lower = newClaimText.toLowerCase();
+  const keywords = lower.split(/\s+/).filter((w) => w.length > 4);
+
+  for (const c of ledger) {
+    if (c.status === "retracted" || c.decayedConfidence <= 0) continue;
+
+    // Check for keyword overlap
+    const claimLower = c.text.toLowerCase();
+    const overlap = keywords.filter((w) => claimLower.includes(w)).length;
+
+    if (overlap >= 2) {
+      // Potential contradiction — check for semantic opposition
+      const hasNegation = (text: string) =>
+        /\b(not|never|doesn't|isn't|won't|can't|no|none|false)\b/i.test(text);
+
+      const newHasNegation = hasNegation(newClaimText);
+      const oldHasNegation = hasNegation(c.text);
+
+      // If one has negation and the other doesn't, likely contradiction
+      if (newHasNegation !== oldHasNegation) {
+        return c;
+      }
+    }
+  }
+
+  return null;
+}
+
 // ============================================================
 // Injection formatting
 // ============================================================

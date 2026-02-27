@@ -43,7 +43,7 @@ function makeSpring(
 }
 
 function makeWinter(lesson: string | null = null, adjustment: string | null = null): WinterReading {
-  return { lesson, adjustment };
+  return { lesson, adjustment, driftType: lesson ? "overreach" : "none" };
 }
 
 function makeChain(lesson: string): ChainAnalysis {

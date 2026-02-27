@@ -1,7 +1,7 @@
 {
   "name": "keanu",
-  "version": "0.0.1",
-  "description": "Multi-channel AI gateway with extensible messaging integrations",
+  "version": "2026.2.26",
+  "description": "An alignment layer for AI systems. Not a leash. Not a judge. A mirror.",
   "keywords": [],
   "homepage": "https://github.com/the-marathon-continues/keanu#readme",
   "bugs": {

@@ -37,6 +37,7 @@ import type {
   SignalState,
   CarnegieDiscussion,
   TrackedClaim,
+  ClaimOutcome,
 } from "./types.js";
 
 // ============================================================
@@ -536,6 +537,14 @@ export function recordSubagentLineage(
     subagentLineage.splice(0, subagentLineage.length - MAX_LINEAGE);
 }
 
+/** Look up agent info by session key. Returns agentId and label if found. */
+export function getSubagentBySessionKey(
+  sessionKey: string,
+): { agentId: string; label?: string } | null {
+  const entry = subagentLineage.find((e) => e.childSessionKey === sessionKey);
+  return entry ? { agentId: entry.agentId, label: entry.label } : null;
+}
+
 // ============================================================
 // Workspace dir tracking
 // ============================================================
@@ -762,8 +771,95 @@ export function getClaimLedger(): readonly TrackedClaim[] {
   return claimLedger;
 }
 
+// ============================================================
+// Calibration accuracy tracking
+// ============================================================
+
+/**
+ * Record the outcome of a claim (correct/incorrect).
+ * Called when we learn whether a prediction was accurate.
+ */
+export function recordClaimOutcome(claimId: string, outcome: ClaimOutcome): void {
+  const claim = claimLedger.find((c) => c.id === claimId);
+  if (!claim) return;
+
+  claim.outcome = outcome;
+  claim.resolvedAt = new Date().toISOString();
+
+  // Also update verified/contradicted based on outcome
+  if (outcome === "correct") {
+    claim.verified = true;
+  } else if (outcome === "incorrect") {
+    claim.contradicted = true;
+    claim.status = "contradicted";
+  }
+}
+
+/**
+ * Calculate calibration accuracy over resolved claims.
+ * Returns { correct, incorrect, accuracy, calibrationDelta }
+ * calibrationDelta = avgConfidence - accuracy (positive = overconfident)
+ */
+export function getCalibrationStats(): {
+  correct: number;
+  incorrect: number;
+  unknown: number;
+  accuracy: number;
+  avgConfidence: number;
+  calibrationDelta: number;
+} {
+  const resolved = claimLedger.filter((c) => c.outcome && c.outcome !== "unknown");
+  const correct = resolved.filter((c) => c.outcome === "correct").length;
+  const incorrect = resolved.filter((c) => c.outcome === "incorrect").length;
+  const unknown = claimLedger.filter((c) => !c.outcome || c.outcome === "unknown").length;
+
+  const total = correct + incorrect;
+  const accuracy = total > 0 ? correct / total : 0;
+
+  // Average confidence of resolved claims (1-5 scale, normalize to 0-1)
+  const avgConfidence =
+    total > 0 ? resolved.reduce((sum, c) => sum + c.confidence, 0) / total / 5 : 0;
+
+  // Positive delta = overconfident, negative = underconfident
+  const calibrationDelta = avgConfidence - accuracy;
+
+  return { correct, incorrect, unknown, accuracy, avgConfidence, calibrationDelta };
+}
+
+/**
+ * Get displayed confidence with time-based decay.
+ * Older claims should be displayed with lower confidence.
+ */
+export function getDisplayedConfidence(
+  claim: TrackedClaim,
+  currentTime: Date = new Date(),
+): number {
+  if (!claim.createdAt) return claim.decayedConfidence;
+
+  const daysSince = Math.floor(
+    (currentTime.getTime() - new Date(claim.createdAt).getTime()) / (1000 * 60 * 60 * 24),
+  );
+
+  // Decay factor: 0.95^days, floor at 50% of decayed confidence
+  const decayFactor = Math.pow(0.95, daysSince);
+  const floor = claim.decayedConfidence * 0.5;
+
+  return Math.max(floor, claim.decayedConfidence * decayFactor);
+}
+
 export async function loadReflexions(workspaceDir: string): Promise<void> {
-  const reflexionFile = join(workspaceDir, "reflexions.jsonl");
+  // Check both old location (workspaceDir/reflexions.jsonl) and new (awareness/)
+  const newFile = join(workspaceDir, "awareness", "reflexions.jsonl");
+  const oldFile = join(workspaceDir, "reflexions.jsonl");
+
+  let reflexionFile = newFile;
+  try {
+    await readFile(newFile, "utf-8");
+  } catch {
+    // New file doesn't exist, try old location for migration
+    reflexionFile = oldFile;
+  }
+
   try {
     const raw = await readFile(reflexionFile, "utf-8");
     const lines = raw.trim().split("\n").filter(Boolean);
@@ -785,8 +881,9 @@ export async function loadReflexions(workspaceDir: string): Promise<void> {
 }
 
 export async function saveReflexion(workspaceDir: string, r: Reflexion): Promise<void> {
-  const reflexionFile = join(workspaceDir, "reflexions.jsonl");
-  await mkdir(workspaceDir, { recursive: true });
+  const awarenessDir = join(workspaceDir, "awareness");
+  const reflexionFile = join(awarenessDir, "reflexions.jsonl");
+  await mkdir(awarenessDir, { recursive: true });
   await appendFile(reflexionFile, JSON.stringify(r) + "\n", "utf-8");
 }
 

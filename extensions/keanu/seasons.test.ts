@@ -600,7 +600,7 @@ describe("formatSummer", () => {
 
 describe("formatWinter", () => {
   it("returns null when no lesson", () => {
-    const result = formatWinter({ lesson: null, adjustment: null });
+    const result = formatWinter({ lesson: null, adjustment: null, driftType: "none" });
     expect(result).toBeNull();
   });
 
@@ -608,6 +608,7 @@ describe("formatWinter", () => {
     const result = formatWinter({
       lesson: "drift detected: correction not acknowledged",
       adjustment: "acknowledge the correction first",
+      driftType: "misalignment",
     });
     expect(typeof result).toBe("string");
   });
@@ -616,6 +617,7 @@ describe("formatWinter", () => {
     const result = formatWinter({
       lesson: "drift detected: too verbose",
       adjustment: "shorten the response",
+      driftType: "verbosity",
     });
     expect(result).toContain("drift detected: too verbose");
   });
@@ -624,6 +626,7 @@ describe("formatWinter", () => {
     const result = formatWinter({
       lesson: "alignment low",
       adjustment: "check what was asked",
+      driftType: "overreach",
     });
     expect(result).toContain("check what was asked");
   });

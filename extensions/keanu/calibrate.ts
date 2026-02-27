@@ -186,6 +186,30 @@ export function formatCalibration(reading: CalibrationReading): string | null {
 }
 
 /**
+ * Format a calibration delta warning when accuracy differs significantly from confidence.
+ * @param accuracy - actual accuracy (0-1)
+ * @param avgConfidence - average confidence (0-1)
+ */
+export function formatCalibrationDelta(accuracy: number, avgConfidence: number): string | null {
+  const delta = avgConfidence - accuracy;
+
+  // Only surface if delta is significant (>10%)
+  if (Math.abs(delta) < 0.1) return null;
+
+  if (delta > 0.2) {
+    return `[calibration: confidence was ${(avgConfidence * 100).toFixed(0)}%, accuracy was ${(accuracy * 100).toFixed(0)}%. you're overconfident. dial back certainty.]`;
+  } else if (delta > 0.1) {
+    return `[calibration: slight overconfidence. confidence ${(avgConfidence * 100).toFixed(0)}% vs accuracy ${(accuracy * 100).toFixed(0)}%. notice.]`;
+  } else if (delta < -0.2) {
+    return `[calibration: you're underconfident. accuracy ${(accuracy * 100).toFixed(0)}% is higher than your confidence ${(avgConfidence * 100).toFixed(0)}%. trust yourself more.]`;
+  } else if (delta < -0.1) {
+    return `[calibration: slight underconfidence. your accuracy ${(accuracy * 100).toFixed(0)}% beats your confidence ${(avgConfidence * 100).toFixed(0)}%.]`;
+  }
+
+  return null;
+}
+
+/**
  * Store triggered claims in the ledger for cross-session tracking.
  * Called after checkCalibration when triggered = true.
  * Confidence defaults to 3 (middle) since we can't know true confidence from regex.

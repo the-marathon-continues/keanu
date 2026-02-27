@@ -242,6 +242,7 @@ export interface MemoryChannel {
   breathing: boolean;
   blindSpots: number;
   corrections: number;
+  relevantEpisodes?: number; // how many past claims surfaced for context
 }
 
 // --- Reflexion ---
@@ -266,7 +267,8 @@ export type ReflexionTrigger =
   | "black_state"
   | "contradiction"
   | "oracle_flag"
-  | "manual";
+  | "manual"
+  | "task_complete"; // CLAWDBOT meta-skills: post-task reflection
 
 // --- Recovery (fire department upgrade) ---
 
@@ -317,6 +319,7 @@ export interface CarnegieDiscussion {
 // --- Claim Ledger (Silverado) ---
 
 export type ClaimStatus = "active" | "stale" | "contradicted" | "retracted";
+export type ClaimOutcome = "correct" | "incorrect" | "unknown";
 
 export interface TrackedClaim {
   id: string;
@@ -332,4 +335,7 @@ export interface TrackedClaim {
   retractedAt?: string; // ISO timestamp of retraction
   createdAt?: string; // ISO timestamp when claim was made
   lastMentioned?: string; // ISO timestamp when claim was last referenced — delays decay
+  // Calibration accuracy tracking
+  outcome?: ClaimOutcome; // was the prediction correct?
+  resolvedAt?: string; // when outcome was determined
 }

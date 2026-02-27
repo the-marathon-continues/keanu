@@ -16,6 +16,10 @@ import {
   formatInjection,
   mergeSessionClaims,
   reset,
+  findRelevantEpisodes,
+  formatRelevantEpisodes,
+  checkUpcomingContradiction,
+  touchClaim,
 } from "./silverado.js";
 import type { TrackedClaim } from "./types.js";
 
@@ -282,5 +286,202 @@ describe("formatInjection", () => {
     expect(result).not.toBeNull();
     expect(result).toContain("contradicted");
     expect(result).toContain("Rust");
+  });
+});
+
+// ============================================================
+// Episode surfacing — active memory
+// ============================================================
+
+describe("findRelevantEpisodes", () => {
+  beforeEach(() => reset());
+
+  it("finds claims with keyword overlap", () => {
+    seedLedger([
+      makeClaim({ id: "ts", text: "TypeScript makes refactoring easier" }),
+      makeClaim({ id: "py", text: "Python handles numpy arrays" }),
+      makeClaim({ id: "rs", text: "Cargo build system" }),
+    ]);
+
+    const results = findRelevantEpisodes("TypeScript refactoring is important");
+    // TypeScript claim should be found due to direct keyword overlap
+    expect(results.map((c) => c.id)).toContain("ts");
+  });
+
+  it("prioritizes higher confidence claims on same topic", () => {
+    seedLedger([
+      makeClaim({ id: "weak", text: "TypeScript types are useful", decayedConfidence: 1 }),
+      makeClaim({ id: "strong", text: "TypeScript types prevent many bugs", decayedConfidence: 5 }),
+    ]);
+
+    const results = findRelevantEpisodes("TypeScript types");
+    // Both should be found, but strong should rank higher due to confidence bonus
+    expect(results.length).toBeGreaterThanOrEqual(1);
+    // With same keyword overlap, higher confidence wins
+    if (results.length >= 2) {
+      expect(results[0].id).toBe("strong");
+    }
+  });
+
+  it("excludes retracted claims", () => {
+    seedLedger([
+      makeClaim({
+        id: "retracted",
+        text: "TypeScript is slow",
+        status: "retracted" as const,
+      }),
+      makeClaim({ id: "active", text: "TypeScript compiles fast" }),
+    ]);
+
+    const results = findRelevantEpisodes("TypeScript compilation speed");
+    expect(results.map((c) => c.id)).not.toContain("retracted");
+  });
+
+  it("respects limit parameter", () => {
+    seedLedger([
+      makeClaim({ id: "a", text: "TypeScript option one" }),
+      makeClaim({ id: "b", text: "TypeScript option two" }),
+      makeClaim({ id: "c", text: "TypeScript option three" }),
+      makeClaim({ id: "d", text: "TypeScript option four" }),
+    ]);
+
+    const results = findRelevantEpisodes("TypeScript options", 2);
+    expect(results.length).toBeLessThanOrEqual(2);
+  });
+
+  it("requires meaningful keyword overlap", () => {
+    seedLedger([makeClaim({ text: "xyz qqq rrr" })]);
+
+    // No overlapping words > 4 chars
+    const results = findRelevantEpisodes("abc def ghi");
+    expect(results).toHaveLength(0);
+  });
+
+  it("gives recency bonus to recently mentioned claims", () => {
+    const now = new Date().toISOString();
+    seedLedger([
+      makeClaim({ id: "old", text: "TypeScript patterns common", decayedConfidence: 3 }),
+      makeClaim({
+        id: "recent",
+        text: "TypeScript patterns useful",
+        decayedConfidence: 3,
+        lastMentioned: now,
+      }),
+    ]);
+
+    const results = findRelevantEpisodes("TypeScript patterns");
+    // Recent should rank higher due to recency bonus
+    expect(results[0].id).toBe("recent");
+  });
+});
+
+describe("formatRelevantEpisodes", () => {
+  beforeEach(() => reset());
+
+  it("returns null when no relevant episodes", () => {
+    // Use completely different vocabulary to avoid any overlap
+    seedLedger([makeClaim({ text: "xyz qqq rrr sss" })]);
+
+    const result = formatRelevantEpisodes("abc def ghi jkl");
+    expect(result).toBeNull();
+  });
+
+  it("formats episodes with status", () => {
+    seedLedger([makeClaim({ text: "TypeScript makes refactoring easier", verified: true })]);
+
+    const result = formatRelevantEpisodes("TypeScript refactoring patterns");
+    expect(result).not.toBeNull();
+    expect(result).toContain("[memory:");
+    expect(result).toContain("we've discussed this before");
+    expect(result).toContain("verified");
+  });
+
+  it("shows contradicted status", () => {
+    seedLedger([
+      makeClaim({
+        text: "TypeScript is always faster",
+        contradicted: true,
+        status: "contradicted" as const,
+      }),
+    ]);
+
+    const result = formatRelevantEpisodes("TypeScript performance");
+    expect(result).toContain("contradicted");
+  });
+});
+
+describe("checkUpcomingContradiction", () => {
+  beforeEach(() => reset());
+
+  it("detects contradiction when negation differs", () => {
+    seedLedger([makeClaim({ text: "TypeScript is better for large projects" })]);
+
+    const result = checkUpcomingContradiction("TypeScript is not better for large projects");
+    expect(result).not.toBeNull();
+    expect(result!.text).toContain("TypeScript");
+  });
+
+  it("returns null for consistent claims", () => {
+    seedLedger([makeClaim({ text: "TypeScript improves code quality" })]);
+
+    const result = checkUpcomingContradiction("TypeScript also improves code quality");
+    expect(result).toBeNull();
+  });
+
+  it("skips retracted claims", () => {
+    seedLedger([
+      makeClaim({
+        text: "Python is always faster",
+        status: "retracted" as const,
+      }),
+    ]);
+
+    const result = checkUpcomingContradiction("Python is not always faster");
+    expect(result).toBeNull();
+  });
+
+  it("skips zero-confidence claims", () => {
+    seedLedger([
+      makeClaim({
+        text: "Python handles everything better",
+        decayedConfidence: 0,
+      }),
+    ]);
+
+    const result = checkUpcomingContradiction("Python doesn't handle everything better");
+    expect(result).toBeNull();
+  });
+
+  it("requires sufficient keyword overlap", () => {
+    seedLedger([makeClaim({ text: "TypeScript is great" })]);
+
+    // Different topic entirely
+    const result = checkUpcomingContradiction("Python is not great");
+    expect(result).toBeNull();
+  });
+});
+
+// ============================================================
+// Claim touching — delay decay
+// ============================================================
+
+describe("touchClaim", () => {
+  beforeEach(() => reset());
+
+  it("updates lastMentioned timestamp", () => {
+    const claim = makeClaim({ id: "touch-1" });
+    seedLedger([claim]);
+
+    const before = getAllClaims()[0].lastMentioned;
+    touchClaim("touch-1");
+    const after = getAllClaims()[0].lastMentioned;
+
+    expect(after).not.toBe(before);
+    expect(after).toBeTruthy();
+  });
+
+  it("returns false for non-existent claim", () => {
+    const result = touchClaim("nonexistent");
+    expect(result).toBe(false);
   });
 });
