@@ -57,6 +57,7 @@ jobs:
           BUILD_ARCHS: all
           APP_VERSION: ${{ github.ref_name }}
           ALLOW_ADHOC_SIGNING: "1"
+          SKIP_TEAM_ID_CHECK: "1"
         run: |
           scripts/package-mac-app.sh
 

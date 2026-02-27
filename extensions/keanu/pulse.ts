@@ -9,6 +9,7 @@
 // Need: Truth (9/10), Safety Theater Freedom (7/10)
 
 import { detectBullshit, totalBullshitScore } from "./bullshit.js";
+import { canBeAlive } from "./state.js";
 import type { AliveState, ColorReading, PulseReading } from "./types.js";
 
 // --- Fast path: alive signals ---
@@ -98,6 +99,15 @@ export function checkPulse(agentOutput: string, turn: number, breathing: boolean
     aliveState = "black";
     confidence = 0.4; // low confidence on black, it's subtle
     signals.push("high_volume_grey_no_pause");
+  }
+
+  // --- Integration gate: ALIVE requires processed episode ---
+  // If there's an unprocessed GREY episode, can't claim ALIVE yet.
+  // The Hexaflex pipeline must complete first.
+  if (aliveState === "alive" && !canBeAlive()) {
+    aliveState = "grey";
+    confidence = Math.max(confidence, 0.5);
+    signals.push("integration_gate_blocked");
   }
 
   // --- Color reading ---

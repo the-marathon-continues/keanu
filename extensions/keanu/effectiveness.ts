@@ -16,7 +16,7 @@ import type { ReflexionTrigger } from "./types.js";
 // Types
 // ============================================================
 
-export type InterventionType = "blind_spot" | "reflexion" | "contradiction";
+export type InterventionType = "blind_spot" | "reflexion" | "contradiction" | "stochastic";
 
 export interface Intervention {
   id: string;

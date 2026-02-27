@@ -198,6 +198,7 @@ jobs:
           BUILD_ARCHS: all
           APP_VERSION: ${{ needs.version.outputs.version }}
           ALLOW_ADHOC_SIGNING: "1"
+          SKIP_TEAM_ID_CHECK: "1"
         run: scripts/package-mac-app.sh
 
       # - name: Notarize app

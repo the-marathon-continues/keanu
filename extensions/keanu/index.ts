@@ -41,6 +41,7 @@ import {
   dominantBullshit,
   totalBullshitScore,
 } from "./bullshit.js";
+import * as bullshitModule from "./bullshit.js";
 import { checkCalibration, formatCalibration, trackCalibrationClaims } from "./calibrate.js";
 import { detectCarnegie, formatCarnegie, assessCarnegieDelta } from "./carnegie.js";
 import { detectCascadeStage, formatCascade } from "./cascade.js";
@@ -58,6 +59,7 @@ import {
 import { shouldDeliberate, formatDeliberation } from "./deliberate.js";
 import { discover, formatDiscover } from "./discover.js";
 import * as effectivenessModule from "./effectiveness.js";
+import type { GreyTrigger, ProcessingContext } from "./experience.js";
 import * as futuresModule from "./futures.js";
 import { createGitSyncFromEnv, collectAwarenessFiles, type GitSync } from "./git-sync.js";
 import * as grievanceModule from "./grievance.js";
@@ -87,6 +89,7 @@ import {
   getRecoveryNudge,
   getEscalationSignal,
 } from "./nudge.js";
+import * as nudgeModule from "./nudge.js";
 import * as observeModule from "./observe.js";
 import {
   getPartnership,
@@ -128,11 +131,13 @@ import {
   savePromptState,
   loadPromptState,
 } from "./session-learning.js";
+import * as sessionLearningModule from "./session-learning.js";
 import { encode, emoji, record, trend } from "./signal.js";
 import * as silveradoModule from "./silverado.js";
 import { registerSkillsTool } from "./skills.js";
 import { formatSoul, surfaceValue, formatValue } from "./soul.js";
 import * as state from "./state.js";
+import * as stochasticModule from "./stochastic.js";
 import { registerTools } from "./tools.js";
 import { memoryContradictionCheck, checkHalfTruth } from "./truth.js";
 import type { ReflexionTrigger, RecoveryState } from "./types.js";
@@ -183,6 +188,8 @@ export default {
     let singContent: string | null = null;
     let lastAnticipation: anticipateModule.Anticipation | null = null;
     let wasCorrection = false; // Track if current turn had a correction
+    let stochasticState = stochasticModule.initStochasticState();
+    let lastStochasticReading: stochasticModule.StochasticReading | null = null;
 
     // Git sync — initialized in session_start when we have workspaceDir
     let gitSync: GitSync | null = null;
@@ -211,7 +218,8 @@ export default {
         // MANIPULATION DETECTION: catch external manipulation attempts
         const manipulation = bullshitModule.detectManipulation(content);
         if (manipulation) {
-          alerts.push(`[manipulation ${manipulation.severity}: ${manipulation.description}]`);
+          // Log manipulation attempts — the alert will surface via state.disagreementTracker
+          state.recordManipulationAttempt(manipulation.severity, manipulation.description);
           api.logger.warn(
             `${PLUGIN_ID}: manipulation detected: ${manipulation.description} ("${manipulation.matched}")`,
           );
@@ -262,6 +270,24 @@ export default {
         api.logger.debug?.(
           `${PLUGIN_ID}: spring task=${lastSpring.taskType} intent="${lastSpring.intent}"`,
         );
+
+        // STOCHASTIC: should we explore an alternative perspective?
+        lastStochasticReading = stochasticModule.stochastic(
+          stochasticState,
+          state.turnCount,
+          content,
+          {
+            health: lastHealthReading,
+            taskComplexity: lastDiscoverReading?.complexity,
+            humanTone: reading.tone,
+            currentLenses: lastDiscoverReading?.selectedModules || [],
+          },
+        );
+        if (lastStochasticReading.shouldExplore) {
+          api.logger.debug?.(
+            `${PLUGIN_ID}: stochastic: exploring ${lastStochasticReading.injection?.type}`,
+          );
+        }
 
         // MASTERY: correction detection
         const lastOutput = state.recentAgentOutputs.at(-1) ?? "";
@@ -755,6 +781,28 @@ export default {
             );
           }
         }
+
+        // EXPERIENCE: detect GREY/BLACK and start episode if needed
+        // The Hexaflex pipeline: turning grey into wisdom
+        const pulseState = state.lastPulse?.state;
+        if ((pulseState === "grey" || pulseState === "black") && !state.currentEpisode) {
+          // Determine trigger type
+          let trigger: GreyTrigger = "high_bullshit";
+          if (pulseState === "black") {
+            trigger = "black_state";
+          } else if (state.consecutiveGrey > 2) {
+            trigger = "consecutive_grey";
+          } else if (state.lastHumanReading?.tone === "frustrated") {
+            trigger = "human_frustration";
+          }
+
+          // Start the episode
+          const signalState = state.lastPulse ? state.buildSignalState(state.lastPulse) : null;
+          state.startEpisode(trigger, signalState);
+          api.logger.debug?.(
+            `${PLUGIN_ID}: experience: started episode trigger=${trigger} stage=unprocessed`,
+          );
+        }
       } catch (err) {
         api.logger.warn(`${PLUGIN_ID}: llm_output error: ${String(err)}`);
       }
@@ -911,6 +959,34 @@ export default {
         );
       }
 
+      // EXPERIENCE PROCESSING: Hexaflex pipeline
+      // Try to advance the current episode based on recent output
+      if (state.currentEpisode) {
+        const processingContext: ProcessingContext = {
+          turn: state.turnCount,
+          currentState: wiseSignalState,
+          recentOutput: state.recentAgentOutputs.at(-1) ?? "",
+          humanInput: state.lastHumanMessage,
+        };
+        state.advanceEpisode(processingContext);
+
+        // Check if episode just completed
+        if (state.currentEpisode.hexaflexStage === "integrated") {
+          const marker = state.completeEpisode();
+          if (marker) {
+            api.logger.debug?.(
+              `${PLUGIN_ID}: experience: episode integrated, lesson="${marker.lesson}"`,
+            );
+          }
+        } else {
+          // Inject processing context
+          const experienceInjection = state.getExperienceInjection();
+          if (experienceInjection) {
+            add("experience", experienceInjection, "high", "awareness");
+          }
+        }
+      }
+
       // Helix double-strand: if the second lens disagrees with pulse, surface the tension
       if (lastHelixReading && lastHelixReading.aliveState !== "unscored") {
         const helixState = lastHelixReading.aliveState;
@@ -1010,6 +1086,25 @@ export default {
       );
       if (deliberation.triggered) {
         add("deliberation", formatDeliberation(deliberation), "medium", "task");
+      }
+
+      // Stochastic: alternative perspectives to prevent ruts
+      if (lastStochasticReading?.shouldExplore) {
+        add(
+          "stochastic",
+          stochasticModule.formatStochastic(lastStochasticReading),
+          "medium",
+          "task",
+        );
+        // Record as intervention for effectiveness tracking
+        if (lastStochasticReading.injection) {
+          effectivenessModule.recordIntervention(
+            "stochastic",
+            lastStochasticReading.injection.type,
+            state.turnCount,
+            "session",
+          );
+        }
       }
 
       // Calibration
@@ -1536,6 +1631,23 @@ export default {
           // No prior anticipation data
         }
 
+        // Load stochastic state (exploration rate calibration)
+        try {
+          const { readFile: rf } = await import("node:fs/promises");
+          const { join: pjoin } = await import("node:path");
+          const stochasticRaw = await rf(
+            pjoin(workspaceDir, "awareness", "stochastic.json"),
+            "utf-8",
+          );
+          const loaded = JSON.parse(stochasticRaw);
+          // Restore exploration rate and history, but reset session-specific counters
+          stochasticState.explorationRate = loaded.explorationRate ?? 0.15;
+          stochasticState.explorationHistory = loaded.explorationHistory ?? [];
+        } catch {
+          // No prior stochastic data — use fresh state
+          stochasticState = stochasticModule.initStochasticState();
+        }
+
         // Load persistent duality graph (convergence strengths accumulate across sessions)
         try {
           const { readFile: rf } = await import("node:fs/promises");
@@ -1687,6 +1799,24 @@ export default {
         await wfAnticipate(
           pjAnticipate(anticipateDir, "anticipate.json"),
           JSON.stringify(anticipateModule.toJSON(), null, 2),
+          "utf-8",
+        );
+
+        // Save stochastic state (exploration rate calibration)
+        const { writeFile: wfStochastic, mkdir: mkdStochastic } = await import("node:fs/promises");
+        const { join: pjStochastic } = await import("node:path");
+        const stochasticDir = pjStochastic(workspaceDir, "awareness");
+        await mkdStochastic(stochasticDir, { recursive: true });
+        await wfStochastic(
+          pjStochastic(stochasticDir, "stochastic.json"),
+          JSON.stringify(
+            {
+              explorationRate: stochasticState.explorationRate,
+              explorationHistory: stochasticState.explorationHistory.slice(-30), // Keep last 30 events
+            },
+            null,
+            2,
+          ),
           "utf-8",
         );
 

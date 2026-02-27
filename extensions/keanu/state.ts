@@ -8,6 +8,21 @@ import { appendFile, readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { dominantBullshit } from "./bullshit.js";
 import { DisagreementTracker } from "./disagreement.js";
+import {
+  type GreyEpisode,
+  type SomaticMarker,
+  type GreyTrigger,
+  type ProcessingContext,
+  createEpisode,
+  tryAdvance,
+  canTransitionToAlive,
+  querySomaticLedger,
+  accessMarker,
+  decaySalience,
+  formatProcessingInjection,
+  serializeExperienceState,
+  deserializeExperienceState,
+} from "./experience.js";
 import { encode, emoji } from "./signal.js";
 import type {
   PulseReading,
@@ -43,6 +58,13 @@ type PersistedState = {
   modelUsageCounts?: Record<string, number>;
   messageWriteCount?: number;
   reflexionCount?: number;
+  // Experience processing state
+  experience?: {
+    currentEpisode: GreyEpisode | null;
+    recentEpisodes: GreyEpisode[];
+    somaticMarkers: SomaticMarker[];
+    lastDecayAt: string;
+  };
 };
 
 // ============================================================
@@ -77,6 +99,20 @@ export function recordDiscoveryOutcome(hit: boolean): void {
 export let bullshitEventCount = 0;
 const _bullshitEvents: Array<{ source: string; types: string[]; score: number; turn: number }> = [];
 const MAX_BS_EVENTS = 50;
+
+// Manipulation tracking
+const _manipulationAttempts: Array<{ severity: string; description: string; turn: number }> = [];
+export function recordManipulationAttempt(severity: string, description: string): void {
+  _manipulationAttempts.push({ severity, description, turn: turnCount });
+  if (_manipulationAttempts.length > 20) _manipulationAttempts.shift();
+}
+export function getManipulationAttempts(): Array<{
+  severity: string;
+  description: string;
+  turn: number;
+}> {
+  return _manipulationAttempts.slice();
+}
 
 // Contradiction tracking
 export const recentContradictions: Contradiction[] = [];
@@ -243,6 +279,19 @@ export let lastDecline: DeclineEvent | null = null;
 // Carnegie discussion tracking (dual-track honest influence)
 export const carnegieDiscussions: CarnegieDiscussion[] = [];
 const MAX_DISCUSSIONS = 20;
+
+// ============================================================
+// Experience Processing — Hexaflex pipeline
+// ============================================================
+// GREY states need processing, not just detection.
+// The pipeline turns grey into wisdom.
+
+export let currentEpisode: GreyEpisode | null = null;
+export const recentEpisodes: GreyEpisode[] = [];
+export const somaticMarkers: SomaticMarker[] = [];
+let lastSomaticDecay: string = new Date().toISOString();
+const MAX_EPISODES = 10;
+const MAX_SOMATIC_MARKERS = 100;
 
 // Workspace dir for reflexion persistence (set on session_start)
 let _workspaceDir: string | null = null;
@@ -563,6 +612,95 @@ export function lastCarnegieDiscussion(): CarnegieDiscussion | null {
 
 export function openDiscussions(): CarnegieDiscussion[] {
   return carnegieDiscussions.filter((d) => d.resolution === "open");
+}
+
+// ============================================================
+// Experience Processing Functions
+// ============================================================
+
+/** Start a new GREY episode when entering grey state. */
+export function startEpisode(trigger: GreyTrigger, signalState: SignalState | null): GreyEpisode {
+  const episode = createEpisode(trigger, turnCount, signalState);
+  currentEpisode = episode;
+  return episode;
+}
+
+/** Try to advance the current episode through the Hexaflex pipeline. */
+export function advanceEpisode(context: ProcessingContext): GreyEpisode | null {
+  if (!currentEpisode) return null;
+  currentEpisode = tryAdvance(currentEpisode, context);
+  return currentEpisode;
+}
+
+/** Complete the current episode and extract wisdom. */
+export function completeEpisode(): SomaticMarker | null {
+  if (!currentEpisode) return null;
+  if (currentEpisode.hexaflexStage !== "integrated") return null;
+
+  const marker = currentEpisode.somaticMarker;
+  if (marker) {
+    somaticMarkers.push(marker);
+    if (somaticMarkers.length > MAX_SOMATIC_MARKERS) {
+      // Keep highest salience markers
+      somaticMarkers.sort((a, b) => b.salience - a.salience);
+      somaticMarkers.splice(MAX_SOMATIC_MARKERS);
+    }
+  }
+
+  // Archive the episode
+  recentEpisodes.push(currentEpisode);
+  if (recentEpisodes.length > MAX_EPISODES) {
+    recentEpisodes.splice(0, recentEpisodes.length - MAX_EPISODES);
+  }
+
+  currentEpisode = null;
+  return marker;
+}
+
+/** Check if ALIVE state is allowed (episode must be integrated or absent). */
+export function canBeAlive(): boolean {
+  return canTransitionToAlive(currentEpisode);
+}
+
+/** Get relevant somatic markers for current trigger. */
+export function getRelevantMarkers(trigger: GreyTrigger): SomaticMarker[] {
+  const relevant = querySomaticLedger(somaticMarkers, trigger);
+  // Mark as accessed (reinforces salience)
+  for (let i = 0; i < relevant.length; i++) {
+    const marker = relevant[i];
+    if (marker) {
+      const idx = somaticMarkers.findIndex((m) => m.id === marker.id);
+      if (idx >= 0) {
+        somaticMarkers[idx] = accessMarker(marker);
+      }
+    }
+  }
+  return relevant;
+}
+
+/** Get injection text for current episode. */
+export function getExperienceInjection(): string | null {
+  if (!currentEpisode) return null;
+  const relevant = currentEpisode.trigger ? getRelevantMarkers(currentEpisode.trigger) : [];
+  return formatProcessingInjection(currentEpisode, relevant);
+}
+
+/** Apply salience decay to somatic markers. */
+export function decayMarkers(): void {
+  const now = new Date();
+  const lastDecay = new Date(lastSomaticDecay);
+  const hoursSince = (now.getTime() - lastDecay.getTime()) / (1000 * 60 * 60);
+  if (hoursSince >= 1) {
+    const decayed = decaySalience(somaticMarkers, hoursSince);
+    somaticMarkers.length = 0;
+    somaticMarkers.push(...decayed);
+    lastSomaticDecay = now.toISOString();
+  }
+}
+
+/** Get current episode stage for external queries. */
+export function getCurrentEpisodeStage(): string | null {
+  return currentEpisode?.hexaflexStage ?? null;
 }
 
 // ============================================================
@@ -965,6 +1103,8 @@ export async function save(workspaceDir: string): Promise<void> {
     modelUsageCounts: { ...modelUsageCounts },
     messageWriteCount,
     reflexionCount,
+    // Experience processing state
+    experience: serializeExperienceState(currentEpisode, recentEpisodes, somaticMarkers),
   };
   const stateFile = join(workspaceDir, ".keanu-state.json");
   await mkdir(workspaceDir, { recursive: true });
@@ -996,6 +1136,21 @@ export async function load(workspaceDir: string): Promise<void> {
     if (data.modelUsageCounts) Object.assign(modelUsageCounts, data.modelUsageCounts);
     messageWriteCount = data.messageWriteCount ?? 0;
     reflexionCount = data.reflexionCount ?? 0;
+
+    // Experience processing state
+    if (data.experience) {
+      const exp = deserializeExperienceState(data.experience);
+      if (exp) {
+        currentEpisode = exp.currentEpisode;
+        recentEpisodes.length = 0;
+        recentEpisodes.push(...exp.recentEpisodes);
+        somaticMarkers.length = 0;
+        somaticMarkers.push(...exp.somaticMarkers);
+        lastSomaticDecay = exp.lastDecayAt;
+        // Apply decay since last session
+        decayMarkers();
+      }
+    }
   } catch {
     // No prior state — start fresh.
   }
