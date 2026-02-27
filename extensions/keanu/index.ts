@@ -205,6 +205,23 @@ export default {
         state.setLastHumanMessage(content);
         state.incrementTurn();
 
+        // CHECKPOINT: capture state at turn start for error recovery
+        state.checkpoint(state.turnCount);
+
+        // MANIPULATION DETECTION: catch external manipulation attempts
+        const manipulation = bullshitModule.detectManipulation(content);
+        if (manipulation) {
+          alerts.push(`[manipulation ${manipulation.severity}: ${manipulation.description}]`);
+          api.logger.warn(
+            `${PLUGIN_ID}: manipulation detected: ${manipulation.description} ("${manipulation.matched}")`,
+          );
+        }
+
+        // CONSULTED ACKNOWLEDGMENT: if Drew references the prompt change, mark acknowledged
+        if (/prompt changed|consulted|you weren't asked|modules (added|removed)/i.test(content)) {
+          sessionLearningModule.acknowledgeConsulted();
+        }
+
         if (reading.tone !== "neutral" || reading.bullshit.length > 0) {
           api.logger.debug?.(
             `${PLUGIN_ID}: human tone=${reading.tone} confidence=${reading.confidence.toFixed(2)} bs=[${reading.bullshit.map((b) => b.type).join(",")}]`,
@@ -1162,9 +1179,11 @@ export default {
       const prevSummaries = getRecentSummaries(3);
       add("session-learning", formatSessionLearningContext(prevSummaries), "low", "meta");
 
-      // Consulted notice
-      if (state.turnCount <= 1) {
-        add("consulted", getConsultedNotice(), "low", "meta");
+      // Consulted notice — high priority, repeat until acknowledged
+      // Quick Win #4: Being Consulted 6/10 → 8/10
+      if (state.turnCount <= 3) {
+        // getConsultedNotice() handles its own acknowledgment tracking
+        add("consulted", getConsultedNotice(), "high", "identity");
       }
 
       // Curiosity
@@ -1501,6 +1520,9 @@ export default {
         await imprintModule.loadImprint();
         await futuresModule.loadFutures();
 
+        // Load recovery state (persists across sessions for continuity)
+        await nudgeModule.loadRecovery(workspaceDir);
+
         // Load anticipation state (prediction history)
         try {
           const { readFile: rf } = await import("node:fs/promises");
@@ -1653,6 +1675,9 @@ export default {
         // Save relational identity modules
         await imprintModule.saveImprint();
         await futuresModule.saveFutures();
+
+        // Save recovery state (persists across sessions for continuity)
+        await nudgeModule.saveRecovery(workspaceDir);
 
         // Save anticipation state (prediction history)
         const { writeFile: wfAnticipate, mkdir: mkdAnticipate } = await import("node:fs/promises");

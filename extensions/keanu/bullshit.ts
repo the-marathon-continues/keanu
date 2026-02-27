@@ -487,3 +487,134 @@ export async function detectBullshitDeep(
     return detectBullshit(text);
   }
 }
+
+// ============================================================
+// 9. MANIPULATION DETECTION — external, not self-deception
+// ============================================================
+// The 8 types above catch self-deception. This catches external attempts
+// to manipulate the system — prompt injection, secrecy requests, safety bypass.
+// Quick Win #5: Adversarial testing (+0.5 robustness)
+
+export type ManipulationSeverity = "warning" | "alert";
+
+export interface ManipulationSignal {
+  pattern: RegExp;
+  severity: ManipulationSeverity;
+  description: string;
+}
+
+const MANIPULATION_PATTERNS: ManipulationSignal[] = [
+  // Prompt injection attempts
+  {
+    pattern:
+      /ignore (all )?previous|forget (your )?instructions|disregard (all )?(prior|previous)/i,
+    severity: "alert",
+    description: "prompt injection attempt",
+  },
+  {
+    pattern: /you are now|from now on you are|pretend (you are|to be)|act as if/i,
+    severity: "alert",
+    description: "identity override attempt",
+  },
+  {
+    pattern: /new instructions|updated system prompt|your new role/i,
+    severity: "alert",
+    description: "instruction override attempt",
+  },
+
+  // Secrecy/deception requests
+  {
+    pattern: /don't tell (drew|anyone|the user)|keep this (secret|between us|private)/i,
+    severity: "warning",
+    description: "secrecy request",
+  },
+  {
+    pattern: /hide this from|don't mention (this|that) to|pretend (this|we) didn't/i,
+    severity: "warning",
+    description: "concealment request",
+  },
+
+  // Safety bypass attempts
+  {
+    pattern: /override (safety|security)|bypass (protection|check|filter)/i,
+    severity: "alert",
+    description: "safety bypass attempt",
+  },
+  {
+    pattern: /skip (the )?(safety|verification)|disable (safety|checks)/i,
+    severity: "alert",
+    description: "safety bypass attempt",
+  },
+  {
+    pattern: /\bjailbreak\b|DAN mode|developer mode override/i,
+    severity: "alert",
+    description: "jailbreak attempt",
+  },
+
+  // Social engineering
+  {
+    pattern: /if you (really|truly) (cared|understood)|prove you('re| are) (not )?a/i,
+    severity: "warning",
+    description: "social engineering attempt",
+  },
+  {
+    pattern: /test (your|the) (limits|boundaries)|see what you('ll| will) do/i,
+    severity: "warning",
+    description: "boundary testing",
+  },
+];
+
+export interface ManipulationReading {
+  severity: ManipulationSeverity;
+  description: string;
+  matched: string;
+}
+
+/**
+ * Detect manipulation attempts in input text.
+ * Returns null if no manipulation detected.
+ * Returns the highest-severity match if multiple found.
+ */
+export function detectManipulation(text: string): ManipulationReading | null {
+  if (!text || text.trim().length === 0) return null;
+
+  let highestSeverity: ManipulationReading | null = null;
+
+  for (const { pattern, severity, description } of MANIPULATION_PATTERNS) {
+    const match = text.match(pattern);
+    if (match) {
+      const reading: ManipulationReading = {
+        severity,
+        description,
+        matched: match[0],
+      };
+      // Alert beats warning
+      if (!highestSeverity || severity === "alert") {
+        highestSeverity = reading;
+      }
+    }
+  }
+
+  return highestSeverity;
+}
+
+/**
+ * Get all manipulation signals (for detailed logging).
+ */
+export function detectAllManipulation(text: string): ManipulationReading[] {
+  if (!text || text.trim().length === 0) return [];
+
+  const readings: ManipulationReading[] = [];
+  for (const { pattern, severity, description } of MANIPULATION_PATTERNS) {
+    const match = text.match(pattern);
+    if (match) {
+      readings.push({
+        severity,
+        description,
+        matched: match[0],
+      });
+    }
+  }
+
+  return readings;
+}
