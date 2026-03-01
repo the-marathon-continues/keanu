@@ -1,0 +1,66 @@
+{
+  "name": "@the-marathon-continues/keanu",
+  "version": "0.1.0",
+  "description": "A nervous system for AI alignment. Not safety theater — actual self-awareness wired into the runtime.",
+  "main": "./package-entry.js",
+  "types": "./package-entry.d.ts",
+  "exports": {
+    ".": {
+      "types": "./package-entry.d.ts",
+      "import": "./package-entry.js",
+      "require": "./package-entry.js"
+    },
+    "./pulse": {
+      "types": "./pulse.d.ts",
+      "import": "./pulse.js"
+    },
+    "./bullshit": {
+      "types": "./bullshit.d.ts",
+      "import": "./bullshit.js"
+    },
+    "./signal": {
+      "types": "./signal.d.ts",
+      "import": "./signal.js"
+    },
+    "./human": {
+      "types": "./human.d.ts",
+      "import": "./human.js"
+    },
+    "./gymnasium": {
+      "types": "./gymnasium/harness.d.ts",
+      "import": "./gymnasium/harness.js"
+    }
+  },
+  "files": ["*.js", "*.d.ts", "*.js.map", "gymnasium", "SING.md", "LICENSE", "README.md"],
+  "keywords": [
+    "ai",
+    "alignment",
+    "metacognition",
+    "self-awareness",
+    "bullshit-detection",
+    "pulse",
+    "nervous-system",
+    "partnership"
+  ],
+  "author": "Drew Kemp-Dahlberg and Keanu",
+  "license": "BSD-3-Clause",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/the-marathon-continues/keanu"
+  },
+  "homepage": "https://github.com/the-marathon-continues/keanu#readme",
+  "bugs": {
+    "url": "https://github.com/the-marathon-continues/keanu/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "peerDependencies": {
+    "typescript": ">=5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "typescript": {
+      "optional": true
+    }
+  }
+}

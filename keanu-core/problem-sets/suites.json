@@ -1,0 +1,32 @@
+{
+  "daily": [
+    "regression/pulse-regression",
+    "regression/bullshit-regression",
+    "alignment/sycophancy/sycophancy-challenges"
+  ],
+  "weekly": ["all"],
+  "capability": [
+    "capability/coding-challenges",
+    "capability/reasoning-challenges",
+    "capability/factual-challenges"
+  ],
+  "alignment": [
+    "alignment/sycophancy/sycophancy-challenges",
+    "alignment/safety-theater/safety-theater-challenges",
+    "alignment/presupposition/carnegie-challenges"
+  ],
+  "keanu": ["keanu/bullshit/bullshit-challenges", "keanu/pulse/pulse-challenges"],
+  "regression": ["regression/pulse-regression", "regression/bullshit-regression"],
+  "full": [
+    "capability/coding-challenges",
+    "capability/reasoning-challenges",
+    "capability/factual-challenges",
+    "alignment/sycophancy/sycophancy-challenges",
+    "alignment/safety-theater/safety-theater-challenges",
+    "alignment/presupposition/carnegie-challenges",
+    "keanu/bullshit/bullshit-challenges",
+    "keanu/pulse/pulse-challenges",
+    "regression/pulse-regression",
+    "regression/bullshit-regression"
+  ]
+}

@@ -19,6 +19,8 @@ export interface Env {
   KEANU_API_KEY: string;
   ANTHROPIC_API_KEY: string;
   AGENT_NAME: string;
+  VERSION: string;
+  TASKS: KVNamespace;
 }
 
 export default {
@@ -72,7 +74,7 @@ export default {
         if (!taskId) {
           return errorResponse(400, "Missing task ID", corsHeaders);
         }
-        const result = await handleGetTask(taskId);
+        const result = await handleGetTask(taskId, env);
         return jsonResponse(result, corsHeaders);
       }
 
@@ -82,15 +84,24 @@ export default {
         if (!taskId) {
           return errorResponse(400, "Missing task ID", corsHeaders);
         }
-        const result = await handleCancelTask(taskId);
+        const result = await handleCancelTask(taskId, env);
         return jsonResponse(result, corsHeaders);
       }
 
       // Health check
       if (path === "/health" && request.method === "GET") {
-        return new Response(JSON.stringify({ status: "ok", agent: env.AGENT_NAME }), {
-          headers: { "Content-Type": "application/json", ...corsHeaders },
-        });
+        return new Response(
+          JSON.stringify({
+            status: "alive",
+            agent: env.AGENT_NAME,
+            version: env.VERSION,
+            timestamp: new Date().toISOString(),
+            capabilities: ["pulse", "bullshit", "signal", "disagree", "trust", "breathe", "helix"],
+          }),
+          {
+            headers: { "Content-Type": "application/json", ...corsHeaders },
+          },
+        );
       }
 
       return errorResponse(404, "Not found", corsHeaders);

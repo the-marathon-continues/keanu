@@ -7,7 +7,16 @@ compatibility_date = "2024-01-01"
 
 [vars]
 AGENT_NAME = "Keanu"
+VERSION = "0.1.0"
 
 # Secrets (set via wrangler secret put):
 # - KEANU_API_KEY: Bearer token for authentication
 # - ANTHROPIC_API_KEY: For calling Claude when processing messages
+
+# KV namespace for task persistence
+# Create with: wrangler kv:namespace create "TASKS"
+# Then update the id below with the returned namespace ID
+[[kv_namespaces]]
+binding = "TASKS"
+id = "YOUR_KV_NAMESPACE_ID"
+preview_id = "YOUR_KV_PREVIEW_ID"

@@ -7,12 +7,35 @@
 
 import { describe, it, expect } from "vitest";
 import { handleSendMessage } from "../src/handlers";
+import type { Env } from "../src/index";
 import type { A2ARequest, A2AResponse } from "../src/types";
 
-const mockEnv = {
+// Mock KV store for testing
+function createMockKV(): KVNamespace {
+  const store = new Map<string, string>();
+  return {
+    get: async (key: string) => store.get(key) ?? null,
+    put: async (key: string, value: string) => {
+      store.set(key, value);
+    },
+    delete: async (key: string) => {
+      store.delete(key);
+    },
+    list: async () => ({ keys: [], list_complete: true, cacheStatus: null }),
+    getWithMetadata: async (key: string) => ({
+      value: store.get(key) ?? null,
+      metadata: null,
+      cacheStatus: null,
+    }),
+  } as unknown as KVNamespace;
+}
+
+const mockEnv: Env = {
   KEANU_API_KEY: "test-key",
   ANTHROPIC_API_KEY: "test-key",
   AGENT_NAME: "keanu-test",
+  VERSION: "0.1.0-test",
+  TASKS: createMockKV(),
 };
 
 function makeRequest(text: string, skillId?: string): A2ARequest {

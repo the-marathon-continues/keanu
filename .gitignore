@@ -120,3 +120,5 @@ dist/protocol.schema.json
 
 # Synthing
 **/.stfolder/
+keanu-core/tools/user-onboarding/*.json
+keanu-core/tools/user-onboarding/*.xlsx

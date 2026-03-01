@@ -36,6 +36,7 @@ export default defineConfig({
     include: [
       "src/**/*.test.ts",
       "extensions/**/*.test.ts",
+      "keanu-core/**/*.test.ts",
       "test/**/*.test.ts",
       "ui/src/ui/views/usage-render-details.test.ts",
       "ui/src/ui/controllers/agents.test.ts",

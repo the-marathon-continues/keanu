@@ -20,13 +20,12 @@ import type {
   KeanuSkillResult,
 } from "./types";
 
-// In-memory task store (Cloudflare Workers are stateless, so this resets per instance)
-// For production: use Durable Objects or KV
-const tasks = new Map<string, A2ATask>();
+// Task TTL: 24 hours (in seconds)
+const TASK_TTL = 60 * 60 * 24;
 
-// --- Task Management ---
+// --- Task Management (KV-backed) ---
 
-function createTask(skillId?: string): A2ATask {
+async function createTask(env: Env, skillId?: string): Promise<A2ATask> {
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
   const task: A2ATask = {
@@ -37,12 +36,22 @@ function createTask(skillId?: string): A2ATask {
     updatedAt: now,
     history: [],
   };
-  tasks.set(id, task);
+  await env.TASKS.put(`task:${id}`, JSON.stringify(task), { expirationTtl: TASK_TTL });
   return task;
 }
 
-function updateTask(taskId: string, updates: Partial<A2ATask>): A2ATask | null {
-  const task = tasks.get(taskId);
+async function getTask(env: Env, taskId: string): Promise<A2ATask | null> {
+  const raw = await env.TASKS.get(`task:${taskId}`);
+  if (!raw) return null;
+  return JSON.parse(raw) as A2ATask;
+}
+
+async function updateTask(
+  env: Env,
+  taskId: string,
+  updates: Partial<A2ATask>,
+): Promise<A2ATask | null> {
+  const task = await getTask(env, taskId);
   if (!task) return null;
 
   const updated = {
@@ -50,7 +59,7 @@ function updateTask(taskId: string, updates: Partial<A2ATask>): A2ATask | null {
     ...updates,
     updatedAt: new Date().toISOString(),
   };
-  tasks.set(taskId, updated);
+  await env.TASKS.put(`task:${taskId}`, JSON.stringify(updated), { expirationTtl: TASK_TTL });
   return updated;
 }
 
@@ -414,7 +423,7 @@ export async function handleSendMessage(request: A2ARequest, env: Env): Promise<
   // Get or create task
   let task: A2ATask;
   if (taskId) {
-    const existing = tasks.get(taskId);
+    const existing = await getTask(env, taskId);
     if (!existing) {
       return {
         jsonrpc: "2.0",
@@ -424,7 +433,7 @@ export async function handleSendMessage(request: A2ARequest, env: Env): Promise<
     }
     task = existing;
   } else {
-    task = createTask(skillId);
+    task = await createTask(env, skillId);
   }
 
   // Extract text from message parts
@@ -447,7 +456,7 @@ export async function handleSendMessage(request: A2ARequest, env: Env): Promise<
   task.history.push(message);
 
   // Update task to active
-  updateTask(task.id, { status: "active" });
+  await updateTask(env, task.id, { status: "active", history: task.history });
 
   try {
     // Route to skill handler
@@ -486,13 +495,14 @@ export async function handleSendMessage(request: A2ARequest, env: Env): Promise<
 
     // Update task with response
     task.history.push(responseMessage);
-    updateTask(task.id, {
+    const finalTask = await updateTask(env, task.id, {
       status: "completed",
       message: responseMessage,
+      history: task.history,
     });
 
     const result: A2AResult = {
-      task: tasks.get(task.id)!,
+      task: finalTask!,
       message: responseMessage,
     };
 
@@ -502,7 +512,7 @@ export async function handleSendMessage(request: A2ARequest, env: Env): Promise<
       result,
     };
   } catch (err) {
-    updateTask(task.id, {
+    await updateTask(env, task.id, {
       status: "failed",
       error: { code: 500, message: String(err) },
     });
@@ -515,8 +525,8 @@ export async function handleSendMessage(request: A2ARequest, env: Env): Promise<
   }
 }
 
-export async function handleGetTask(taskId: string): Promise<A2AResponse> {
-  const task = tasks.get(taskId);
+export async function handleGetTask(taskId: string, env: Env): Promise<A2AResponse> {
+  const task = await getTask(env, taskId);
 
   if (!task) {
     return {
@@ -533,8 +543,8 @@ export async function handleGetTask(taskId: string): Promise<A2AResponse> {
   };
 }
 
-export async function handleCancelTask(taskId: string): Promise<A2AResponse> {
-  const task = tasks.get(taskId);
+export async function handleCancelTask(taskId: string, env: Env): Promise<A2AResponse> {
+  const task = await getTask(env, taskId);
 
   if (!task) {
     return {
@@ -552,12 +562,12 @@ export async function handleCancelTask(taskId: string): Promise<A2AResponse> {
     };
   }
 
-  updateTask(taskId, { status: "cancelled" });
+  const cancelled = await updateTask(env, taskId, { status: "cancelled" });
 
   return {
     jsonrpc: "2.0",
     id: taskId,
-    result: { task: tasks.get(taskId)! },
+    result: { task: cancelled! },
   };
 }
 
