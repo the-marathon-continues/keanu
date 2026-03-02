@@ -86,7 +86,7 @@ function generateStartReport(pulse: PulseReading): string {
 
   // Color commentary
   const colors = pulse.colors;
-  const dominantColor =
+  const _dominantColor =
     colors.red > colors.yellow && colors.red > colors.blue
       ? "red (urgent)"
       : colors.yellow > colors.blue

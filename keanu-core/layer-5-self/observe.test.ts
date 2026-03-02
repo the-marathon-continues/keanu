@@ -6,10 +6,7 @@ import {
   recordTurn,
   getTurnTraces,
   resetTraces,
-  buildDashboard,
   formatDashboard,
-  configure,
-  type MetricsExport,
   type TurnTrace,
   type DashboardData,
 } from "./observe.js";

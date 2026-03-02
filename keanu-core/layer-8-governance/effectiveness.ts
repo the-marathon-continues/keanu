@@ -9,8 +9,8 @@
 
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import type { CorrectionCategory, Correction } from "../layer-7-update/mastery.js";
-import type { ReflexionTrigger } from "../shared/types.js";
+// Type imports for documentation only - CorrectionCategory and ReflexionTrigger are
+// mentioned in comments below but not used as actual types in this module
 
 // ============================================================
 // Types

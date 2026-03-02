@@ -37,6 +37,16 @@ export type {
   RGBDetail,
 } from "./elevator.js";
 
+// Sigma — Theory Measurement Layer
+export {
+  computeSigma,
+  predictAliveState,
+  trackAccuracy,
+  getAccuracyStats,
+  getRecentPredictions,
+} from "./sigma.js";
+export type { SigmaReading, SigmaInput, AccuracyStats } from "./sigma.js";
+
 // COEF Layer
 export { Primaries, analyzePrimaries } from "./primaries.js";
 export type { PrimaryReading, Synthesis } from "./primaries.js";

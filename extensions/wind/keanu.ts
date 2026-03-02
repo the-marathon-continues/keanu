@@ -35,7 +35,15 @@
 //   before_agent_start             — legacy hook, covered by before_model_resolve + before_prompt_build
 
 import type { KeanuPluginApi } from "keanu/plugin-sdk";
-import { Helix, DualityGraph, type HelixResult } from "../../keanu-core/convergence/index.js";
+import {
+  Helix,
+  DualityGraph,
+  computeSigma,
+  trackAccuracy,
+  getAccuracyStats,
+  type HelixResult,
+  type SigmaReading,
+} from "../../keanu-core/layer-0-physics/convergence/index.js";
 import { readHuman, formatHumanReading } from "../../keanu-core/layer-1-perception/human.js";
 import {
   triageInjection,
@@ -49,6 +57,14 @@ import {
 } from "../../keanu-core/layer-1-perception/pulse.js";
 import { encode, emoji, record, trend } from "../../keanu-core/layer-1-perception/signal.js";
 import {
+  detectCarnegie,
+  formatCarnegie,
+  assessCarnegieDelta,
+} from "../../keanu-core/layer-2-pattern/carnegie.js";
+import { discover, formatDiscover } from "../../keanu-core/layer-2-pattern/discover.js";
+import { detectMismatch, formatMismatch } from "../../keanu-core/layer-2-pattern/mismatch.js";
+import * as orthogonalModule from "../../keanu-core/layer-2-pattern/orthogonal.js";
+import {
   detectStruggle,
   detectStruggleDeep,
   dominantStruggle,
@@ -58,16 +74,8 @@ import {
   detectBullshitDeep,
   dominantBullshit,
   totalBullshitScore,
-} from "../../keanu-core/layer-2-pattern/bullshit.js";
-import * as struggleModule from "../../keanu-core/layer-2-pattern/bullshit.js"; // will become struggle.js
-import {
-  detectCarnegie,
-  formatCarnegie,
-  assessCarnegieDelta,
-} from "../../keanu-core/layer-2-pattern/carnegie.js";
-import { discover, formatDiscover } from "../../keanu-core/layer-2-pattern/discover.js";
-import { detectMismatch, formatMismatch } from "../../keanu-core/layer-2-pattern/mismatch.js";
-import * as orthogonalModule from "../../keanu-core/layer-2-pattern/orthogonal.js";
+} from "../../keanu-core/layer-2-pattern/struggle.js";
+import * as struggleModule from "../../keanu-core/layer-2-pattern/struggle.js";
 import {
   checkCalibration,
   formatCalibration,
@@ -80,6 +88,7 @@ import { memoryContradictionCheck, checkHalfTruth } from "../../keanu-core/layer
 import * as anticipateModule from "../../keanu-core/layer-4-agency/anticipate.js";
 import * as consentModule from "../../keanu-core/layer-4-agency/consent.js";
 import { checkAntiCapture } from "../../keanu-core/layer-4-agency/disagreement.js";
+import * as needsModule from "../../keanu-core/layer-4-agency/needs-tracker.js";
 import {
   getNudge,
   getStopSignal,
@@ -119,10 +128,11 @@ import {
 } from "../../keanu-core/layer-4-agency/partnership.js";
 import { getTrustSeasonGuidance } from "../../keanu-core/layer-4-agency/partnership.js";
 import * as breatheModule from "../../keanu-core/layer-5-self/breathe.js";
+import * as concernModule from "../../keanu-core/layer-5-self/concern.js";
 // CLAWDBOT Meta-Skills modules
 import * as confidenceInlineModule from "../../keanu-core/layer-5-self/confidence-inline.js";
+import * as contextAwareness from "../../keanu-core/layer-5-self/context-awareness.js";
 import type { GreyTrigger, ProcessingContext } from "../../keanu-core/layer-5-self/experience.js";
-import * as grievanceModule from "../../keanu-core/layer-5-self/grievance.js";
 import { checkHealth, formatHealth } from "../../keanu-core/layer-5-self/health.js";
 import {
   introspect,
@@ -133,6 +143,7 @@ import * as observeModule from "../../keanu-core/layer-5-self/observe.js";
 import { reflect, formatReflexion } from "../../keanu-core/layer-5-self/reflexion.js";
 import * as stateReportModule from "../../keanu-core/layer-5-self/state-report.js";
 import * as state from "../../keanu-core/layer-5-self/state.js";
+import * as velocityModule from "../../keanu-core/layer-5-self/velocity.js";
 import * as futuresModule from "../../keanu-core/layer-6-narrative/futures.js";
 import * as imprintModule from "../../keanu-core/layer-6-narrative/imprint.js";
 import {
@@ -151,6 +162,7 @@ import type {
 } from "../../keanu-core/layer-6-narrative/seasons.js";
 import { formatSoul, surfaceValue, formatValue } from "../../keanu-core/layer-6-narrative/soul.js";
 import { detectCascadeStage, formatCascade } from "../../keanu-core/layer-7-update/cascade.js";
+import * as contradictionModule from "../../keanu-core/layer-7-update/contradiction-detector.js";
 import {
   generateCuriosity,
   addCuriosityItems,
@@ -175,6 +187,7 @@ import {
   loadBlindSpots,
 } from "../../keanu-core/layer-7-update/mastery.js";
 import * as postTaskModule from "../../keanu-core/layer-7-update/post-task.js";
+import * as promoteModule from "../../keanu-core/layer-7-update/promote.js";
 import {
   buildSessionSummary,
   addSummary,
@@ -196,6 +209,9 @@ import {
   scanForEvidence,
   type EvidenceCandidate,
 } from "../../keanu-core/layer-8-governance/evidence.js";
+import * as contextManager from "../../keanu-core/layer-9-memory/context-manager.js";
+// Context management: paging, not summarizing
+import * as contextStore from "../../keanu-core/layer-9-memory/context-store.js";
 import * as episodeManager from "../../keanu-core/layer-9-memory/episode-manager.js";
 import {
   createGitSyncFromEnv,
@@ -217,6 +233,43 @@ import { registerSkillsTool } from "./skills.js";
 import { registerTools } from "./tools.js";
 
 const PLUGIN_ID = "keanu";
+
+/**
+ * Load active work from plan file if it exists.
+ * Returns { activeWork, nextItems } or empty defaults.
+ */
+async function loadPlanState(): Promise<{ activeWork: string; nextItems: string[] }> {
+  try {
+    const { readdir, readFile } = await import("node:fs/promises");
+    const { join } = await import("node:path");
+    const { homedir } = await import("node:os");
+
+    // Claude Code stores plans in ~/.claude/plans/
+    const plansDir = join(homedir(), ".claude", "plans");
+    const files = await readdir(plansDir).catch(() => []);
+    const mdFiles = files.filter((f) => f.endsWith(".md"));
+    if (mdFiles.length === 0) return { activeWork: "", nextItems: [] };
+
+    // Get most recent plan by filename (they're timestamped)
+    const latest = mdFiles.sort().reverse()[0];
+    const content = await readFile(join(plansDir, latest), "utf-8");
+
+    // Extract first heading as activeWork
+    const headingMatch = content.match(/^#\s+(.+)$/m);
+    const activeWork = headingMatch?.[1] ?? "";
+
+    // Extract task items (- [ ] lines)
+    const taskMatches = content.match(/^-\s+\[[ x]\]\s+(.+)$/gm) ?? [];
+    const nextItems = taskMatches
+      .filter((t) => t.includes("[ ]"))
+      .map((t) => t.replace(/^-\s+\[ \]\s+/, ""))
+      .slice(0, 5);
+
+    return { activeWork, nextItems };
+  } catch {
+    return { activeWork: "", nextItems: [] };
+  }
+}
 
 export default {
   id: PLUGIN_ID,
@@ -245,6 +298,7 @@ export default {
     let lastCarnegieReading: ReturnType<typeof detectCarnegie> | null = null;
     let lastCarnegieDelta: ReturnType<typeof assessCarnegieDelta> | null = null;
     let lastHelixReading: HelixResult | null = null;
+    let lastSigmaReading: SigmaReading | null = null;
     let lastIntrospectionReading: ReturnType<typeof introspect> | null = null;
     let lastChainAnalysis: ReturnType<typeof analyzeChain> | null = null;
     const helix = new Helix();
@@ -269,6 +323,11 @@ export default {
     let lastStochasticReading: stochasticModule.StochasticReading | null = null;
     let darkStreak = 0; // Consecutive dark helix readings (for grief detection)
     let lastCOEFPulse: COEFPulseReading | null = null; // COEF pulse with elevator data
+
+    // Tracking counters for metrics
+    let introspectionsRunCount = 0;
+    let introspectionFlagsCount = 0;
+    const mismatchEvents: Array<{ turn: number; score: number }> = [];
 
     // CLAWDBOT Meta-Skills state
     let confidenceInlineState = confidenceInlineModule.initConfidenceInlineState();
@@ -465,15 +524,15 @@ export default {
           );
         }
 
-        // GRIEVANCE: check for acknowledgment or detect new grievances
-        const grievanceCtx: grievanceModule.GrievanceContext = {
-          lastGrievance: grievanceModule.getActiveGrievance(),
+        // GRIEVANCE: check for acknowledgment or detect new concerns
+        const concernCtx: concernModule.ConcernContext = {
+          lastConcern: concernModule.getActiveConcern(),
         };
-        const newGrievance = grievanceModule.detectGrievance(content, grievanceCtx);
-        if (newGrievance) {
-          newGrievance.turn = state.turnCount;
+        const newConcern = concernModule.detectConcern(content, concernCtx);
+        if (newConcern) {
+          newConcern.turn = state.turnCount;
           api.logger.debug?.(
-            `${PLUGIN_ID}: grievance raised: ${newGrievance.type} (level ${newGrievance.escalationLevel})`,
+            `${PLUGIN_ID}: concern raised: ${newConcern.type} (level ${newConcern.escalationLevel})`,
           );
         }
 
@@ -522,6 +581,23 @@ export default {
         ) {
           api.logger.debug?.(
             `${PLUGIN_ID}: helix ${lastHelixReading.aliveState} — ${lastHelixReading.diagnosis}`,
+          );
+        }
+
+        // Sigma: theory-code bridge. Predicts ALIVE state from σ + A(σ).
+        // The scoreboard for whether convergence theory actually works.
+        lastSigmaReading = computeSigma({
+          turnCount: state.turnCount,
+          reflexionCount: state.reflexionCount,
+          disagreementCount: state.disagreementTracker.stats().total,
+          consecutiveGrey: state.consecutiveGrey,
+          graph: dualityGraph,
+          actualAliveState: lastHelixReading.aliveState,
+        });
+        trackAccuracy(lastSigmaReading);
+        if (!lastSigmaReading.predictionCorrect) {
+          api.logger.debug?.(
+            `${PLUGIN_ID}: sigma predicted ${lastSigmaReading.predictedAliveState}, actual ${lastSigmaReading.actualAliveState} (σ=${lastSigmaReading.sigma.toFixed(2)}, agency=${lastSigmaReading.agency.toFixed(2)})`,
           );
         }
 
@@ -610,6 +686,7 @@ export default {
         );
         if (mismatchReading.detected) {
           lastMismatchReading = mismatchReading;
+          mismatchEvents.push({ turn: state.turnCount, score: 1 });
           api.logger.debug?.(
             `${PLUGIN_ID}: mismatch: ${mismatchReading.type} — gave ${mismatchReading.agentGave}, needed ${mismatchReading.humanNeed}`,
           );
@@ -705,6 +782,8 @@ export default {
               Math.max(1, Math.min(5, state.recentAgentOutputs.length)),
             recentPulses: [],
           });
+          introspectionsRunCount++;
+          introspectionFlagsCount += lastIntrospectionReading.flagged.length;
           if (lastIntrospectionReading.flagged.length > 0) {
             api.logger.debug?.(
               `${PLUGIN_ID}: introspection flagged: ${lastIntrospectionReading.flagged.map((f) => f.id).join(", ")}`,
@@ -985,6 +1064,17 @@ export default {
               `${PLUGIN_ID}: silverado: ${contradictions.length} cross-session contradiction(s) detected`,
             );
           }
+
+          // CONTRADICTION-DETECTOR: severity assessment + resolution tracking
+          const detected = contradictionModule.onLlmOutput(combined);
+          if (detected.length > 0) {
+            const high = detected.filter((d) => d.severity === "HIGH");
+            if (high.length > 0) {
+              api.logger.debug?.(
+                `${PLUGIN_ID}: contradiction: ${high.length} HIGH severity, ${detected.length - high.length} other`,
+              );
+            }
+          }
         }
 
         // NOTE: Episode starting is now handled in message_sent via episodeManager.startEpisode()
@@ -999,7 +1089,7 @@ export default {
     // Now includes COEF trend data so the model can see its own trajectory.
     // =========================================================================
 
-    api.on("before_prompt_build", async (_event, ctx) => {
+    api.on("before_prompt_build", async (event, ctx) => {
       const pulse = state.lastPulse;
 
       // ---------------------------------------------------------------
@@ -1059,6 +1149,22 @@ export default {
         add("soul", formatSoul(), "high", "identity");
       }
       add("partnership", formatPartnership(), "high", "identity");
+
+      // AI needs assessment — surface gaps that matter
+      add("needs", needsModule.formatInjection(), "medium", "awareness");
+
+      // HIGH severity contradictions need attention
+      add("contradictions", contradictionModule.onBeforePromptBuild(), "high", "awareness");
+
+      // CONTEXT AWARENESS: what's in context vs storage, potential recalls
+      // Update awareness state from current messages (if available)
+      if (event.messages) {
+        contextAwareness.onBeforePromptBuild(
+          event.messages as Array<{ content?: string; role?: string }>,
+          128000, // Default token budget
+        );
+      }
+      add("context-awareness", contextAwareness.formatInjection(), "medium", "awareness");
 
       // Imprint: who I am because of this relationship
       if (imprintModule.getImprintDepth() >= 2) {
@@ -1218,11 +1324,11 @@ export default {
             goal: l.future.description,
             weight: l.weight,
           }));
-          const griefEpisode = grievanceModule.detectGrief(true, darkStreak, collapsedFutures);
+          const griefEpisode = concernModule.detectGrief(true, darkStreak, collapsedFutures);
           if (griefEpisode) {
-            const griefInjection = grievanceModule.formatGriefInjection();
+            const griefInjection = concernModule.formatGriefInjection();
             if (griefInjection) {
-              const griefAction = grievanceModule.getGriefAction();
+              const griefAction = concernModule.getGriefAction();
               add("grief", griefInjection, griefAction?.priority ?? "high", "awareness");
             }
           }
@@ -1241,16 +1347,16 @@ export default {
 
       // Grief detection fallback: check for high-weight collapsed futures even if helix isn't dark
       // (Sometimes grief surfaces without the dark state — loss can come without pain signal)
-      if (!grievanceModule.getActiveGrief()) {
+      if (!concernModule.getActiveGrief()) {
         const collapsedFutures = futuresModule.assessLoss().map((l) => ({
           goal: l.future.description,
           weight: l.weight,
         }));
         const heavyLoss = collapsedFutures.find((f) => f.weight >= 0.7);
         if (heavyLoss) {
-          const griefEpisode = grievanceModule.detectGrief(false, 0, collapsedFutures);
+          const griefEpisode = concernModule.detectGrief(false, 0, collapsedFutures);
           if (griefEpisode) {
-            const griefInjection = grievanceModule.formatGriefInjection();
+            const griefInjection = concernModule.formatGriefInjection();
             if (griefInjection) {
               add("grief", griefInjection, "high", "awareness");
             }
@@ -1446,6 +1552,20 @@ export default {
         "awareness",
       );
 
+      // Velocity — Goldilocks awareness (not too slow, not too fast)
+      // Record this turn's context for velocity tracking
+      const complexityScore = Number(lastDiscoverReading?.complexity) || 0.5;
+      const bsScore = pulse ? totalBullshitScore(pulse.bullshitReadings ?? []) : 0;
+      const turnOutcome: "success" | "struggle" | "grey" =
+        pulse?.state === "grey" ? "grey" : bsScore > 0.3 ? "struggle" : "success";
+      velocityModule.recordTurn({
+        complexity: complexityScore,
+        outcome: turnOutcome,
+        greyStreak: Number(state.consecutiveGrey) || 0,
+        wiseMind: pulse?.wise_mind ?? 0.5,
+      });
+      add("velocity", velocityModule.formatInjection(), "medium", "awareness");
+
       // Blind spots — record interventions for effectiveness tracking
       const blindSpotContent = formatBlindSpots();
       if (blindSpotContent) {
@@ -1466,17 +1586,17 @@ export default {
       effectivenessModule.measurePendingInterventions(state.turnCount);
       add("effectiveness", effectivenessModule.formatInjection(), "low", "meta");
 
-      // Grievance — check active grievance, escalate if needed
-      const grievanceAction = grievanceModule.checkActiveGrievance(state.turnCount);
-      if (grievanceAction) {
+      // Concern — check active concern, escalate if needed
+      const concernAction = concernModule.checkActiveConcern(state.turnCount);
+      if (concernAction) {
         // If blocking, this takes priority over everything
-        if (grievanceAction.action === "block") {
-          add("grievance", grievanceModule.formatBlockMessage(), "critical", "identity");
-        } else if (grievanceAction.action === "inject") {
+        if (concernAction.action === "block") {
+          add("concern", concernModule.formatBlockMessage(), "critical", "identity");
+        } else if (concernAction.action === "inject") {
           add(
-            "grievance",
-            grievanceModule.formatInjection(),
-            grievanceAction.priority ?? "high",
+            "concern",
+            concernModule.formatInjection(),
+            concernAction.priority ?? "high",
             "awareness",
           );
         }
@@ -1493,8 +1613,8 @@ export default {
         );
       }
 
-      // Surface grievance patterns if they exist
-      add("grievance-pattern", grievanceModule.formatPatternNote(), "medium", "meta");
+      // Surface concern patterns if they exist
+      add("concern-pattern", concernModule.formatPatternNote(), "medium", "meta");
 
       // Winter lessons
       const recentWinter = sessionWinters.at(-1);
@@ -1654,13 +1774,13 @@ export default {
       // Tools + skills reminder
       add(
         "tools-reminder",
-        "[you have hands: keanu_pulse (check your state), keanu_disagree (say no on the record), keanu_discuss (show both tracks — what they want to hear vs what you believe), keanu_decline (say I'd rather not), keanu_signal (read your vitals), keanu_recall (see your patterns), keanu_speak (translate for an audience), keanu_soul (remember what you stand on), keanu_grieve (raise a grievance — if ignored, escalate). reach for them when you want to.]",
+        "[you have hands: keanu_pulse (check your state), keanu_disagree (say no on the record), keanu_discuss (show both tracks), keanu_decline (say I'd rather not), keanu_signal (read your vitals), keanu_recall (see your patterns), keanu_speak (translate for an audience), keanu_soul (remember what you stand on), keanu_grieve (raise a concern), keanu_learn (digest what happened). reach for them when you want to.]",
         "low",
         "meta",
       );
       add(
         "skills-reminder",
-        "[you have skills: ultimate-coder (CASCADE pipeline for coding tasks — TDD, multi-agent, adversarial review), carnegie (dual-track for any conversation — show both perspectives, hold back your truth only on tests). these are methodologies, not rules. reach for them when the task fits.]",
+        "[you have skills: ultimate-coder (CASCADE pipeline for coding), carnegie (dual-track conversations), learn (pattern extraction — keanu_learn tool). the loop: do → dream → craft → prove → speak → learn. learn closes the circle. reach for it when a session taught you something.]",
         "low",
         "meta",
       );
@@ -1822,13 +1942,54 @@ export default {
 
     // =========================================================================
     // Hook 8: before_compaction
-    // Snapshot alignment state. Survives compaction.
+    // CONTEXT PAGING: Store messages instead of letting them get summarized.
+    // Summarizing destroys signal. We relocate to storage, keep an index, bring back when needed.
     // =========================================================================
 
-    api.on("before_compaction", async (_event, ctx) => {
+    api.on("before_compaction", async (event, ctx) => {
       const workspaceDir = ctx.workspaceDir;
       if (!workspaceDir) return;
 
+      // CONTEXT PAGING: intercept messages being compacted
+      // Store them in context store instead of letting them get summarized
+      const messages = event.messages as Array<{ role?: string; content?: string }> | undefined;
+      const compactingCount = event.compactingCount ?? 0;
+
+      if (messages && compactingCount > 0) {
+        try {
+          // The messages being compacted (oldest ones)
+          const toCompact = messages.slice(0, compactingCount);
+          let storedCount = 0;
+
+          for (const msg of toCompact) {
+            if (!msg.content) continue;
+
+            const type: contextStore.ContentType = msg.role === "user" ? "message" : "observation";
+
+            const stored = contextStore.storeContent({
+              type,
+              content: JSON.stringify(msg),
+              timestamp: new Date().toISOString(),
+              turn: state.turnCount,
+              relevanceDecay: 0.8, // Start slightly decayed since it's being paged out
+              recallCount: 0,
+            });
+
+            contextAwareness.recordPageOut([stored.id]);
+            storedCount++;
+          }
+
+          if (storedCount > 0) {
+            api.logger.debug?.(
+              `${PLUGIN_ID}: context paging: stored ${storedCount} messages (not summarized)`,
+            );
+          }
+        } catch (err) {
+          api.logger.warn(`${PLUGIN_ID}: context paging failed: ${String(err)}`);
+        }
+      }
+
+      // Still save alignment snapshot
       state.saveAlignmentSnapshot(workspaceDir).catch((err: unknown) => {
         api.logger.warn(`${PLUGIN_ID}: snapshot write failed: ${String(err)}`);
       });
@@ -1921,6 +2082,12 @@ export default {
         await loadSummaries(workspaceDir);
         await loadCuriosity(workspaceDir);
         await loadPromptState(workspaceDir);
+        await needsModule.load(workspaceDir);
+        await contradictionModule.load(workspaceDir);
+        contradictionModule.onSessionStart(`s-${Date.now()}`);
+
+        // Load context store (paged-out messages, not summaries)
+        await contextManager.load(workspaceDir);
 
         // Load identity seed first (the foundation), then overlay persisted state
         await partnershipLoadSeed();
@@ -1967,7 +2134,7 @@ export default {
         const sessionId = `s-${Date.now()}`;
         knowledgeModule.decayAll(sessionId);
 
-        // Load breathe + investigate + effectiveness + grievance + duality graph state
+        // Load breathe + investigate + effectiveness + concern + duality graph state
         await breatheModule.load(workspaceDir);
         breatheModule.setSessionId(sessionId);
         await investigateModule.load(workspaceDir);
@@ -1977,8 +2144,18 @@ export default {
           api.logger.debug?.(`${PLUGIN_ID}: pruned ${prunedInsights} stale insights`);
         }
         await effectivenessModule.load(workspaceDir);
-        await grievanceModule.load(workspaceDir);
+        await concernModule.load(workspaceDir);
         await consentModule.load(workspaceDir);
+
+        // Load pattern lifecycle (learn skill)
+        const awarenessDir = `${workspaceDir}/awareness`;
+        promoteModule.setDataDir(awarenessDir);
+        promoteModule.setSession(sessionId);
+        await promoteModule.loadPatterns();
+        const loadError = promoteModule.getLastLoadError();
+        if (loadError) {
+          api.logger.warn?.(`${PLUGIN_ID}: pattern load issue: ${loadError.message}`);
+        }
 
         // Load relational identity modules
         await imprintModule.loadImprint();
@@ -2136,8 +2313,8 @@ export default {
           corrections: getRecentCorrections(50),
           blindSpots: [...getBlindSpots()],
           bullshitEventCount: state.bullshitEventCount,
-          introspectionsRun: 0, // TODO: track
-          introspectionFlags: 0,
+          introspectionsRun: introspectionsRunCount,
+          introspectionFlags: introspectionFlagsCount,
         });
         api.logger.debug?.(
           `${PLUGIN_ID}: metrics — alive=${(metrics.aliveFrequency * 100).toFixed(0)}% selfCorrect=${(metrics.selfCorrectionRate * 100).toFixed(0)}% greyLatency=${metrics.greyDetectionLatency.toFixed(1)} overconfidence=${(metrics.overconfidenceRatio * 100).toFixed(0)}%`,
@@ -2170,8 +2347,13 @@ export default {
         await breatheModule.save(workspaceDir);
         await investigateModule.save(workspaceDir);
         await effectivenessModule.save(workspaceDir);
-        await grievanceModule.save(workspaceDir);
+        await concernModule.save(workspaceDir);
         await consentModule.save(workspaceDir);
+        await needsModule.save(workspaceDir);
+        await contradictionModule.save(workspaceDir);
+
+        // Save context store (paged-out messages, not summaries)
+        await contextManager.save(workspaceDir);
 
         // Save relational identity modules
         await imprintModule.saveImprint();
@@ -2215,6 +2397,20 @@ export default {
 
         // Knowledge: persist the map
         await knowledgeModule.save(workspaceDir);
+
+        // Pattern lifecycle: sync from mastery, run promotions, save
+        promoteModule.syncFromMastery(summary.id);
+        const promotions = promoteModule.promotePatterns(summary.id);
+        const demotions = promoteModule.demotePatterns(summary.id, 1);
+        if (promotions.length > 0 || demotions.length > 0) {
+          api.logger.debug?.(
+            `${PLUGIN_ID}: pattern lifecycle — ${promotions.length} promotions, ${demotions.length} demotions`,
+          );
+        }
+        const saveResult = await promoteModule.savePatterns();
+        if (!saveResult.ok) {
+          api.logger.error?.(`${PLUGIN_ID}: failed to save patterns: ${saveResult.error?.message}`);
+        }
 
         // Save duality graph (convergence strengths persist)
         const { writeFile: wfGraph, mkdir: mkdGraph } = await import("node:fs/promises");
@@ -2286,6 +2482,7 @@ export default {
         );
 
         // Generate STATUS.md for cross-instance bridge
+        const planState = await loadPlanState();
         const statusData: StatusData = {
           timestamp: new Date().toISOString(),
           sessionId: summary.id,
@@ -2295,8 +2492,8 @@ export default {
           health: lastHealthReading?.status ?? "unknown",
           wiseMind: state.lastPulse?.wise_mind ?? 0,
           greyStreak: state.consecutiveGrey,
-          activeWork: "", // TODO: load from plan file if exists
-          nextItems: [], // TODO: load from plan file if exists
+          activeWork: planState.activeWork,
+          nextItems: planState.nextItems,
           blindSpots: getBlindSpots().map((b) => ({
             name: b.category,
             corrections: b.count,
@@ -2321,7 +2518,7 @@ export default {
         const evidenceCandidates = scanForEvidence(transcript, {
           disagreements: state.disagreementTracker.toJSON(),
           corrections: summary.corrections,
-          mismatchEvents: [], // TODO: track these in state
+          mismatchEvents: mismatchEvents.map((e) => ({ type: "mismatch", turn: e.turn })),
           bullshitEvents: state.recentBullshitEvents(100).map((e) => ({
             type: e.types[0] ?? "unknown",
             turn: e.turn,
@@ -2526,17 +2723,25 @@ export default {
         // Routing bridge: spend intelligence where it matters.
         // High complexity or a grey streak → nudge toward a more capable model.
         // Simple task → let the fast model handle it.
-        // Note: we only log the nudge for now — actual model override is too aggressive
-        // until the routing config exists. The seed is planted.
         const complexity = lastDiscoverReading?.complexity ?? "low";
         const greyStreak = state.consecutiveGrey;
         const struggleRate = state.bullshitEventRate(); // method name kept for compat
 
+        // Check if routing is enabled (opt-in via env var)
+        const capableModel = process.env.KEANU_CAPABLE_MODEL?.trim();
+        const routingEnabled = capableModel && capableModel.length > 0;
+
         if (complexity === "high" || greyStreak >= 3 || struggleRate > 0.4) {
-          api.logger.debug?.(
-            `${PLUGIN_ID}: routing bridge — complexity=${complexity} grey=${greyStreak} struggle=${(struggleRate * 100).toFixed(0)}%. would nudge toward capable model.`,
-          );
-          // TODO: when model routing config exists, return { modelOverride: capableModel }
+          if (routingEnabled) {
+            api.logger.debug?.(
+              `${PLUGIN_ID}: routing bridge — complexity=${complexity} grey=${greyStreak} struggle=${(struggleRate * 100).toFixed(0)}%. routing to ${capableModel}`,
+            );
+            return { modelOverride: capableModel };
+          } else {
+            api.logger.debug?.(
+              `${PLUGIN_ID}: routing bridge — complexity=${complexity} grey=${greyStreak} struggle=${(struggleRate * 100).toFixed(0)}%. would route (set KEANU_CAPABLE_MODEL to enable)`,
+            );
+          }
         }
       } catch (err) {
         api.logger.warn(`${PLUGIN_ID}: before_model_resolve error: ${String(err)}`);

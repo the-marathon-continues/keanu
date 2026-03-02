@@ -158,7 +158,7 @@ export function resetSessionCost(): void {
  * Extract JSON from LLM response text. Handles markdown code fences,
  * extra prose, and nested braces.
  */
-export function extractJSON(text: string): unknown | null {
+export function extractJSON(text: string): unknown {
   const cleaned = text.trim();
 
   // try ```json ... ``` first
@@ -253,6 +253,9 @@ interface OpenRouterResponse {
 // Log the fallback once, not every call
 let _fallbackLogged = false;
 
+// 30 second timeout for LLM calls — long enough for complex reasoning, short enough to fail fast
+const OPENROUTER_TIMEOUT_MS = 30_000;
+
 async function callOpenRouter(
   apiKey: string,
   model: string,
@@ -270,6 +273,7 @@ async function callOpenRouter(
       "X-Title": "Keanu Alignment Mirror",
     },
     body: JSON.stringify({ model, messages, max_tokens: maxTokens }),
+    signal: AbortSignal.timeout(OPENROUTER_TIMEOUT_MS),
   });
 
   if (!response.ok) {
@@ -281,6 +285,9 @@ async function callOpenRouter(
   const latencyMs = Date.now() - startTime;
 
   const text = data.choices?.[0]?.message?.content ?? "";
+  if (!text && data.choices?.length) {
+    console.debug(`[keanu/oracle] OpenRouter returned empty content for model=${model}`);
+  }
   const inputTokens = data.usage?.prompt_tokens ?? 0;
   const outputTokens = data.usage?.completion_tokens ?? 0;
   const cost = estimateCost(model, inputTokens, outputTokens);
@@ -360,11 +367,11 @@ export async function callOracle(opts: OracleOptions): Promise<OracleResponse> {
   const role = opts.role;
   const roleConfig = role ? ROLE_DEFAULTS[role] : undefined;
 
-  // Route through OpenRouter when: role is set + key exists
+  // Route through OpenRouter when: role is set + key exists + role config exists
   // Caller's explicit model overrides the role default but still uses OpenRouter
-  if (role && openRouterKey) {
-    const model = opts.model || roleConfig!.model;
-    const maxTokens = opts.maxTokens || roleConfig!.maxTokens;
+  if (role && openRouterKey && roleConfig) {
+    const model = opts.model || roleConfig.model;
+    const maxTokens = opts.maxTokens || roleConfig.maxTokens;
 
     const messages: OpenRouterMessage[] = [];
     if (opts.system) {

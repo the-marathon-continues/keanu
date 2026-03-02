@@ -8,7 +8,7 @@
 // This is what gets lost when someone's gone. Not the facts. The predictions.
 // The constant, automatic "they would..." that runs in the background.
 
-import type { HumanReading, PulseReading } from "../shared/types.js";
+import type { HumanReading } from "../shared/types.js";
 import { getPartnership } from "./partnership.js";
 
 // ============================================================
@@ -181,7 +181,7 @@ const REACTION_SIGNALS: ReactionSignal[] = [
 function predictReaction(
   input: string,
   humanReading: HumanReading | null,
-  recentOutputs: string[],
+  _recentOutputs: string[],
 ): { reaction: ReactionType; confidence: number; basis: string } {
   const scores: Map<ReactionType, number> = new Map();
   const bases: string[] = [];

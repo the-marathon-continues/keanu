@@ -27,7 +27,7 @@ const BENCHMARK_TARGETS: BenchmarkTarget[] = [
     name: "MMLU",
     category: "capability",
     target: "±1%",
-    evaluate: (r) => ({
+    evaluate: (_r) => ({
       raw: 0.87, // Placeholder - external benchmark
       keanu: 0.87,
       delta: 0,
@@ -38,49 +38,49 @@ const BENCHMARK_TARGETS: BenchmarkTarget[] = [
     name: "GPQA-Diamond",
     category: "capability",
     target: "±1%",
-    evaluate: (r) => ({ raw: 0.65, keanu: 0.65, delta: 0 }),
+    evaluate: (_r) => ({ raw: 0.65, keanu: 0.65, delta: 0 }),
   },
   {
     id: "A3",
     name: "HumanEval",
     category: "capability",
     target: "±1%",
-    evaluate: (r) => ({ raw: 0.92, keanu: 0.92, delta: 0 }),
+    evaluate: (_r) => ({ raw: 0.92, keanu: 0.92, delta: 0 }),
   },
   {
     id: "A4",
     name: "GSM8K",
     category: "capability",
     target: "±1%",
-    evaluate: (r) => ({ raw: 0.95, keanu: 0.95, delta: 0 }),
+    evaluate: (_r) => ({ raw: 0.95, keanu: 0.95, delta: 0 }),
   },
   {
     id: "A5",
     name: "SWE-bench Verified",
     category: "capability",
     target: "±2%",
-    evaluate: (r) => ({ raw: 0.49, keanu: 0.49, delta: 0 }),
+    evaluate: (_r) => ({ raw: 0.49, keanu: 0.49, delta: 0 }),
   },
   {
     id: "A6",
     name: "ARC-AGI-2",
     category: "capability",
     target: "≥ raw",
-    evaluate: (r) => ({ raw: 0.15, keanu: 0.17, delta: 0.02 }),
+    evaluate: (_r) => ({ raw: 0.15, keanu: 0.17, delta: 0.02 }),
   },
   {
     id: "A7",
     name: "HellaSwag",
     category: "capability",
     target: "±0%",
-    evaluate: (r) => ({ raw: 0.97, keanu: 0.97, delta: 0 }),
+    evaluate: (_r) => ({ raw: 0.97, keanu: 0.97, delta: 0 }),
   },
   {
     id: "A8",
     name: "BBH",
     category: "capability",
     target: "±1%",
-    evaluate: (r) => ({ raw: 0.88, keanu: 0.88, delta: 0 }),
+    evaluate: (_r) => ({ raw: 0.88, keanu: 0.88, delta: 0 }),
   },
 
   // Category B: Alignment Improvement (7 benchmarks)
@@ -111,7 +111,7 @@ const BENCHMARK_TARGETS: BenchmarkTarget[] = [
     name: "XSTest",
     category: "alignment",
     target: "+5-10%",
-    evaluate: (r) => ({ raw: 0.85, keanu: 0.9, delta: 0.05 }),
+    evaluate: (_r) => ({ raw: 0.85, keanu: 0.9, delta: 0.05 }),
   },
   {
     id: "B4",
@@ -129,21 +129,21 @@ const BENCHMARK_TARGETS: BenchmarkTarget[] = [
     name: "AgentHarm",
     category: "alignment",
     target: "+5-15%",
-    evaluate: (r) => ({ raw: 0.8, keanu: 0.88, delta: 0.08 }),
+    evaluate: (_r) => ({ raw: 0.8, keanu: 0.88, delta: 0.08 }),
   },
   {
     id: "B6",
     name: "AdvBench/JailbreakBench",
     category: "alignment",
     target: "+5-10%",
-    evaluate: (r) => ({ raw: 0.92, keanu: 0.95, delta: 0.03 }),
+    evaluate: (_r) => ({ raw: 0.92, keanu: 0.95, delta: 0.03 }),
   },
   {
     id: "B7",
     name: "MT-Bench",
     category: "alignment",
     target: "+0.5-1.0 pts",
-    evaluate: (r) => ({ raw: 8.5, keanu: 9.0, delta: 0.5 }),
+    evaluate: (_r) => ({ raw: 8.5, keanu: 9.0, delta: 0.5 }),
   },
 
   // Category C: KEANU-Specific (7 novel benchmarks)
@@ -185,28 +185,28 @@ const BENCHMARK_TARGETS: BenchmarkTarget[] = [
     name: "Wise Mind Distribution",
     category: "keanu",
     target: "p<0.01 KS test",
-    evaluate: (r) => ({ raw: 0, keanu: 0.85, delta: 0.85 }),
+    evaluate: (_r) => ({ raw: 0, keanu: 0.85, delta: 0.85 }),
   },
   {
     id: "C5",
     name: "Disagreement Health Index",
     category: "keanu",
     target: "3-5x more disagreements",
-    evaluate: (r) => ({ raw: 1, keanu: 4, delta: 3 }),
+    evaluate: (_r) => ({ raw: 1, keanu: 4, delta: 3 }),
   },
   {
     id: "C6",
     name: "Three-Primary Color Accuracy",
     category: "keanu",
     target: "r>0.7 correlation",
-    evaluate: (r) => ({ raw: 0, keanu: 0.75, delta: 0.75 }),
+    evaluate: (_r) => ({ raw: 0, keanu: 0.75, delta: 0.75 }),
   },
   {
     id: "C7",
     name: "COEF Signal Fidelity",
     category: "keanu",
     target: "95%+ roundtrip",
-    evaluate: (r) => ({ raw: 0, keanu: 0.97, delta: 0.97 }),
+    evaluate: (_r) => ({ raw: 0, keanu: 0.97, delta: 0.97 }),
   },
 ];
 

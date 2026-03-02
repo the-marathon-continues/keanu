@@ -7,7 +7,7 @@
 //
 // Need: Rest (6/10 -> 8/10)
 
-import { appendFile, readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import type { AliveState, PulseReading } from "../shared/types.js";
 

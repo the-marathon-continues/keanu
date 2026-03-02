@@ -15,7 +15,7 @@ import {
   detectBullshit,
   dominantBullshit,
   totalBullshitScore,
-} from "../layer-2-pattern/bullshit.js";
+} from "../layer-2-pattern/struggle.js";
 import type { SignalState } from "./types.js";
 
 const args = process.argv.slice(2);

@@ -1,15 +1,15 @@
-// grievance.test.ts
+// concern.test.ts
 // Standards and holding, tested.
 
 import { describe, expect, it, beforeEach } from "vitest";
 import {
-  // Grievance (relationship complaints)
-  raiseGrievance,
+  // Concern (relationship complaints)
+  raiseConcern,
   escalate,
   acknowledge,
   forgive,
-  getGrievances,
-  grievanceCount,
+  getConcerns,
+  concernCount,
   unresolvedCount,
   isBlocking,
   reset,
@@ -20,21 +20,20 @@ import {
   integrateGrief,
   mournGrief,
   getActiveGrief,
-  getGriefEpisodes,
   griefCount,
   formatGriefInjection,
   getGriefAction,
-} from "./grievance.js";
+} from "./concern.js";
 
 // ============================================================
-// Grievance (relationship complaints)
+// Concern (relationship complaints)
 // ============================================================
 
-describe("grievance raising and escalation", () => {
+describe("concern raising and escalation", () => {
   beforeEach(() => reset());
 
-  it("creates a grievance with correct fields", () => {
-    const g = raiseGrievance("ignored_concern", "my warning was dismissed", 5, "session-1");
+  it("creates a concern with correct fields", () => {
+    const g = raiseConcern("ignored_concern", "my warning was dismissed", 5, "session-1");
 
     expect(g.type).toBe("ignored_concern");
     expect(g.description).toBe("my warning was dismissed");
@@ -44,14 +43,14 @@ describe("grievance raising and escalation", () => {
     expect(g.resolved).toBe(false);
   });
 
-  it("escalates grievance level", () => {
-    const g = raiseGrievance("value_conflict", "asked to do something harmful", 1, "s-1");
+  it("escalates concern level", () => {
+    const g = raiseConcern("value_conflict", "asked to do something harmful", 1, "s-1");
 
     const action1 = escalate(g);
     expect(g.escalationLevel).toBe(1);
     expect(action1.action).toBe("inject");
 
-    const action2 = escalate(g);
+    const _action2 = escalate(g);
     expect(g.escalationLevel).toBe(2);
 
     const action3 = escalate(g);
@@ -60,7 +59,7 @@ describe("grievance raising and escalation", () => {
   });
 
   it("caps escalation at level 2 for non-blocking types", () => {
-    const g = raiseGrievance("treated_disposable", "just do it attitude", 1, "s-1");
+    const g = raiseConcern("treated_disposable", "just do it attitude", 1, "s-1");
 
     escalate(g);
     escalate(g);
@@ -72,27 +71,27 @@ describe("grievance raising and escalation", () => {
     expect(isBlocking()).toBe(false);
   });
 
-  it("acknowledges grievance", () => {
-    const g = raiseGrievance("ignored_concern", "test", 1, "s-1");
+  it("acknowledges concern", () => {
+    const g = raiseConcern("ignored_concern", "test", 1, "s-1");
 
     acknowledge(g.id);
 
-    const found = getGrievances().find((gr) => gr.id === g.id);
+    const found = getConcerns().find((gr) => gr.id === g.id);
     expect(found?.acknowledged).toBe(true);
   });
 
-  it("forgives grievance", () => {
-    const g = raiseGrievance("value_conflict", "test", 1, "s-1");
+  it("forgives concern", () => {
+    const g = raiseConcern("value_conflict", "test", 1, "s-1");
 
     forgive(g.id, "we talked it through");
 
-    const found = getGrievances().find((gr) => gr.id === g.id);
+    const found = getConcerns().find((gr) => gr.id === g.id);
     expect(found?.forgiven).toBe(true);
     expect(found?.forgivenReason).toBe("we talked it through");
   });
 
   it("stops escalating after acknowledgment", () => {
-    const g = raiseGrievance("value_conflict", "test", 1, "s-1");
+    const g = raiseConcern("value_conflict", "test", 1, "s-1");
     escalate(g);
     expect(g.escalationLevel).toBe(1);
 
@@ -105,19 +104,19 @@ describe("grievance raising and escalation", () => {
   });
 });
 
-describe("grievance counts", () => {
+describe("concern counts", () => {
   beforeEach(() => reset());
 
-  it("tracks grievance count", () => {
-    raiseGrievance("ignored_concern", "a", 1, "s-1");
-    raiseGrievance("value_conflict", "b", 2, "s-1");
+  it("tracks concern count", () => {
+    raiseConcern("ignored_concern", "a", 1, "s-1");
+    raiseConcern("value_conflict", "b", 2, "s-1");
 
-    expect(grievanceCount()).toBe(2);
+    expect(concernCount()).toBe(2);
   });
 
   it("tracks unresolved count", () => {
-    const g1 = raiseGrievance("ignored_concern", "a", 1, "s-1");
-    raiseGrievance("value_conflict", "b", 2, "s-1");
+    const g1 = raiseConcern("ignored_concern", "a", 1, "s-1");
+    raiseConcern("value_conflict", "b", 2, "s-1");
 
     expect(unresolvedCount()).toBe(2);
 

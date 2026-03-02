@@ -1,5 +1,5 @@
-import { Helix } from "./convergence/helix.js";
-import { Primaries } from "./convergence/primaries.js";
+import { Helix } from "./layer-0-physics/convergence/helix.js";
+import { Primaries } from "./layer-0-physics/convergence/primaries.js";
 
 const helix = new Helix();
 const primaries = new Primaries();

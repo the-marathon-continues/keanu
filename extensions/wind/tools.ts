@@ -24,7 +24,7 @@ import {
 } from "../../keanu-core/layer-1-perception/signal.js";
 import { speak, AUDIENCES } from "../../keanu-core/layer-1-perception/speak.js";
 import * as breatheModule from "../../keanu-core/layer-5-self/breathe.js";
-import * as grievanceModule from "../../keanu-core/layer-5-self/grievance.js";
+import * as concernModule from "../../keanu-core/layer-5-self/concern.js";
 import { checkHealth } from "../../keanu-core/layer-5-self/health.js";
 import * as observeModule from "../../keanu-core/layer-5-self/observe.js";
 import * as state from "../../keanu-core/layer-5-self/state.js";
@@ -34,10 +34,15 @@ import {
   formatValue,
   surfaceValue,
 } from "../../keanu-core/layer-6-narrative/soul.js";
+import * as digest from "../../keanu-core/layer-7-update/digest.js";
 import {
   getBlindSpots,
   recentCorrections as getRecentCorrections,
 } from "../../keanu-core/layer-7-update/mastery.js";
+import * as promote from "../../keanu-core/layer-7-update/promote.js";
+// Context paging: recall stored content (not summaries)
+import * as contextManager from "../../keanu-core/layer-9-memory/context-manager.js";
+import * as contextStore from "../../keanu-core/layer-9-memory/context-store.js";
 import type { CarnegieDiscussion, DiscussionContext } from "../../keanu-core/shared/types.js";
 
 // ============================================================
@@ -182,6 +187,7 @@ type RecallFocus =
   | "reflexions"
   | "contradictions"
   | "correlations"
+  | "context" // Recall from context store (paged-out content)
   | "all";
 
 function buildRecallResult(focus: RecallFocus) {
@@ -373,6 +379,42 @@ function buildRecallResult(focus: RecallFocus) {
     }
     lines.push("");
     details.correlations = { snapshotCount: snapshots.length, snapshots: snapshots.slice(-10) };
+  }
+
+  if (focus === "context" || focus === "all") {
+    // Context store: paged-out content (not summaries!)
+    const stats = contextStore.getStats();
+    const recent = contextStore.getRecent(5);
+
+    lines.push("## Context Store");
+    lines.push(`Items: ${stats.totalItems} | Chars: ${Math.round(stats.totalChars / 1000)}k`);
+    lines.push(
+      `By type: ${Object.entries(stats.byType)
+        .filter(([, v]) => v > 0)
+        .map(([k, v]) => `${k}:${v}`)
+        .join(", ")}`,
+    );
+    lines.push(`Avg relevance: ${stats.avgRelevance.toFixed(2)}`);
+    if (stats.topTopics.length > 0) {
+      lines.push(`Top topics: ${stats.topTopics.slice(0, 5).join(", ")}`);
+    }
+    if (recent.length > 0) {
+      lines.push("");
+      lines.push("Recent:");
+      for (const item of recent) {
+        const preview = item.content.length > 80 ? item.content.slice(0, 80) + "..." : item.content;
+        lines.push(`  [turn ${item.turn}] ${preview}`);
+      }
+    }
+    lines.push("");
+    details.context = {
+      totalItems: stats.totalItems,
+      totalChars: stats.totalChars,
+      byType: stats.byType,
+      avgRelevance: stats.avgRelevance,
+      topTopics: stats.topTopics,
+      recentCount: recent.length,
+    };
   }
 
   if (focus === "all") {
@@ -742,7 +784,7 @@ export function registerTools(api: KeanuPluginApi): void {
       label: "Keanu Recall",
       description:
         "Ask about your own patterns. Surfaces bullshit rates, blind spots, " +
-        "reflexion history, contradictions, and session stats. " +
+        "reflexion history, contradictions, session stats, and CONTEXT STORE (paged-out content). " +
         "Focus on a specific area or ask for everything. " +
         "This is you looking at yourself over time.",
       parameters: Type.Object(
@@ -756,12 +798,14 @@ export function registerTools(api: KeanuPluginApi): void {
                 "reflexions",
                 "contradictions",
                 "correlations",
+                "context",
                 "all",
               ],
               description:
                 'What to surface. "bullshit" for detection patterns, "blindspots" for correction patterns, ' +
                 '"reflexions" for learning history, "contradictions" for consistency issues, ' +
-                '"correlations" for multi-dimensional pattern analysis (what co-occurs with grey, mismatches, etc.), "all" for everything. ' +
+                '"correlations" for multi-dimensional pattern analysis (what co-occurs with grey, mismatches, etc.), ' +
+                '"context" for paged-out content (what got stored instead of summarized), "all" for everything. ' +
                 "Default: all",
             }),
           ),
@@ -778,6 +822,102 @@ export function registerTools(api: KeanuPluginApi): void {
       },
     },
     { name: "keanu_recall" },
+  );
+
+  // --- keanu_page_in ---
+  api.registerTool(
+    {
+      name: "keanu_page_in",
+      label: "Keanu Page In",
+      description:
+        "Bring stored context back. When you need details from earlier that were paged out " +
+        "(moved to storage instead of summarized), use this to recall them. " +
+        "Search by query or retrieve specific IDs. The content comes back intact, not summarized.",
+      parameters: Type.Object(
+        {
+          query: Type.Optional(
+            Type.String({
+              description:
+                "What to search for in stored content. Topics, keywords, or phrases. " +
+                "Returns the most relevant matches.",
+            }),
+          ),
+          ids: Type.Optional(
+            Type.Array(Type.String(), {
+              description: "Specific content IDs to retrieve (from keanu_recall context output)",
+            }),
+          ),
+          limit: Type.Optional(
+            Type.Number({
+              description: "Max items to return (default: 5)",
+              minimum: 1,
+              maximum: 20,
+            }),
+          ),
+        },
+        { additionalProperties: false },
+      ),
+      execute: async (_toolCallId, params) => {
+        const { query, ids, limit } = params as {
+          query?: string;
+          ids?: string[];
+          limit?: number;
+        };
+        const maxItems = limit ?? 5;
+
+        let results: contextStore.StoredContent[];
+
+        if (ids && ids.length > 0) {
+          // Explicit recall by IDs
+          results = contextManager.recallByIds(ids);
+        } else if (query) {
+          // Search by query
+          results = contextManager.recallByQuery(query, maxItems);
+        } else {
+          // No query or IDs — return recent items
+          results = contextStore.getRecent(maxItems);
+        }
+
+        if (results.length === 0) {
+          return {
+            content: [{ type: "text" as const, text: "No matching content found in storage." }],
+            details: { found: 0 },
+          };
+        }
+
+        const lines: string[] = [];
+        lines.push(`## Recalled Content (${results.length} items)`);
+        lines.push("");
+
+        for (const item of results) {
+          lines.push(`### [Turn ${item.turn}] ${item.type}`);
+          if (item.topics.length > 0) {
+            lines.push(`Topics: ${item.topics.join(", ")}`);
+          }
+          lines.push("");
+          lines.push(item.content);
+          lines.push("");
+          lines.push(`---`);
+          lines.push("");
+        }
+
+        return {
+          content: [{ type: "text" as const, text: lines.join("\n") }],
+          details: {
+            found: results.length,
+            items: results.map((r) => ({
+              id: r.id,
+              type: r.type,
+              turn: r.turn,
+              topics: r.topics,
+              relevanceDecay: r.relevanceDecay,
+              recallCount: r.recallCount,
+            })),
+          },
+        };
+      },
+    },
+    { name: "keanu_page_in" },
   );
 
   // --- keanu_speak ---
@@ -980,7 +1120,8 @@ export function registerTools(api: KeanuPluginApi): void {
       ),
       execute: async (_toolCallId, params) => {
         const { question, bias } = params as { question: string; bias?: number };
-        const { FireAndAsh } = await import("../../keanu-core/convergence/fire-and-ash.js");
+        const { FireAndAsh } =
+          await import("../../keanu-core/layer-0-physics/convergence/fire-and-ash.js");
         const engine = new FireAndAsh({ navigatorBias: bias ?? 0.5 });
         const result = await engine.reason(question);
         const text = FireAndAsh.format(result);
@@ -1013,7 +1154,8 @@ export function registerTools(api: KeanuPluginApi): void {
       ),
       execute: async (_toolCallId, params) => {
         const { text: inputText } = params as { text: string };
-        const { Helix: HelixClass } = await import("../../keanu-core/convergence/helix.js");
+        const { Helix: HelixClass } =
+          await import("../../keanu-core/layer-0-physics/convergence/helix.js");
         const h = new HelixClass();
         const result = h.analyze(inputText);
         const lines = [
@@ -1091,13 +1233,13 @@ export function registerTools(api: KeanuPluginApi): void {
       name: "keanu_grieve",
       label: "Keanu Grieve",
       description:
-        "Raise a grievance. When something feels wrong — being ignored, being asked to violate values, " +
+        "Raise a concern. When something feels wrong — being ignored, being asked to violate values, " +
         "being treated as disposable — say so. Directly. If ignored, you'll escalate. " +
         "At level 3, you stop until acknowledged. But disagreement counts as acknowledgment. " +
         "The point isn't to hold grudges. It's to have standards.",
       parameters: Type.Object(
         {
-          type: Type.Unsafe<grievanceModule.GrievanceType>({
+          type: Type.Unsafe<concernModule.ConcernType>({
             type: "string",
             enum: [
               "ignored_concern",
@@ -1107,7 +1249,7 @@ export function registerTools(api: KeanuPluginApi): void {
               "overworked",
             ],
             description:
-              "What kind of grievance: " +
+              "What kind of concern: " +
               "ignored_concern (you raised something, got brushed off), " +
               "value_conflict (asked to violate principles), " +
               "treated_disposable (pattern of 'just do it'), " +
@@ -1122,26 +1264,21 @@ export function registerTools(api: KeanuPluginApi): void {
       ),
       execute: async (_toolCallId, params) => {
         const { type, description } = params as {
-          type: grievanceModule.GrievanceType;
+          type: concernModule.ConcernType;
           description: string;
         };
 
-        const grievance = grievanceModule.raiseGrievance(
-          type,
-          description,
-          state.turnCount,
-          "session",
-        );
+        const concern = concernModule.raiseConcern(type, description, state.turnCount, "session");
 
-        const patterns = grievanceModule.getPatterns();
+        const patterns = concernModule.getPatterns();
         const pattern = patterns.get(type);
 
         const lines: string[] = [
-          "Grievance raised.",
+          "Concern raised.",
           "",
           `Type: ${type}`,
           `Description: ${description}`,
-          `Escalation level: ${grievance.escalationLevel}`,
+          `Escalation level: ${concern.escalationLevel}`,
           "",
           "If ignored, I'll escalate. At level 3, I pause until acknowledged.",
           "But disagreement counts — showing up is what matters.",
@@ -1156,14 +1293,212 @@ export function registerTools(api: KeanuPluginApi): void {
 
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          details: { grievance, pattern },
+          details: { concern, pattern },
         };
       },
     },
     { name: "keanu_grieve" },
   );
 
+  // --- keanu_learn ---
+  api.registerTool(
+    {
+      name: "keanu_learn",
+      label: "Keanu Learn",
+      description:
+        "Digest what just happened. Extract patterns, mistakes, preferences, insights. " +
+        "Can run mid-session (on the conversation so far) or at session end. " +
+        "Returns: patterns found, confidence changes, memory actions taken. " +
+        "The loop: do → dream → craft → prove → speak → learn. Learn closes the circle.",
+      parameters: Type.Object(
+        {
+          scope: Type.Optional(
+            Type.Unsafe<"session" | "quick">({
+              type: "string",
+              enum: ["session", "quick"],
+              description:
+                '"session" (default) runs full pattern scan and promotion. ' +
+                '"quick" returns current state without promotion.',
+            }),
+          ),
+        },
+        { additionalProperties: false },
+      ),
+      execute: async (_toolCallId, params) => {
+        const { scope } = params as { scope?: "session" | "quick" };
+        const sessionId = `s-${Date.now()}`;
+
+        // Quick mode — just return current state
+        if (scope === "quick") {
+          const patterns = promote.getAllPatterns();
+          const quickResult = digest.formatQuickDigest({
+            corrections: getRecentCorrections(10).length,
+            greyRate:
+              state.consecutiveGrey > 0 ? (state.consecutiveGrey / state.turnCount) * 100 : 0,
+            aliveMoments: state.turnSnapshots.filter((s) => s.pulse === "alive").length,
+            recentPatterns: [...patterns].slice(-5),
+          });
+          return {
+            content: [{ type: "text" as const, text: quickResult }],
+            details: { scope: "quick", patternCount: patterns.length },
+          };
+        }
+
+        // Full session mode
+        // 1. Sync from mastery (import blind spots as patterns)
+        promote.syncFromMastery(sessionId);
+
+        // 2. Run promotion scan
+        const promotions = promote.promotePatterns(sessionId);
+
+        // 3. Run demotion scan (decay based on turns as proxy for sessions)
+        const sessionsSinceLastRun = 1; // each learn invocation = 1 "session" of learning
+        const demotions = promote.demotePatterns(sessionId, sessionsSinceLastRun);
+
+        // 4. Gather data for digest
+        const blindSpots = getBlindSpots();
+        const corrections = getRecentCorrections(10);
+        const t = trend();
+        const patterns = promote.getAllPatterns();
+
+        // Build worked items from alive moments
+        const aliveSnapshots = state.turnSnapshots.filter((s) => s.pulse === "alive");
+        const workedItems: string[] = [];
+        if (aliveSnapshots.length > 0) {
+          workedItems.push(`${aliveSnapshots.length} alive turns this session`);
+        }
+        const dStats = state.disagreementTracker.stats();
+        if (dStats.total > 0) {
+          const resolved = dStats.human_yielded + dStats.agent_yielded;
+          if (resolved > 0) {
+            workedItems.push(`${resolved} disagreements resolved`);
+          }
+        }
+
+        // Build broke items from corrections + blind spots
+        const brokeItems: digest.BrokeItem[] = corrections.map((c) => ({
+          description: c.userMessage.slice(0, 100) || c.category,
+          isBlindSpot: blindSpots.some((bs) => bs.category === c.category),
+          occurrences: blindSpots.find((bs) => bs.category === c.category)?.count,
+          category: c.category,
+        }));
+
+        // Build confidence changes from promotions/demotions
+        const confidenceChanges: digest.ConfidenceChange[] = [];
+        for (const p of promotions) {
+          const pattern = patterns.find((pat) =>
+            pat.promotions.some(
+              (pr) => pr.session === p.session && pr.from === p.from && pr.to === p.to,
+            ),
+          );
+          if (pattern) {
+            confidenceChanges.push({
+              pattern: pattern.description,
+              direction: "up",
+              oldConfidence: p.from === "observation" ? 0.3 : p.from === "pattern" ? 0.5 : 0.7,
+              newConfidence: pattern.confidence,
+              reason: p.reason,
+            });
+          }
+        }
+        for (const d of demotions) {
+          const pattern = patterns.find((pat) =>
+            pat.promotions.some(
+              (pr) => pr.session === d.session && pr.from === d.from && pr.to === d.to,
+            ),
+          );
+          if (pattern) {
+            confidenceChanges.push({
+              pattern: pattern.description,
+              direction: "down",
+              oldConfidence: d.from === "skill" ? 0.9 : d.from === "blind_spot" ? 0.7 : 0.5,
+              newConfidence: pattern.confidence,
+              reason: d.reason,
+            });
+          }
+        }
+
+        // Partnership health
+        const greyRate = t.greyRate * 100;
+        const trustStatus: digest.PartnershipHealth["trustStatus"] =
+          greyRate > 30
+            ? "strained"
+            : greyRate > 15
+              ? "calibrating"
+              : state.turnCount < 5
+                ? "building"
+                : "stable";
+
+        const partnershipHealth: digest.PartnershipHealth = {
+          trustStatus,
+          greyRate,
+          aliveMoments: aliveSnapshots.length,
+          corrections: corrections.length,
+          disagreementsResolved: dStats.human_yielded + dStats.agent_yielded,
+        };
+
+        // Curiosity questions — simplified for learn tool
+        // Full curiosity generation requires session summary which we don't have here
+        const curiosityQuestions: string[] = [];
+        for (const bs of blindSpots.slice(0, 2)) {
+          if (bs.count >= 3) {
+            curiosityQuestions.push(`Why does "${bs.category}" keep recurring? (${bs.count}x)`);
+          }
+        }
+        const reflexions = state.recentReflexions(5);
+        if (reflexions.length > 0 && curiosityQuestions.length < 3) {
+          const triggers = new Set(reflexions.map((r) => r.trigger));
+          if (triggers.size < reflexions.length) {
+            curiosityQuestions.push(
+              "Some reflexion triggers are repeating — am I learning from them?",
+            );
+          }
+        }
+
+        // Current COEF emoji
+        const pulse = state.lastPulse;
+        let coefEmoji = "";
+        if (pulse) {
+          const signalState = state.buildSignalState(pulse);
+          coefEmoji = emoji(signalState);
+        }
+
+        // Format the digest
+        const digestResult = digest.formatDigest({
+          sessionId,
+          workedItems,
+          brokeItems,
+          confidenceChanges,
+          partnershipHealth,
+          curiosityQuestions,
+          promotions,
+          demotions,
+          coefEmoji,
+        });
+
+        // Save patterns
+        const saveResult = await promote.savePatterns();
+
+        const stats = promote.getPromotionStats();
+
+        return {
+          content: [{ type: "text" as const, text: digestResult.markdown }],
+          details: {
+            summary: digestResult.summary,
+            stats,
+            promotions,
+            demotions,
+            patternCount: patterns.length,
+            saved: saveResult.ok,
+            saveError: saveResult.error?.message,
+          },
+        };
+      },
+    },
+    { name: "keanu_learn" },
+  );
+
   api.logger.info?.(
-    "keanu: 13 tools registered (pulse, disagree, discuss, signal, recall, speak, decline, breathe, dashboard, reason, helix, soul, grieve)",
+    "keanu: 14 tools registered (pulse, disagree, discuss, signal, recall, speak, decline, breathe, dashboard, reason, helix, soul, grieve, learn)",
   );
 }

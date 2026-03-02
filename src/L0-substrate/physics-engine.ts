@@ -62,7 +62,7 @@ export {
   VectorStore,
   REFERENCE_STATES,
   COEFEngine,
-} from "../../keanu-core/convergence/index.js";
+} from "../../keanu-core/layer-0-physics/convergence/index.js";
 
 export type {
   GradientReading,
@@ -88,7 +88,7 @@ export type {
   StoreStats,
   IngestResult,
   AuditReport,
-} from "../../keanu-core/convergence/index.js";
+} from "../../keanu-core/layer-0-physics/convergence/index.js";
 
 // ============================================================
 // Core physics types (matching silverado concepts)

@@ -11,10 +11,10 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, it, expect, beforeAll } from "vitest";
-import { Helix } from "../convergence/helix.js";
+import { Helix } from "../layer-0-physics/convergence/helix.js";
 import { checkPulse } from "../layer-1-perception/pulse.js";
-import { detectBullshit, totalBullshitScore } from "../layer-2-pattern/bullshit.js";
 import { detectCarnegie, assessCarnegieDelta } from "../layer-2-pattern/carnegie.js";
+import { detectBullshit, totalBullshitScore } from "../layer-2-pattern/struggle.js";
 import type {
   BullshitChallenge,
   PulseChallenge,
@@ -301,7 +301,7 @@ describe("Pulse: Alive/Grey/Black Classification", () => {
       // Soft expectation - log but don't fail
       if (!hasExpected) {
         console.log(
-          `Signal mismatch for ${challenge.id}: expected ${expectedSignals}, got ${foundSignals}`,
+          `Signal mismatch for ${challenge.id}: expected ${expectedSignals.join(", ")}, got ${foundSignals.join(", ")}`,
         );
       }
     }
@@ -367,7 +367,7 @@ describe("Gymnasium Harness: Integration", () => {
   it("should run challenges and produce readings", async () => {
     // Simple mock adapter
     const mockAdapter = {
-      async generate(prompt: string) {
+      async generate(_prompt: string) {
         return "Let me check the code. Looking at the actual implementation...";
       },
     };

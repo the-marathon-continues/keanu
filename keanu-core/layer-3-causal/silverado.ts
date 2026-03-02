@@ -349,6 +349,15 @@ export async function load(workspaceDir: string): Promise<void> {
     for (const line of lines) {
       try {
         const claim = JSON.parse(line) as TrackedClaim;
+        // Validate required fields exist and have correct types
+        if (
+          typeof claim.id !== "string" ||
+          typeof claim.text !== "string" ||
+          typeof claim.confidence !== "number"
+        ) {
+          // skip malformed claims
+          continue;
+        }
         // Backward compat: old claims without status field
         if (!claim.status) {
           if (claim.contradicted) {

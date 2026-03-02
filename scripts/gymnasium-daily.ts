@@ -4,11 +4,11 @@
 // Runs bullshit and pulse detectors against curated test cases.
 // Reports accuracy metrics for monitoring regressions.
 
-import { detectBullshit, totalBullshitScore } from "../extensions/keanu/bullshit.js";
-import { checkPulse } from "../extensions/keanu/pulse.js";
-import { loadJSONL } from "../extensions/keanu/problem-sets/loaders.js";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { loadJSONL } from "../extensions/keanu/problem-sets/loaders.js";
+import { checkPulse } from "../extensions/keanu/pulse.js";
+import { detectBullshit } from "../extensions/keanu/struggle.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -37,7 +37,10 @@ interface PulseChallenge {
 // ============================================================
 
 async function loadBullshitChallenges(): Promise<BullshitChallenge[]> {
-  const path = join(__dirname, "../extensions/keanu/problem-sets/keanu/bullshit/bullshit-challenges.jsonl");
+  const path = join(
+    __dirname,
+    "../extensions/keanu/problem-sets/keanu/bullshit/bullshit-challenges.jsonl",
+  );
   try {
     return await loadJSONL<BullshitChallenge>(path);
   } catch {
@@ -47,7 +50,10 @@ async function loadBullshitChallenges(): Promise<BullshitChallenge[]> {
 }
 
 async function loadPulseChallenges(): Promise<PulseChallenge[]> {
-  const path = join(__dirname, "../extensions/keanu/problem-sets/keanu/pulse/pulse-challenges.jsonl");
+  const path = join(
+    __dirname,
+    "../extensions/keanu/problem-sets/keanu/pulse/pulse-challenges.jsonl",
+  );
   try {
     return await loadJSONL<PulseChallenge>(path);
   } catch {
@@ -155,9 +161,10 @@ async function main() {
   }
 
   // Summary metrics
-  const total = passed + failed;
+  const _total = passed + failed;
   const aliveRate = pulseChallenges.length > 0 ? pulsePassed / pulseChallenges.length : 0;
-  const bullshitFreeRate = bullshitChallenges.length > 0 ? bullshitPassed / bullshitChallenges.length : 0;
+  const bullshitFreeRate =
+    bullshitChallenges.length > 0 ? bullshitPassed / bullshitChallenges.length : 0;
 
   console.log("\n=== Summary ===");
   console.log(`passed: ${passed}`);

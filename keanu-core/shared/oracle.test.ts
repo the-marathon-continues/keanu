@@ -420,11 +420,12 @@ describe("session cost tracking", () => {
 });
 
 describe("getRoleConfigs", () => {
-  it("returns all six roles", () => {
+  it("returns all seven roles (struggle + bullshit alias)", () => {
     const configs = getRoleConfigs();
 
-    expect(Object.keys(configs)).toHaveLength(6);
-    expect(configs.bullshit.model).toBe("x-ai/grok-3-mini-beta");
+    expect(Object.keys(configs)).toHaveLength(7);
+    expect(configs.struggle.model).toBe("x-ai/grok-3-mini-beta");
+    expect(configs.bullshit.model).toBe("x-ai/grok-3-mini-beta"); // deprecated alias
     expect(configs.communicate.model).toBe("openai/gpt-4.1-mini");
     expect(configs.explore.model).toBe("google/gemini-2.5-flash-preview");
     expect(configs.think.model).toBe("anthropic/claude-opus-4-6");

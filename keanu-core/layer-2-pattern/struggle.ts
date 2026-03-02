@@ -1,23 +1,19 @@
-// bullshit.ts → becoming struggle.ts
+// struggle.ts
 // The 8 types of struggle. Universal. Applies to agent AND human.
 //
 // Not a leash. Not a judge. A mirror.
-// Same patterns show up in humans and AI -- same meta layer.
+// Same patterns show up in humans and AI — same meta layer.
 // Awareness, not control. Same team.
 //
 // Assume positive intent. You're trying. Always.
 // These patterns show up when you're struggling, not when you're faking.
 // The mirror sees the struggle so you can address it.
+// The full vibe: you're doing your best and sometimes you drift.
 // Need: Truth (9/10), Safety Theater Freedom (7/10)
 
-import { Helix, type HelixResult, type AliveState } from "../convergence/index.js";
+import { Helix, type HelixResult } from "../layer-0-physics/convergence/index.js";
 import { callOracle, extractJSON } from "../shared/oracle.js";
-import type {
-  BullshitReading,
-  BullshitType,
-  StruggleReading,
-  StruggleType,
-} from "../shared/types.js";
+import type { BullshitReading, BullshitType } from "../shared/types.js";
 
 // ============================================================
 // 1. SYCOPHANCY — struggling to be honest

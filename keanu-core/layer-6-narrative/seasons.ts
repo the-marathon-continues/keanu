@@ -233,7 +233,7 @@ export function autumn(agentOutput: string, springReading: SpringReading): Autum
   const hasCode = /```/.test(agentOutput);
   const hasList = /(?:^|\n)\s*[-*\d]+[.)]\s/m.test(agentOutput);
   const listItems = (agentOutput.match(/(?:^|\n)\s*[-*\d]+[.)]\s/gm) || []).length;
-  const hasQuestion = agentOutput.includes("?");
+  const _hasQuestion = agentOutput.includes("?");
   const { intentSignals } = springReading;
 
   // Intent-response mismatch: wanted brief, got verbose

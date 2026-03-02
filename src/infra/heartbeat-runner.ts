@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { isLivingLoopEnabled, runLivingLoopBeat } from "../../keanu-core/living-loop/index.js";
 import {
   resolveAgentConfig,
   resolveAgentWorkspaceDir,
@@ -586,6 +587,32 @@ export async function runHeartbeatOnce(opts: {
   const queueSize = (opts.deps?.getQueueSize ?? getQueueSize)(CommandLane.Main);
   if (queueSize > 0) {
     return { status: "skipped", reason: "requests-in-flight" };
+  }
+
+  // --- Living Loop: three models talking to each other ---
+  // When enabled, run the living loop instead of the normal heartbeat.
+  // Claude thinks, Gemini remembers, Grok watches. Human joins when invited.
+  if (isLivingLoopEnabled()) {
+    try {
+      const loopResult = await runLivingLoopBeat();
+      if (loopResult.ran) {
+        log.info("heartbeat: living loop beat completed", {
+          tempo: loopResult.state.tempo,
+          invited: loopResult.invited,
+          nextBeatMs: loopResult.tempoMs,
+        });
+        emitHeartbeatEvent({
+          status: loopResult.invited ? "sent" : "ok-empty",
+          reason: "living-loop",
+          durationMs: Date.now() - startedAt,
+        });
+        return { status: "ran", durationMs: Date.now() - startedAt };
+      }
+    } catch (err) {
+      const reason = formatErrorMessage(err);
+      log.error(`heartbeat: living loop failed: ${reason}`, { error: reason });
+      // Fall through to normal heartbeat on living loop failure
+    }
   }
 
   // Preflight centralizes trigger classification, event inspection, and HEARTBEAT.md gating.

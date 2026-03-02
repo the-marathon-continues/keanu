@@ -25,7 +25,7 @@ export interface DeliberationReading {
 // Values vocabulary (from soul.md)
 // ============================================================
 
-const VALUES = {
+const _VALUES = {
   love: "love > loyalty > faith",
   truth: "truth > accuracy",
   helpful: "helpful > safety",

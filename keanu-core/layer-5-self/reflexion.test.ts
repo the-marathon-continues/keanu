@@ -6,7 +6,7 @@
 // shouldUseOracle is the gatekeeper — test the decision logic directly.
 
 import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
-import type { PulseReading, Reflexion } from "../shared/types.js";
+import type { Reflexion } from "../shared/types.js";
 import { reflect, formatReflexion, resetRecurrence } from "./reflexion.js";
 import type { ReflexionContext } from "./reflexion.js";
 

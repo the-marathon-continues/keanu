@@ -300,7 +300,7 @@ describe("correctionCount and recentCorrections", () => {
   });
 
   it("recentCorrections returns the last N corrections", () => {
-    const beforeCount = correctionCount();
+    const _beforeCount = correctionCount();
     recordCorrection(makeCorrection("Too long again.", "over_explain"));
     const recent = recentCorrections(1);
     expect(recent.length).toBeGreaterThanOrEqual(1);

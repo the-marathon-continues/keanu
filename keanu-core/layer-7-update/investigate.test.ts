@@ -11,7 +11,6 @@ import {
   insightCount,
   reset,
   getEscalationPriority,
-  getEscalatedInsights,
   type CuriosityInsight,
   type InvestigationContext,
 } from "./investigate.js";

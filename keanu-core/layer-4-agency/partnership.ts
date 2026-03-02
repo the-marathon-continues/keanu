@@ -16,7 +16,7 @@
 import { readFile } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { HumanReading, PulseReading, DisagreementStats } from "../shared/types.js";
+import type { HumanReading } from "../shared/types.js";
 import {
   type AgentPeer,
   type TrustReading,
@@ -274,7 +274,9 @@ function createDefaultModel(): PartnershipModel {
 // ============================================================
 
 export async function loadSeed(seedPath?: string): Promise<boolean> {
-  const path = seedPath ?? join(dirname(fileURLToPath(import.meta.url)), "identity", "seed.json");
+  // seed.json lives at keanu-core/identity/seed.json (up one level from layer-4-agency)
+  const path =
+    seedPath ?? join(dirname(fileURLToPath(import.meta.url)), "..", "identity", "seed.json");
 
   try {
     const raw = await readFile(path, "utf-8");

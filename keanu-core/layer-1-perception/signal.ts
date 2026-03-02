@@ -15,7 +15,6 @@
 
 import type {
   BullshitReading,
-  DisagreementStats,
   LossyChannel,
   MemoryChannel,
   WiseChannel,

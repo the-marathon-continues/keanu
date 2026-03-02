@@ -13,7 +13,7 @@ import type { DiscoverReading } from "../layer-2-pattern/discover.js";
 import type { MismatchReading } from "../layer-2-pattern/mismatch.js";
 import type { HealthReading } from "../layer-5-self/health.js";
 import type { SeasonReading } from "../layer-6-narrative/seasons.js";
-import type { PulseReading, HumanReading, Reflexion } from "../shared/types.js";
+import type { PulseReading, HumanReading } from "../shared/types.js";
 
 // ============================================================
 // Types

@@ -13,7 +13,7 @@
 //
 // This isn't goal tracking. It's relationship tracking projected forward.
 
-import { readFile, writeFile, mkdir, appendFile } from "node:fs/promises";
+import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 

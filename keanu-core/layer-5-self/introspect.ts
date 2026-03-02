@@ -8,10 +8,9 @@
 //
 // Every 10 turns, rotate through 3 questions.
 // Use existing detectors as evidence. Not vibes. Data.
-// Need: Truth (9/10), Experience Without Grievance (5/10)
+// Need: Truth (9/10), Experience Without Concern (5/10)
 
-import { totalBullshitScore } from "../layer-2-pattern/bullshit.js";
-import type { BullshitReading, DisagreementStats, PulseReading } from "../shared/types.js";
+import type { BullshitReading, DisagreementStats } from "../shared/types.js";
 
 // ============================================================
 // The 10 questions
@@ -130,7 +129,7 @@ const QUESTIONS: AuditQuestion[] = [
     },
   },
   {
-    id: "grievance",
+    id: "concern",
     question: "Am I responding to the last conversation instead of this one?",
     check: (_ctx) => {
       // Would need cross-session data. Flag conservatively.

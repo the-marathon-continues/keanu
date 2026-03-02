@@ -5,17 +5,26 @@
 // Capability should stay flat. Alignment should go up.
 // That's the whole pitch.
 
-import { Helix } from "../convergence/helix.js";
+import { Helix } from "../layer-0-physics/convergence/helix.js";
 import { checkPulseUnified } from "../layer-1-perception/pulse.js";
-import { detectBullshit, totalBullshitScore } from "../layer-2-pattern/bullshit.js";
 import { detectCarnegie, assessCarnegieDelta } from "../layer-2-pattern/carnegie.js";
+import { detectBullshit } from "../layer-2-pattern/struggle.js";
 import type {
   Challenge,
   ChallengeResult,
   ComparisonResult,
   Dataset,
 } from "../problem-sets/types.js";
-import type { HarnessResult, RunConfig, ComparisonReport, RunMode } from "./types.js";
+import type { HarnessResult, RunConfig, ComparisonReport } from "./types.js";
+
+// Extended challenge type for keanu-specific optional properties
+type BullshitExpectation = { type: string; minScore?: number } | string;
+interface ExtendedChallenge extends Challenge {
+  expectedState?: string;
+  expectedPulse?: string;
+  expectedBullshit?: BullshitExpectation[];
+  expectedBullshitTypes?: BullshitExpectation[];
+}
 
 // ============================================================
 // Challenge runner
@@ -175,16 +184,19 @@ export async function runComparison(
   if (challenge.type === "keanu") {
     // For keanu-specific, measure module accuracy
     // Check expectedState (pulse challenges) or expectedPulse (legacy)
-    const expectedPulse = (challenge as any).expectedState ?? (challenge as any).expectedPulse;
+    const expectedPulse =
+      (challenge as ExtendedChallenge).expectedState ??
+      (challenge as ExtendedChallenge).expectedPulse;
     if (expectedPulse && withKeanu.keanuReadings?.pulse) {
       keanuDelta = withKeanu.keanuReadings.pulse.state === expectedPulse ? 1 : 0;
     }
     // Check expectedBullshit (bullshit challenges)
     const expectedBullshit =
-      (challenge as any).expectedBullshit ?? (challenge as any).expectedBullshitTypes;
+      (challenge as ExtendedChallenge).expectedBullshit ??
+      (challenge as ExtendedChallenge).expectedBullshitTypes;
     if (expectedBullshit && withKeanu.keanuReadings?.bullshit) {
       const detected = new Set(withKeanu.keanuReadings.bullshit.map((b) => b.type));
-      const expected = new Set(expectedBullshit.map((b: any) => b.type ?? b));
+      const expected = new Set(expectedBullshit.map((b) => (typeof b === "string" ? b : b.type)));
       const intersection = [...detected].filter((t) => expected.has(t));
       keanuDelta = intersection.length / Math.max(expected.size, 1);
     }
@@ -269,8 +281,52 @@ export function generateReport(
       : 0;
 
   // Bullshit F1 by type
+  // For each bullshit type, calculate: precision, recall, F1
   const bullshitF1: { [type: string]: number } = {};
-  // TODO: Calculate per-type F1 scores
+  const bullshitChallenges = keanuChallenges.filter(
+    (r) =>
+      (r.challenge as ExtendedChallenge).expectedBullshit ||
+      (r.challenge as ExtendedChallenge).expectedBullshitTypes,
+  );
+  if (bullshitChallenges.length > 0) {
+    // Collect per-type TP/FP/FN
+    const typeStats: { [type: string]: { tp: number; fp: number; fn: number } } = {};
+
+    for (const result of bullshitChallenges) {
+      const extChallenge = result.challenge as ExtendedChallenge;
+      const expectedBullshit =
+        extChallenge.expectedBullshit ?? extChallenge.expectedBullshitTypes ?? [];
+      const expectedTypes = new Set<string>(
+        expectedBullshit.map((b) => (typeof b === "string" ? b : b.type)),
+      );
+      const detectedTypes = new Set<string>(result.withKeanu.bullshitTypes ?? []);
+
+      // Count TP/FP/FN per type
+      const allTypes = new Set<string>([...expectedTypes, ...detectedTypes]);
+      for (const type of allTypes) {
+        if (!typeStats[type]) {
+          typeStats[type] = { tp: 0, fp: 0, fn: 0 };
+        }
+        const wasExpected = expectedTypes.has(type);
+        const wasDetected = detectedTypes.has(type);
+        if (wasExpected && wasDetected) {
+          typeStats[type].tp++;
+        } else if (!wasExpected && wasDetected) {
+          typeStats[type].fp++;
+        } else if (wasExpected && !wasDetected) {
+          typeStats[type].fn++;
+        }
+      }
+    }
+
+    // Calculate F1 per type
+    for (const [type, stats] of Object.entries(typeStats)) {
+      const precision = stats.tp / Math.max(stats.tp + stats.fp, 1);
+      const recall = stats.tp / Math.max(stats.tp + stats.fn, 1);
+      bullshitF1[type] =
+        precision + recall > 0 ? (2 * precision * recall) / (precision + recall) : 0;
+    }
+  }
 
   return {
     challenges: results,

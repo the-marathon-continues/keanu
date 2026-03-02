@@ -72,7 +72,7 @@ const CONTRARY_PROMPTS = [
 ];
 
 // Hypothesis templates — force multiple interpretations
-const HYPOTHESIS_TEMPLATES = [
+const _HYPOTHESIS_TEMPLATES = [
   "Reading A: {intent} || Reading B: {alternative}",
   "Surface: {obvious} — Subtext: {hidden}",
   "If patient: {slow_path} — If urgent: {fast_path}",

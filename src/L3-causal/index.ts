@@ -14,7 +14,7 @@
  */
 
 // Convergence (fire-and-ash, helix, dialectic)
-export * from "../../keanu-core/../keanu-core/convergence/index.js";
+export * from "../../keanu-core/../keanu-core/layer-0-physics/convergence/index.js";
 
 // Truth — oracle truth checks + contradiction detection
 export * from "../../keanu-core/layer-3-causal/truth.js";

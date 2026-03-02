@@ -430,7 +430,7 @@ export function primariesToElevator(p: PrimaryReading): ElevatorReading {
 
   // Split net back into pos/neg (approximation from net score)
   // If net > 0, treat as pure positive. If net < 0, treat as pure negative.
-  const toPolesFromNet = (net: number): { pos: number; neg: number } => {
+  const _toPolesFromNet = (net: number): { pos: number; neg: number } => {
     const norm = normalize(net);
     if (net >= 0) {
       return { pos: norm, neg: 1 - norm };

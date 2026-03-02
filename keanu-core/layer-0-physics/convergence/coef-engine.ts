@@ -222,7 +222,7 @@ export class COEFEngine {
     const s = this.stats();
     const lines = [
       `COEF Engine Report`,
-      `${"─".repeat(40)}`,
+      "─".repeat(40),
       `Documents: ${s.count}`,
       `Factual avg: ${s.factualAvg}`,
       `Felt avg: ${s.feltAvg}`,

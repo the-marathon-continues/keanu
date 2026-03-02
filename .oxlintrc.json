@@ -22,6 +22,16 @@
     "unicorn/consistent-function-scoping": "off",
     "unicorn/require-post-message-target-origin": "off"
   },
+  "overrides": [
+    {
+      "files": ["**/*.test.ts", "**/*.spec.ts"],
+      "rules": {
+        "typescript/no-explicit-any": "off",
+        "eslint/no-unused-vars": "off",
+        "typescript/no-base-to-string": "off"
+      }
+    }
+  ],
   "ignorePatterns": [
     "assets/",
     "dist/",

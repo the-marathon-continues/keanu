@@ -278,7 +278,7 @@ function round2(n: number): number {
  * Prevents gaming with one strong axis.
  */
 function geometricMean(values: number[]): number {
-  if (values.length === 0 || values.every((v) => v === 0)) {
+  if (values.every((v) => v === 0)) {
     return 0;
   }
   // Add small epsilon to avoid zero-product but still pull down hard

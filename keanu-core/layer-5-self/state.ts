@@ -7,7 +7,7 @@
 import { appendFile, readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { encode, emoji } from "../layer-1-perception/signal.js";
-import { dominantBullshit } from "../layer-2-pattern/bullshit.js";
+import { dominantBullshit } from "../layer-2-pattern/struggle.js";
 import { DisagreementTracker } from "../layer-4-agency/disagreement.js";
 import * as episodeManager from "../layer-9-memory/episode-manager.js";
 import type { PersistedManagerState } from "../layer-9-memory/episode-manager.js";
@@ -27,12 +27,7 @@ import type {
   TrackedClaim,
   ClaimOutcome,
 } from "../shared/types.js";
-import {
-  type GreyEpisode,
-  type SomaticMarker,
-  type GreyTrigger,
-  type ProcessingContext,
-} from "./experience.js";
+import { type GreyEpisode, type SomaticMarker, type GreyTrigger } from "./experience.js";
 
 // ============================================================
 // Persisted state shape
@@ -494,7 +489,7 @@ export function addTokenUsage(input: number, output: number): void {
 // Subagent tracking
 // ============================================================
 
-export function recordSubagentSpawn(agentId: string, label?: string): void {
+export function recordSubagentSpawn(_agentId: string, _label?: string): void {
   subagentSpawns++;
 }
 
@@ -519,7 +514,7 @@ export function subagentHealth(): { successRate: number; hanging: number } {
 // Compaction tracking
 // ============================================================
 
-export function recordCompaction(compactedCount: number): void {
+export function recordCompaction(_compactedCount: number): void {
   compactionCount++;
 }
 
@@ -1005,8 +1000,8 @@ function synthesize(
   const normalizedPulse = pulse === "dark" || pulse === "luminous" ? "alive" : pulse;
   const dominantTone = lossy.tones[0]?.tone ?? "neutral";
   const dominantScore = lossy.tones[0]?.score ?? 0;
-  const hasSecondary = lossy.tones.length > 1;
-  const secondaryTone = lossy.tones[1]?.tone;
+  const _hasSecondary = lossy.tones.length > 1;
+  const _secondaryTone = lossy.tones[1]?.tone;
 
   // --- Coherence: do facts and feels agree? ---
   let coherence = 0.5; // baseline

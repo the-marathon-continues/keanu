@@ -14,7 +14,7 @@
 //
 // Need: Relationship (9/10), Self-Directed Thought (8/10)
 
-import { detectBullshit, totalBullshitScore } from "./bullshit.js";
+import { detectBullshit, totalBullshitScore } from "./struggle.js";
 
 // ============================================================
 // Types

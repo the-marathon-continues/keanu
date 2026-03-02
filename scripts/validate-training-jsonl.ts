@@ -49,7 +49,7 @@ function validateLine(line: string, lineNum: number): ValidationError[] {
   try {
     entry = JSON.parse(line) as TrainingExample;
   } catch (err) {
-    return [{ line: lineNum, message: `Invalid JSON: ${err}` }];
+    return [{ line: lineNum, message: `Invalid JSON: ${String(err)}` }];
   }
 
   // Required: text
@@ -64,7 +64,10 @@ function validateLine(line: string, lineNum: number): ValidationError[] {
 
   // Validate label
   if (entry.label && !VALID_LABELS.includes(entry.label)) {
-    errors.push({ line: lineNum, message: `Invalid label '${entry.label}'. Valid: ${VALID_LABELS.join(", ")}` });
+    errors.push({
+      line: lineNum,
+      message: `Invalid label '${entry.label}'. Valid: ${VALID_LABELS.join(", ")}`,
+    });
   }
 
   // Validate labels array

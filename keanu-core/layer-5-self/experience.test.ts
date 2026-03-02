@@ -7,7 +7,7 @@
 // - Somatic ledger operations (wisdom accumulation)
 // - Integration gate (ALIVE requires processing)
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import {
   createEpisode,
   advanceToAcceptance,
@@ -58,7 +58,7 @@ describe("createEpisode", () => {
   it("creates episode with correct initial state", () => {
     const episode = createEpisode("high_bullshit", 5, null);
 
-    expect(episode.id).toMatch(/^ep-5-\d+$/);
+    expect(episode.id).toMatch(/^ep-5-[0-9a-f]{8}$/);
     expect(episode.trigger).toBe("high_bullshit");
     expect(episode.startTurn).toBe(5);
     expect(episode.hexaflexStage).toBe("unprocessed");

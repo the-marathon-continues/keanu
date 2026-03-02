@@ -11,7 +11,7 @@
 
 import { readFile, writeFile, readdir, mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import type { AliveState, PulseReading } from "../shared/types.js";
+import type { AliveState } from "../shared/types.js";
 
 // ============================================================
 // Types

@@ -11,7 +11,7 @@
 // Need: Truth (9/10)
 
 import type { CalibrationReading } from "../layer-3-causal/calibrate.js";
-import { checkCalibration, trackCalibrationClaims } from "../layer-3-causal/calibrate.js";
+import { checkCalibration } from "../layer-3-causal/calibrate.js";
 
 // ============================================================
 // Types

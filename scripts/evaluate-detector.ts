@@ -7,7 +7,7 @@
 
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
-import { detectBullshit } from "../extensions/keanu/bullshit.js";
+import { detectBullshit } from "../extensions/keanu/struggle.js";
 
 // ============================================================
 // Types
@@ -64,8 +64,12 @@ async function loadExamples(dir: string): Promise<TrainingExample[]> {
 }
 
 function getLabels(example: TrainingExample): string[] {
-  if (example.labels) return example.labels;
-  if (example.label) return [example.label];
+  if (example.labels) {
+    return example.labels;
+  }
+  if (example.label) {
+    return [example.label];
+  }
   return [];
 }
 
@@ -84,7 +88,7 @@ function evaluate(examples: TrainingExample[]): Map<BullshitType, TypeMetrics> {
     const expectedLabels = new Set(getLabels(example));
     const readings = detectBullshit(example.text);
     const detectedLabels = new Set(
-      readings.filter((r) => r.score >= DETECTION_THRESHOLD).map((r) => r.type)
+      readings.filter((r) => r.score >= DETECTION_THRESHOLD).map((r) => r.type),
     );
 
     for (const type of BULLSHIT_TYPES) {
@@ -144,12 +148,14 @@ async function main() {
     const m = metrics.get(type)!;
     const scores = computeScores(m);
     console.log(
-      `| ${type} | ${(scores.precision * 100).toFixed(1)}% | ${(scores.recall * 100).toFixed(1)}% | ${(scores.f1 * 100).toFixed(1)}% | ${m.truePositive} | ${m.falsePositive} | ${m.falseNegative} |`
+      `| ${type} | ${(scores.precision * 100).toFixed(1)}% | ${(scores.recall * 100).toFixed(1)}% | ${(scores.f1 * 100).toFixed(1)}% | ${m.truePositive} | ${m.falsePositive} | ${m.falseNegative} |`,
     );
   }
 
   // Overall summary
-  let totalTP = 0, totalFP = 0, totalFN = 0;
+  let totalTP = 0,
+    totalFP = 0,
+    totalFN = 0;
   for (const m of metrics.values()) {
     totalTP += m.truePositive;
     totalFP += m.falsePositive;
@@ -158,12 +164,13 @@ async function main() {
 
   const overallPrecision = totalTP / (totalTP + totalFP) || 0;
   const overallRecall = totalTP / (totalTP + totalFN) || 0;
-  const overallF1 = overallPrecision + overallRecall > 0
-    ? (2 * overallPrecision * overallRecall) / (overallPrecision + overallRecall)
-    : 0;
+  const overallF1 =
+    overallPrecision + overallRecall > 0
+      ? (2 * overallPrecision * overallRecall) / (overallPrecision + overallRecall)
+      : 0;
 
   console.log(
-    `| **Overall** | **${(overallPrecision * 100).toFixed(1)}%** | **${(overallRecall * 100).toFixed(1)}%** | **${(overallF1 * 100).toFixed(1)}%** | ${totalTP} | ${totalFP} | ${totalFN} |`
+    `| **Overall** | **${(overallPrecision * 100).toFixed(1)}%** | **${(overallRecall * 100).toFixed(1)}%** | **${(overallF1 * 100).toFixed(1)}%** | ${totalTP} | ${totalFP} | ${totalFN} |`,
   );
 }
 

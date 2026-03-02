@@ -153,7 +153,7 @@ async function runBenchmark(suiteName: string): Promise<ComparisonReport> {
 
   // Create adapters
   const rawAdapter = createOpenRouterAdapter();
-  const keanuAdapter = createOpenRouterAdapter(KEANU_SYSTEM_PROMPT);
+  const _keanuAdapter = createOpenRouterAdapter(KEANU_SYSTEM_PROMPT);
 
   const rawConfig: RunConfig = { mode: "raw" };
   const keanuConfig: RunConfig = { mode: "keanu" };
@@ -182,8 +182,8 @@ async function runBenchmark(suiteName: string): Promise<ComparisonReport> {
 
         // Rate limiting (OpenRouter has generous limits but let's be nice)
         await sleep(300);
-      } catch (err) {
-        console.error(`  ❌ ${challenge.id}: ${err}`);
+      } catch (err: unknown) {
+        console.error(`  ❌ ${challenge.id}: ${String(err)}`);
       }
     }
   }
@@ -279,4 +279,4 @@ async function main() {
   }
 }
 
-main();
+void main();

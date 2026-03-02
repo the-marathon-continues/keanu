@@ -10,12 +10,11 @@
 
 import type { DiscoverReading } from "../layer-2-pattern/discover.js";
 import type { MismatchReading } from "../layer-2-pattern/mismatch.js";
-import { analyzeChain, type ChainAnalysis, type ChainTrigger } from "../layer-3-causal/chain.js";
+import { analyzeChain, type ChainTrigger } from "../layer-3-causal/chain.js";
 import { recordBreathe } from "../layer-5-self/breathe.js";
 import {
   createEpisode,
   tryAdvance,
-  canTransitionToAlive,
   extractSomaticMarker,
   querySomaticLedger,
   accessMarker,
@@ -30,7 +29,7 @@ import {
   type EpisodeResolution,
   type StageTransition,
 } from "../layer-5-self/experience.js";
-import { checkHealth, type HealthReading, type HealthStatus } from "../layer-5-self/health.js";
+import type { HealthReading, HealthStatus } from "../layer-5-self/health.js";
 import type { SeasonReading } from "../layer-6-narrative/seasons.js";
 import type {
   AliveState,
@@ -294,7 +293,7 @@ export function advanceEpisode(ctx: AdvanceContext): AdvanceResult {
   const advanced = tryAdvance(greyEpisode, processCtx);
 
   // Check if stage changed
-  const stageChanged = advanced.hexaflexStage !== currentEpisode.hexaflexStage;
+  const _stageChanged = advanced.hexaflexStage !== currentEpisode.hexaflexStage;
 
   // Update unified episode
   currentEpisode = {

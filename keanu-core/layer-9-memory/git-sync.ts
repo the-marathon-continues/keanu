@@ -4,7 +4,7 @@
 // Fallback: any failure → log warning, continue with local. Never block the session.
 
 import { readFile, writeFile, mkdir } from "node:fs/promises";
-import { join, dirname } from "node:path";
+import { join } from "node:path";
 
 // --- Types ---
 

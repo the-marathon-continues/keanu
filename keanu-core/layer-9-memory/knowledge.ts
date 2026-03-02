@@ -727,10 +727,22 @@ export async function load(workspaceDir: string): Promise<void> {
     const raw = await readFile(file, "utf-8");
     const data = JSON.parse(raw) as PersistedGraph;
     graph.entities.clear();
-    for (const [id, entity] of data.entities) {
-      graph.entities.set(id, entity);
+    // Validate entities array exists and is iterable before processing
+    if (Array.isArray(data.entities)) {
+      for (const entry of data.entities) {
+        // Validate each entry is a valid [id, entity] tuple
+        if (
+          Array.isArray(entry) &&
+          entry.length >= 2 &&
+          typeof entry[0] === "string" &&
+          entry[1] &&
+          typeof entry[1].id === "string"
+        ) {
+          graph.entities.set(entry[0], entry[1]);
+        }
+      }
     }
-    graph.relations = data.relations ?? [];
+    graph.relations = Array.isArray(data.relations) ? data.relations : [];
   } catch {
     // No prior knowledge — blank map
   }

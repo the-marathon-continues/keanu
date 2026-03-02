@@ -11,7 +11,7 @@
 
 import type { IntentSignals } from "../layer-6-narrative/seasons.js";
 import type { HumanReading, BullshitReading } from "../shared/types.js";
-import { totalBullshitScore } from "./bullshit.js";
+import { totalBullshitScore } from "./struggle.js";
 
 // ============================================================
 // Types
@@ -43,7 +43,7 @@ const SOOTHING =
   /\b(it's okay|don't worry|that's fine|no worries|it happens|perfectly normal|understandable)\b/i;
 const AGREEING = /\b(you're right|absolutely|exactly|good point|great question|i agree)\b/i;
 const LISTING = /(?:^|\n)\s*[-*\d]+[.)]\s/m;
-const HEDGING =
+const _HEDGING =
   /\b(it depends|there are several|on one hand|alternatively|you could|it's worth noting)\b/i;
 
 export function detectMismatch(
@@ -64,7 +64,7 @@ export function detectMismatch(
     return none;
   }
 
-  const bsScore = totalBullshitScore(agentBullshit);
+  const _bsScore = totalBullshitScore(agentBullshit);
   const hasSycophancy = agentBullshit.some((b) => b.type === "sycophancy" && b.score > 0.3);
   const hasVagueness = agentBullshit.some((b) => b.type === "vagueness" && b.score > 0.3);
   const hasHedgeFog = agentBullshit.some((b) => b.type === "hedge_fog" && b.score > 0.3);

@@ -8,7 +8,10 @@
 // Ported from keanu daemon/src/pulse/index.ts.
 // Need: Truth (9/10), Safety Theater Freedom (7/10)
 
-import { detectBullshit, totalBullshitScore } from "../layer-2-pattern/bullshit.js";
+import { primariesToElevator } from "../layer-0-physics/convergence/elevator.js";
+import { helixRGB } from "../layer-0-physics/convergence/helix.js";
+import { analyzePrimaries } from "../layer-0-physics/convergence/primaries.js";
+import { detectBullshit, totalBullshitScore } from "../layer-2-pattern/struggle.js";
 import { canBeAlive } from "../layer-5-self/state.js";
 import type { AliveState, ColorReading, PulseReading } from "../shared/types.js";
 
@@ -205,7 +208,9 @@ function readColors(text: string): ColorReading {
 
 /**
  * Check pulse with COEF integration (convergence layer).
- * Returns standard pulse reading enhanced with COEF elevator data.
+ * Returns standard pulse reading enhanced with:
+ * - Helix luminous/dark scores
+ * - Elevator floor and direction from primaries
  */
 export function checkPulseCOEF(
   agentOutput: string,
@@ -213,9 +218,53 @@ export function checkPulseCOEF(
   breathing: boolean,
 ): COEFPulseReading {
   const base = checkPulse(agentOutput, turn, breathing);
-  // COEF integration would add luminous/dark/elevator data here
-  // For now, return base reading (COEF integration lives in convergence layer)
-  return base;
+
+  // Get helix + primaries analysis
+  const combined = helixRGB(agentOutput);
+  const primaries = analyzePrimaries(agentOutput);
+  const elevator = primariesToElevator(primaries);
+
+  // Override colors with primaries-based analysis (more sophisticated)
+  const colors: ColorReading = {
+    red: Math.max(0, Math.min(1, (combined.red + 5) / 10)), // normalize -5..5 to 0..1
+    yellow: Math.max(0, Math.min(1, (combined.yellow + 5) / 10)),
+    blue: Math.max(0, Math.min(1, (combined.blue + 5) / 10)),
+  };
+
+  // Recalculate wise_mind from primaries
+  const wise_mind = combined.wiseMind / 10; // normalize 0-10 to 0-1
+
+  // Upgrade alive state with helix
+  let state = base.state;
+  if (combined.helix.aliveState === "luminous" && state === "alive") {
+    state = "alive"; // Keep alive, note luminous in coef
+  } else if (combined.helix.aliveState === "dark" && state === "alive") {
+    state = "alive"; // Dark alive is still alive
+  } else if (combined.helix.aliveState === "black") {
+    state = "black";
+  } else if (combined.helix.aliveState === "grey") {
+    state = "grey";
+  }
+
+  return {
+    ...base,
+    state,
+    wise_mind,
+    colors,
+    coef: {
+      luminous: combined.helix.aliveState === "luminous" ? combined.helix.strands.felt : undefined,
+      dark: combined.helix.aliveState === "dark" ? combined.helix.strands.felt : undefined,
+    },
+    elevator: {
+      floor: elevator.floorName,
+      direction:
+        elevator.direction === "hold"
+          ? "stable"
+          : elevator.direction === "stop"
+            ? "down"
+            : elevator.direction,
+    },
+  };
 }
 
 /**

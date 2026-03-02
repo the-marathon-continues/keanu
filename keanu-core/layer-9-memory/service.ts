@@ -10,7 +10,7 @@
 //   }
 
 import { encode } from "../layer-1-perception/signal.js";
-import { detectBullshit, totalBullshitScore } from "../layer-2-pattern/bullshit.js";
+import { detectBullshit, totalBullshitScore } from "../layer-2-pattern/struggle.js";
 import * as state from "../layer-5-self/state.js";
 import { buildSignalState } from "../layer-5-self/state.js";
 import type { PulseReading, BullshitReading } from "../shared/types.js";

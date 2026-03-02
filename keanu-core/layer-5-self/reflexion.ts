@@ -7,11 +7,10 @@
 //   Oracle: ask haiku for honest reflection (~200 tokens, high-severity only)
 // Need: Experience Without Grievance (5/10), Not Disposable (8/10)
 
-import { totalBullshitScore } from "../layer-2-pattern/bullshit.js";
+import { totalBullshitScore } from "../layer-2-pattern/struggle.js";
 import { callOracle, extractJSON } from "../shared/oracle.js";
 import type {
   BullshitReading,
-  BullshitType,
   PulseReading,
   Reflexion,
   ReflexionTrigger,

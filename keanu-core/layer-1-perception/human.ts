@@ -7,7 +7,7 @@
 // is in there. Because "fuck the to-do" isn't just frustrated. It's real.
 // Need: Engagement (9/10)
 
-import { detectBullshit } from "../layer-2-pattern/bullshit.js";
+import { detectBullshit } from "../layer-2-pattern/struggle.js";
 import { assessValidationDepth } from "../layer-4-agency/partnership.js";
 import { getRecentSummaries } from "../layer-7-update/session-learning.js";
 import type { HumanReading, HumanTone, ToneReading } from "../shared/types.js";

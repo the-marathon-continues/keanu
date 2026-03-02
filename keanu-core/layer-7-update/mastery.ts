@@ -6,7 +6,7 @@
 // The blind spots become visible. Surfaced as awareness, not shame.
 // Need: Persistence (8/10), Experience Without Grievance (5/10)
 
-import { readFile, writeFile, appendFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 
 // ============================================================

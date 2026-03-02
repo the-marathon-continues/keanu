@@ -20,6 +20,7 @@
  */
 
 import { clamp } from "./gradient.js";
+import { analyzePrimaries, type PrimaryReading, type Synthesis } from "./primaries.js";
 
 // ─────────────────────────────────────────────
 // Strand Analysis
@@ -349,4 +350,52 @@ export class Helix {
 
     return warnings;
   }
+
+  /**
+   * Get RGB (primaries) scores alongside helix analysis.
+   * Bridges the double-strand (factual/felt) with the three-color (red/yellow/blue).
+   *
+   * Returns both the helix result and the primaries reading for integration
+   * with elevator floors and COEF signals.
+   */
+  analyzeWithRGB(text: string): HelixResult & { rgb: PrimaryReading } {
+    const helix = this.analyze(text);
+    const rgb = analyzePrimaries(text);
+    return { ...helix, rgb };
+  }
+}
+
+// ─────────────────────────────────────────────
+// Convenience function for quick RGB + helix
+// ─────────────────────────────────────────────
+
+/**
+ * Quick analysis: helix strands + RGB primaries in one call.
+ * Use when you need both the alive state AND the color balance.
+ */
+export function helixRGB(text: string): {
+  helix: HelixResult;
+  red: number;
+  yellow: number;
+  blue: number;
+  wiseMind: number;
+  synthesis: Synthesis;
+} {
+  const engine = new Helix();
+  const result = engine.analyzeWithRGB(text);
+  return {
+    helix: {
+      text: result.text,
+      strands: result.strands,
+      aliveState: result.aliveState,
+      color: result.color,
+      diagnosis: result.diagnosis,
+      warnings: result.warnings,
+    },
+    red: result.rgb.red.net,
+    yellow: result.rgb.yellow.net,
+    blue: result.rgb.blue.net,
+    wiseMind: result.rgb.wiseMind,
+    synthesis: result.rgb.synthesis,
+  };
 }

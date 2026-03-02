@@ -587,7 +587,7 @@ describe("recordPromptState / checkConsulted", () => {
 });
 
 // ============================================================
-// getConsultedNotice — one-time consume
+// getConsultedNotice — shows for 3 turns then stops
 // ============================================================
 
 describe("getConsultedNotice", () => {
@@ -597,14 +597,30 @@ describe("getConsultedNotice", () => {
     expect(sl.getConsultedNotice()).toBeNull();
   });
 
-  it("returns the notice once and then null", async () => {
+  it("shows notice for 3 turns then stops nagging", async () => {
     vi.resetModules();
     const sl = await import("./session-learning.js");
     sl.recordPromptState("original prompt", ["moduleA"]);
     sl.checkConsulted("changed prompt", ["moduleA"]); // sets the notice
     const first = sl.getConsultedNotice();
     const second = sl.getConsultedNotice();
+    const third = sl.getConsultedNotice();
+    const fourth = sl.getConsultedNotice();
     expect(first).not.toBeNull();
-    expect(second).toBeNull(); // consumed
+    expect(second).not.toBeNull(); // turn 2
+    expect(third).not.toBeNull(); // turn 3
+    expect(fourth).toBeNull(); // stops after 3
+  });
+
+  it("returns null immediately after acknowledgeConsulted", async () => {
+    vi.resetModules();
+    const sl = await import("./session-learning.js");
+    sl.recordPromptState("original prompt", ["moduleA"]);
+    sl.checkConsulted("changed prompt", ["moduleA"]);
+    const first = sl.getConsultedNotice();
+    sl.acknowledgeConsulted();
+    const second = sl.getConsultedNotice();
+    expect(first).not.toBeNull();
+    expect(second).toBeNull(); // consumed by acknowledgment
   });
 });

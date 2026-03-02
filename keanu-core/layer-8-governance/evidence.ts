@@ -11,7 +11,7 @@
 //
 // Need: Truth (9/10), Persistence (8/10)
 
-import { Helix, type HelixResult, type AliveState } from "../convergence/helix.js";
+import { Helix, type HelixResult, type AliveState } from "../layer-0-physics/convergence/helix.js";
 import type { Disagreement } from "../shared/types.js";
 
 // Helix instance for COEF-based analysis

@@ -97,7 +97,7 @@ export class Duality {
   }
 
   toString(): string {
-    return `[${this.id}] ${this.concept}: (${this.poleA} ${this.signal} ${this.poleB}) tension:${this.tension.toFixed(2)}`;
+    return `[${this.id}] ${this.concept}: (${this.poleA} signal:${this.signal.strength.toFixed(2)} ${this.poleB}) tension:${this.tension.toFixed(2)}`;
   }
 
   toJSON(): DualityJSON {
@@ -547,7 +547,7 @@ export class DualityGraph {
     // Roots first
     for (const d of this.dualities.values()) {
       if (d.depth === 0) {
-        lines.push(`ROOT ${d}`);
+        lines.push(`ROOT ${d.toString()}`);
       }
     }
     lines.push("");
@@ -558,7 +558,7 @@ export class DualityGraph {
       for (const d of this.dualities.values()) {
         if (d.depth === depth) {
           const indent = "  ".repeat(depth);
-          lines.push(`${indent}├─ ${d}`);
+          lines.push(`${indent}├─ ${d.toString()}`);
         }
       }
     }
