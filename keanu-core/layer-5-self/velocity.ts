@@ -309,8 +309,13 @@ export function reset(): void {
   _modeStartTurn = 0;
   _turnNumber = 0;
   _lastMismatch = null;
+  _easyStreak = 0;
 }
 
 export function getTurnCount(): number {
   return _turnNumber;
+}
+
+export function getEasyStreak(): number {
+  return _easyStreak;
 }

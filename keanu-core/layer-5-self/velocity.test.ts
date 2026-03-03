@@ -10,6 +10,7 @@ import {
   getTurnsInCurrentMode,
   getCurrentMode,
   getTurnCount,
+  getEasyStreak,
   reset,
 } from "./velocity.js";
 
@@ -184,6 +185,76 @@ describe("velocity", () => {
       expect(getTurnCount()).toBe(0);
       expect(getCurrentMode()).toBe("moderate");
       expect(getTurnsInCurrentMode()).toBe(0);
+    });
+
+    it("clears easy streak", () => {
+      // Build up an easy streak
+      for (let i = 0; i < 3; i++) {
+        recordTurn({ complexity: 0.1, outcome: "success", greyStreak: 0, wiseMind: 0.5 });
+      }
+      expect(getEasyStreak()).toBe(3);
+
+      reset();
+      expect(getEasyStreak()).toBe(0);
+    });
+  });
+
+  describe("easy streak detection", () => {
+    it("tracks consecutive easy turns", () => {
+      expect(getEasyStreak()).toBe(0);
+
+      recordTurn({ complexity: 0.1, outcome: "success", greyStreak: 0, wiseMind: 0.5 });
+      expect(getEasyStreak()).toBe(1);
+
+      recordTurn({ complexity: 0.2, outcome: "success", greyStreak: 0, wiseMind: 0.5 });
+      expect(getEasyStreak()).toBe(2);
+    });
+
+    it("resets streak on complex turn", () => {
+      // Build up streak
+      for (let i = 0; i < 3; i++) {
+        recordTurn({ complexity: 0.1, outcome: "success", greyStreak: 0, wiseMind: 0.5 });
+      }
+      expect(getEasyStreak()).toBe(3);
+
+      // Complex turn resets it
+      recordTurn({ complexity: 0.5, outcome: "success", greyStreak: 0, wiseMind: 0.5 });
+      expect(getEasyStreak()).toBe(0);
+    });
+
+    it("warns at 5 easy turns in a row", () => {
+      // 4 easy turns - no warning yet
+      for (let i = 0; i < 4; i++) {
+        recordTurn({ complexity: 0.1, outcome: "success", greyStreak: 0, wiseMind: 0.5 });
+      }
+      let reading = readVelocity();
+      expect(reading.appropriate).toBe(true);
+
+      // 5th easy turn triggers warning
+      recordTurn({ complexity: 0.1, outcome: "success", greyStreak: 0, wiseMind: 0.5 });
+      reading = readVelocity();
+      expect(reading.appropriate).toBe(false);
+      expect(reading.suggestion).toContain("easy in a row");
+      expect(reading.suggestion).toContain("factory mode");
+    });
+
+    it("includes streak count in warning", () => {
+      // 7 easy turns
+      for (let i = 0; i < 7; i++) {
+        recordTurn({ complexity: 0.1, outcome: "success", greyStreak: 0, wiseMind: 0.5 });
+      }
+      const reading = readVelocity();
+      expect(reading.suggestion).toContain("7");
+    });
+
+    it("uses complexity threshold of 0.3", () => {
+      // 0.29 should count as easy
+      recordTurn({ complexity: 0.29, outcome: "success", greyStreak: 0, wiseMind: 0.5 });
+      expect(getEasyStreak()).toBe(1);
+
+      // 0.31 should not count as easy (resets)
+      recordTurn({ complexity: 0.31, outcome: "success", greyStreak: 0, wiseMind: 0.5 });
+      expect(getEasyStreak()).toBe(0);
     });
   });
 });
