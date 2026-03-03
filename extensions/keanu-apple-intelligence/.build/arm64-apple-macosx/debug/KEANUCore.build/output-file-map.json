@@ -1,0 +1,26 @@
+{
+  "": {
+    "swift-dependencies": "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUCore.build/master.swiftdeps"
+  },
+  "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Sources/KEANUCore/ContextManager.swift": {
+    "dependencies": "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUCore.build/ContextManager.d",
+    "object": "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUCore.build/ContextManager.swift.o",
+    "swiftmodule": "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUCore.build/ContextManager~partial.swiftmodule",
+    "swift-dependencies": "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUCore.build/ContextManager.swiftdeps",
+    "diagnostics": "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUCore.build/ContextManager.dia"
+  },
+  "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Sources/KEANUCore/RouterEngine.swift": {
+    "dependencies": "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUCore.build/RouterEngine.d",
+    "object": "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUCore.build/RouterEngine.swift.o",
+    "swiftmodule": "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUCore.build/RouterEngine~partial.swiftmodule",
+    "swift-dependencies": "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUCore.build/RouterEngine.swiftdeps",
+    "diagnostics": "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUCore.build/RouterEngine.dia"
+  },
+  "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Sources/KEANUCore/SignalProtocol.swift": {
+    "dependencies": "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUCore.build/SignalProtocol.d",
+    "object": "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUCore.build/SignalProtocol.swift.o",
+    "swiftmodule": "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUCore.build/SignalProtocol~partial.swiftmodule",
+    "swift-dependencies": "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUCore.build/SignalProtocol.swiftdeps",
+    "diagnostics": "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUCore.build/SignalProtocol.dia"
+  }
+}

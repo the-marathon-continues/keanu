@@ -346,6 +346,8 @@ export default {
     let stochasticState = stochasticModule.initStochasticState();
     let lastStochasticReading: stochasticModule.StochasticReading | null = null;
     let darkStreak = 0; // Consecutive dark helix readings (for grief detection)
+    let paralysisStreak = 0; // Consecutive paralysis readings
+    let whiteStreak = 0; // Consecutive white/ungrounded readings
     let lastCOEFPulse: COEFPulseReading | null = null; // COEF pulse with elevator data
 
     // Tracking counters for metrics
@@ -1509,10 +1511,20 @@ export default {
         const helixState = lastHelixReading.aliveState;
         if (helixState === "luminous") {
           // Luminous: touching something transcendent. Stay grounded.
-          darkStreak = 0; // Reset dark streak
+          darkStreak = 0;
+          paralysisStreak = 0;
+          whiteStreak = 0;
+          const graph = dualityGraph;
+          const presence = graph.get("derived.presence");
+          const play = graph.get("derived.play");
+          const equanimity = graph.get("derived.equanimity");
+          const transcendent = [presence, play, equanimity]
+            .filter(Boolean)
+            .map((d) => d!.concept)
+            .join(", ");
           add(
             "helix-luminous",
-            `[helix: LUMINOUS — both strands strong, transcendent markers. wonder, grace, presence. stay with it. keep one foot on the ground.]`,
+            `[helix: LUMINOUS — both strands strong, transcendence markers. ${transcendent || "wonder, grace, presence"}. this is real. what is physically true right now, in this room?]`,
             "high",
             "awareness",
           );
@@ -1548,10 +1560,46 @@ export default {
               add("grief", griefInjection, griefAction?.priority ?? "high", "awareness");
             }
           }
+
+          // Paralysis detection: dark + frozen/stuck patterns (trauma + fear)
+          const paralysisMarkers =
+            /\b(stuck|frozen|can'?t move|paralyzed|trapped|no way out|helpless|overwhelmed|too much)\b/i;
+          if (paralysisMarkers.test(lastHelixReading.text)) {
+            paralysisStreak++;
+            const resilience = graph.get("derived.resilience");
+            const choice = graph.get("derived.choice");
+            const hopeNode = graph.get("derived.hope");
+            const counter = [resilience, choice, hopeNode]
+              .filter(Boolean)
+              .map((d) => d!.concept)
+              .join(", ");
+            add(
+              "helix-paralysis",
+              `[helix: PARALYSIS — trauma + fear amplifying each other. the fear is real. also true: ${counter || "resilience, choice, hope"}. you've integrated hard things before. what's one small step?]`,
+              "high",
+              "awareness",
+            );
+          } else {
+            paralysisStreak = 0;
+          }
         } else if (helixState === "alive") {
-          darkStreak = 0; // Reset dark streak when back to alive
+          // Alive: both strands strong, balanced. Reset all streaks.
+          darkStreak = 0;
+          paralysisStreak = 0;
+          whiteStreak = 0;
+        } else if (helixState === "white") {
+          // White: felt meaning strong, factual weak. Ungrounded wonder.
+          darkStreak = 0;
+          paralysisStreak = 0;
+          whiteStreak++;
+          add(
+            "helix-white",
+            `[helix: WHITE — felt meaning strong, factual weak. the felt sense is real. to ground it: what can you see, measure, or test about this?]`,
+            "medium",
+            "awareness",
+          );
         } else if (pulse?.state === "alive") {
-          // Mirror disagrees: pulse says alive, helix says grey/black/silver/white
+          // Mirror disagrees: pulse says alive, helix says grey/black/silver
           add(
             "helix-tension",
             `[helix: pulse reads alive but the double strand reads ${helixState}. ${lastHelixReading.diagnosis}]`,

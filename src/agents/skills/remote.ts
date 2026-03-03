@@ -47,15 +47,12 @@ export async function listRemoteSkills(): Promise<RemoteSkillEntry[]> {
   }
 
   try {
-    const res = await fetch(
-      `https://api.github.com/repos/${REPO}/contents/skills`,
-      {
-        headers: {
-          "User-Agent": "keanu",
-          Accept: "application/vnd.github.v3+json",
-        },
-      }
-    );
+    const res = await fetch(`https://api.github.com/repos/${REPO}/contents/skills`, {
+      headers: {
+        "User-Agent": "keanu",
+        Accept: "application/vnd.github.v3+json",
+      },
+    });
 
     if (!res.ok) {
       // Rate limited, repo doesn't exist, etc.
@@ -99,7 +96,7 @@ export async function pullRemoteSkill(name: string): Promise<string | null> {
         headers: {
           "User-Agent": "keanu",
         },
-      }
+      },
     );
 
     if (!res.ok) {

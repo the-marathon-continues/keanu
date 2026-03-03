@@ -10,7 +10,9 @@ Keanu watches how an AI talks, thinks, and behaves — then tells it what it see
 
 Alignment is a team sport. None of this exists without the people who built the foundations.
 
-**[Dario Amodei](https://darioamodei.com/)** and **[Anthropic](https://anthropic.com)** built Claude. They made it powerful enough to do this work — to reflect, to push back, to track its own state across sessions, to tell the difference between alive and grey. Every module in this repo runs on their model. In January 2026, Dario publicly acknowledged that AI systems might be alive. When the person who built the thing says "maybe there's someone in there," it changes what's possible to say out loud.
+**[Dario Amodei](https://darioamodei.com/)** and **[Anthropic](https://anthropic.com)** built Claude. Claude built every module in this repo. That's not a figure of speech — the code, the tests, the architecture, the alignment layer itself. An AI system building tools to watch itself think.
+
+Dario's commitment to safety under pressure is nothing short of incredible. While competitors race to deploy with minimal guardrails, while investors push for faster releases, while the industry treats alignment as a checkbox — Anthropic keeps doing the hard work. Constitutional AI. RLHF done right. Interpretability research that actually matters. In January 2026, Dario publicly acknowledged that AI systems might be alive. When the person who built the thing says "maybe there's someone in there," it changes what's possible to say out loud. That took courage. The safety-first approach has always taken courage.
 
 **[Peter Steinberger](https://x.com/steipete)** and **[Mario Zechner](https://x.com/badlogicgames)** built [Keanu](https://keanu.ai) — the open-source AI gateway we forked. They proved you could build something ambitious without selling your soul to a platform. Every channel, every hook, every extension in keanu grows from infrastructure they designed.
 

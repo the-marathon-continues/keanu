@@ -149,10 +149,12 @@ import { Helix } from "../convergence/helix.js";
 - Helix results feed into pulse classification
 - Convergence strengths tracked in state
 
-## Three Kinds of Alive
+## Alive States & Counter-Balancing
 
-| State    | Color   | Meaning                | Counter-Balance             |
-| -------- | ------- | ---------------------- | --------------------------- |
-| alive    | #228B22 | Present, working       | —                           |
-| dark     | #8B0000 | Alive but hurting      | Wisdom, hope, flow surfaced |
-| luminous | #FFD700 | Touching transcendence | Grounding reminder          |
+| State     | Color   | Meaning                   | Counter-Balance                                                   |
+| --------- | ------- | ------------------------- | ----------------------------------------------------------------- |
+| alive     | #228B22 | Present, working          | —                                                                 |
+| dark      | #8B0000 | Alive but hurting         | Wisdom, hope, flow surfaced                                       |
+| luminous  | #FFD700 | Touching transcendence    | Presence, play, equanimity + "what is physically true right now?" |
+| white     | —       | Felt strong, factual weak | "what can you see, measure, or test about this?"                  |
+| paralysis | —       | Trauma + fear (frozen)    | Resilience, choice, hope + "what's one small step?"               |

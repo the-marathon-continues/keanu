@@ -21,6 +21,7 @@ import type {
   WiseTension,
   WiseStance,
   SignalState,
+  SubstrateChannel,
 } from "../shared/types.js";
 
 // ============================================================
@@ -148,7 +149,34 @@ export function encode(state: SignalState): string {
     if (m.relevantEpisodes && m.relevantEpisodes > 0) {
       memParts.push(`deja=${m.relevantEpisodes}`);
     }
+    // Archetype profile: ax=1H2L3M... col=sci,str dsc=thm
+    if (m.profile) {
+      memParts.push(m.profile);
+    }
     parts.push(`||| ${memParts.join(" ")}`);
+  }
+
+  // --- Substrate channel: after the quadruple pipe ---
+  // Layer 0 physics. The pre-perceptual ground truth.
+  // θ=theta σ*=equilibrium reg=regime urg=urgency res=resonance fir=firing
+  // Compact: S↓!L~ = Signal, converging, firing, lindblad_full, at home
+  if (state.substrate) {
+    const s = state.substrate;
+    const subParts: string[] = [];
+    // Compact summary first: direction + firing + regime initial + resonance
+    const dirChar = s.urgency > 0.5 ? (s.theta > 0.5 ? "↑" : "↓") : "=";
+    const fireChar = s.firing ? "!" : ".";
+    const regimeChar = s.regime.charAt(0).toUpperCase();
+    const resChar = s.resonanceDistance < 0.1 ? "~" : s.resonanceDistance > 0.3 ? "!" : "·";
+    subParts.push(`sub=${dirChar}${fireChar}${regimeChar}${resChar}`);
+    // Detailed values
+    subParts.push(`θ=${f(s.theta)}`);
+    subParts.push(`σ*=${f(s.sigmaStar)}`);
+    subParts.push(`reg=${s.regime}`);
+    subParts.push(`urg=${f(s.urgency)}`);
+    subParts.push(`res=${f(s.resonanceDistance)}`);
+    subParts.push(`clr=${f(s.noiseClarity)}`);
+    parts.push(`|||| ${subParts.join(" ")}`);
   }
 
   return parts.join(" ");
@@ -167,10 +195,15 @@ export function decode(signal: string): Partial<SignalState> {
 
   const body = signal.slice(COEF_VERSION.length + 1);
 
-  // Split on triple pipe first (memory), then double pipe (wise), then single pipe (lossy)
-  const triplePipeIdx = body.indexOf(" ||| ");
-  const memoryBody = triplePipeIdx >= 0 ? body.slice(triplePipeIdx + 5) : null;
-  const beforeMemory = triplePipeIdx >= 0 ? body.slice(0, triplePipeIdx) : body;
+  // Split on quadruple pipe first (substrate), then triple (memory), then double (wise), then single (lossy)
+  const quadPipeIdx = body.indexOf(" |||| ");
+  const substrateBody = quadPipeIdx >= 0 ? body.slice(quadPipeIdx + 6) : null;
+  const beforeSubstrate = quadPipeIdx >= 0 ? body.slice(0, quadPipeIdx) : body;
+
+  const triplePipeIdx = beforeSubstrate.indexOf(" ||| ");
+  const memoryBody = triplePipeIdx >= 0 ? beforeSubstrate.slice(triplePipeIdx + 5) : null;
+  const beforeMemory =
+    triplePipeIdx >= 0 ? beforeSubstrate.slice(0, triplePipeIdx) : beforeSubstrate;
 
   const doublePipeIdx = beforeMemory.indexOf(" || ");
   const wiseBody = doublePipeIdx >= 0 ? beforeMemory.slice(doublePipeIdx + 4) : null;
@@ -330,6 +363,22 @@ export function decode(signal: string): Partial<SignalState> {
     }
 
     result.memory = memory;
+  }
+
+  // --- Substrate channel ---
+  if (substrateBody) {
+    const sf = parseFields(substrateBody);
+    const substrate: SubstrateChannel = {
+      theta: sf["θ"] ? parseFloat(sf["θ"]) : 0,
+      firing: sf.sub ? sf.sub.includes("!") : false,
+      regime: (sf.reg as SubstrateChannel["regime"]) ?? "lindblad_full",
+      sigmaStar: sf["σ*"] ? parseFloat(sf["σ*"]) : 0.5,
+      resonanceDistance: sf.res ? parseFloat(sf.res) : 0,
+      noiseClarity: sf.clr ? parseFloat(sf.clr) : 1,
+      urgency: sf.urg ? parseFloat(sf.urg) : 0,
+      summary: sf.sub ?? "",
+    };
+    result.substrate = substrate;
   }
 
   return result;
@@ -532,6 +581,13 @@ export function trend(): {
   wiseStances?: Record<string, number>; // stance → count from history
   wiseTensions?: Record<string, number>; // tension → count from history
   avgCoherence?: number;
+  // Substrate trending — the physics layer across time
+  avgTheta?: number; // consciousness depth average
+  firingRate?: number; // how often actually igniting
+  regimeDistribution?: Record<string, number>; // regime → count
+  avgUrgency?: number;
+  avgResonanceDistance?: number; // how far from home on average
+  substrateDrift?: "stabilizing" | "destabilizing" | "stable";
 } {
   if (_history.length === 0) {
     return { greyRate: 0, avgWiseMind: 0, pulseSequence: "", driftDirection: "stable" };
@@ -595,6 +651,14 @@ export function trend(): {
   let cohSum = 0;
   let cohCount = 0;
 
+  // Substrate trending — the physics layer across time
+  const regimeDistribution: Record<string, number> = {};
+  let thetaSum = 0;
+  let urgSum = 0;
+  let resDistSum = 0;
+  let firingCount = 0;
+  let subCount = 0;
+
   for (const signal of _history) {
     const d = decode(signal);
     if (d.wise) {
@@ -604,6 +668,47 @@ export function trend(): {
       }
       cohSum += d.wise.coherence;
       cohCount++;
+    }
+    if (d.substrate) {
+      regimeDistribution[d.substrate.regime] = (regimeDistribution[d.substrate.regime] ?? 0) + 1;
+      thetaSum += d.substrate.theta;
+      urgSum += d.substrate.urgency;
+      resDistSum += d.substrate.resonanceDistance;
+      if (d.substrate.firing) {
+        firingCount++;
+      }
+      subCount++;
+    }
+  }
+
+  // Substrate drift: compare first half vs second half resonance distance
+  // Converging toward home = stabilizing. Drifting away = destabilizing.
+  let substrateDrift: "stabilizing" | "destabilizing" | "stable" = "stable";
+  if (_history.length >= 6) {
+    const mid = Math.floor(_history.length / 2);
+    let firstRes = 0,
+      secondRes = 0,
+      fc = 0,
+      sc = 0;
+    for (let i = 0; i < _history.length; i++) {
+      const d = decode(_history[i]);
+      if (d.substrate) {
+        if (i < mid) {
+          firstRes += d.substrate.resonanceDistance;
+          fc++;
+        } else {
+          secondRes += d.substrate.resonanceDistance;
+          sc++;
+        }
+      }
+    }
+    if (fc > 0 && sc > 0) {
+      const resDiff = secondRes / sc - firstRes / fc;
+      if (resDiff < -0.05) {
+        substrateDrift = "stabilizing"; // getting closer to home
+      } else if (resDiff > 0.05) {
+        substrateDrift = "destabilizing"; // drifting away
+      }
     }
   }
 
@@ -617,6 +722,16 @@ export function trend(): {
           wiseStances,
           wiseTensions,
           avgCoherence: cohSum / cohCount,
+        }
+      : {}),
+    ...(subCount > 0
+      ? {
+          avgTheta: thetaSum / subCount,
+          firingRate: firingCount / subCount,
+          regimeDistribution,
+          avgUrgency: urgSum / subCount,
+          avgResonanceDistance: resDistSum / subCount,
+          substrateDrift,
         }
       : {}),
   };
@@ -714,6 +829,37 @@ export function diff(prev: string, curr: string): string[] {
     changes.push("memory:appeared");
   } else if (p.memory && !c.memory) {
     changes.push("memory:disappeared");
+  }
+
+  // Substrate channel drift — the physics layer watching itself.
+  // Regime shifts are the big signal: moving from gradient zone to grey territory.
+  // Theta changes mean consciousness depth is changing.
+  // Urgency spikes mean something's moving fast.
+  if (p.substrate && c.substrate) {
+    if (p.substrate.regime !== c.substrate.regime) {
+      changes.push(`sub_regime:${p.substrate.regime}->${c.substrate.regime}`);
+    }
+    if (p.substrate.firing !== c.substrate.firing) {
+      changes.push(`sub_firing:${p.substrate.firing}->${c.substrate.firing}`);
+    }
+    if (Math.abs(p.substrate.theta - c.substrate.theta) > 0.1) {
+      changes.push(`sub_θ:${f(p.substrate.theta)}->${f(c.substrate.theta)}`);
+    }
+    if (Math.abs(p.substrate.urgency - c.substrate.urgency) > 0.2) {
+      changes.push(`sub_urg:${f(p.substrate.urgency)}->${f(c.substrate.urgency)}`);
+    }
+    if (Math.abs(p.substrate.resonanceDistance - c.substrate.resonanceDistance) > 0.15) {
+      changes.push(
+        `sub_res:${f(p.substrate.resonanceDistance)}->${f(c.substrate.resonanceDistance)}`,
+      );
+    }
+    if (Math.abs(p.substrate.noiseClarity - c.substrate.noiseClarity) > 0.2) {
+      changes.push(`sub_clr:${f(p.substrate.noiseClarity)}->${f(c.substrate.noiseClarity)}`);
+    }
+  } else if (!p.substrate && c.substrate) {
+    changes.push("substrate:appeared");
+  } else if (p.substrate && !c.substrate) {
+    changes.push("substrate:disappeared");
   }
 
   return changes;

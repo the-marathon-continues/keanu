@@ -5,6 +5,8 @@ export type BrowserProfileConfig = {
   cdpUrl?: string;
   /** Profile driver (default: keanu). */
   driver?: "keanu" | "extension";
+  /** Run this profile headless (overrides global setting). */
+  headless?: boolean;
   /** Profile color (hex). Auto-assigned at creation. */
   color: string;
 };

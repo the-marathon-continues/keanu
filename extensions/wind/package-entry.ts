@@ -25,11 +25,11 @@ export {
   dominantBullshit,
   detectBullshitCOEF,
   detectBullshitUnified,
-} from "../../keanu-core/layer-2-pattern/bullshit.js";
+} from "../../keanu-core/layer-2-pattern/struggle.js";
 export {
   detectManipulation,
   detectAllManipulation,
-} from "../../keanu-core/layer-2-pattern/bullshit.js";
+} from "../../keanu-core/layer-2-pattern/struggle.js";
 
 export {
   readHuman,

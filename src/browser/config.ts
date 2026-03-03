@@ -44,6 +44,7 @@ export type ResolvedBrowserProfile = {
   cdpIsLoopback: boolean;
   color: string;
   driver: "keanu" | "extension";
+  headless: boolean;
 };
 
 function normalizeHexColor(raw: string | undefined) {
@@ -177,11 +178,60 @@ function ensureDefaultChromeExtensionProfile(
   };
   return result;
 }
+
+/**
+ * Ensure a built-in "headless" profile exists for headless browser automation.
+ *
+ * This provides a no-extension alternative for web scraping and research.
+ * Uses a dedicated CDP port (controlPort + 2) and runs in headless mode.
+ */
+function ensureDefaultHeadlessProfile(
+  profiles: Record<string, BrowserProfileConfig>,
+  controlPort: number,
+): Record<string, BrowserProfileConfig> {
+  const result = { ...profiles };
+  if (result.headless) {
+    return result;
+  }
+  const headlessPort = controlPort + 2;
+  if (!Number.isFinite(headlessPort) || headlessPort <= 0 || headlessPort > 65535) {
+    return result;
+  }
+  // Avoid port collision with other profiles
+  if (getUsedPorts(result).has(headlessPort)) {
+    return result;
+  }
+  result.headless = {
+    cdpPort: headlessPort,
+    headless: true,
+    color: "#6B7280", // gray for headless
+  };
+  return result;
+}
+// Environment variable overrides for containerized deployments
+function envBool(key: string): boolean | undefined {
+  const val = process.env[key]?.trim().toLowerCase();
+  if (!val) {
+    return undefined;
+  }
+  return val === "1" || val === "true" || val === "yes";
+}
+
+function envString(key: string): string | undefined {
+  return process.env[key]?.trim() || undefined;
+}
+
 export function resolveBrowserConfig(
   cfg: BrowserConfig | undefined,
   rootConfig?: KeanuConfig,
 ): ResolvedBrowserConfig {
-  const enabled = cfg?.enabled ?? DEFAULT_KEANU_BROWSER_ENABLED;
+  // Env vars override config file (for containerized deployments)
+  const envEnabled = envBool("KEANU_BROWSER_ENABLED");
+  const envHeadless = envBool("KEANU_BROWSER_HEADLESS");
+  const envAttachOnly = envBool("KEANU_BROWSER_ATTACH_ONLY");
+  const envCdpUrl = envString("KEANU_BROWSER_CDP_URL");
+
+  const enabled = envEnabled ?? cfg?.enabled ?? DEFAULT_KEANU_BROWSER_ENABLED;
   const evaluateEnabled = cfg?.evaluateEnabled ?? DEFAULT_BROWSER_EVALUATE_ENABLED;
   const gatewayPort = resolveGatewayPort(rootConfig);
   const controlPort = deriveDefaultBrowserControlPort(gatewayPort ?? DEFAULT_BROWSER_CONTROL_PORT);
@@ -194,7 +244,7 @@ export function resolveBrowserConfig(
 
   const derivedCdpRange = deriveDefaultBrowserCdpPortRange(controlPort);
 
-  const rawCdpUrl = (cfg?.cdpUrl ?? "").trim();
+  const rawCdpUrl = (envCdpUrl ?? cfg?.cdpUrl ?? "").trim();
   let cdpInfo:
     | {
         parsed: URL;
@@ -219,16 +269,19 @@ export function resolveBrowserConfig(
     };
   }
 
-  const headless = cfg?.headless === true;
+  const headless = envHeadless ?? cfg?.headless === true;
   const noSandbox = cfg?.noSandbox === true;
-  const attachOnly = cfg?.attachOnly === true;
+  const attachOnly = envAttachOnly ?? cfg?.attachOnly === true;
   const executablePath = cfg?.executablePath?.trim() || undefined;
 
   const defaultProfileFromConfig = cfg?.defaultProfile?.trim() || undefined;
   // Use legacy cdpUrl port for backward compatibility when no profiles configured
   const legacyCdpPort = rawCdpUrl ? cdpInfo.port : undefined;
-  const profiles = ensureDefaultChromeExtensionProfile(
-    ensureDefaultProfile(cfg?.profiles, defaultColor, legacyCdpPort, derivedCdpRange.start),
+  const profiles = ensureDefaultHeadlessProfile(
+    ensureDefaultChromeExtensionProfile(
+      ensureDefaultProfile(cfg?.profiles, defaultColor, legacyCdpPort, derivedCdpRange.start),
+      controlPort,
+    ),
     controlPort,
   );
   const cdpProtocol = cdpInfo.parsed.protocol === "https:" ? "https" : "http";
@@ -294,6 +347,9 @@ export function resolveProfile(
     throw new Error(`Profile "${profileName}" must define cdpPort or cdpUrl.`);
   }
 
+  // Per-profile headless overrides global setting
+  const headless = profile.headless === true;
+
   return {
     name: profileName,
     cdpPort,
@@ -302,6 +358,7 @@ export function resolveProfile(
     cdpIsLoopback: isLoopbackHost(cdpHost),
     color: profile.color,
     driver,
+    headless,
   };
 }
 

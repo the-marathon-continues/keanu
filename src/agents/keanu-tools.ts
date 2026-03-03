@@ -19,6 +19,7 @@ import { createSessionsListTool } from "./tools/sessions-list-tool.js";
 import { createSessionsSendTool } from "./tools/sessions-send-tool.js";
 import { createSessionsSpawnTool } from "./tools/sessions-spawn-tool.js";
 import { createSubagentsTool } from "./tools/subagents-tool.js";
+import { createSystemExtensionTools } from "./tools/system-extension-tools.js";
 import { buildToolIndex, createToolSearchTool, type ToolSearchEntry } from "./tools/tool-search.js";
 import { createTtsTool } from "./tools/tts-tool.js";
 import { createWebFetchTool, createWebSearchTool } from "./tools/web-tools.js";
@@ -75,6 +76,11 @@ export function createKeanuTools(options?: {
    * Deferred tools remain discoverable and invocable via tool_search.
    */
   enableToolSearch?: boolean;
+  /**
+   * If true, include system extension tools (DNS queries, processes, file access, network flows).
+   * These require the Keanu macOS app with system extensions installed and connected.
+   */
+  enableSystemExtensionTools?: boolean;
 }): AnyAgentTool[] {
   const workspaceDir = resolveWorkspaceRoot(options?.workspaceDir);
   const imageTool = options?.agentDir?.trim()
@@ -175,6 +181,7 @@ export function createKeanuTools(options?: {
     ...(webSearchTool ? [webSearchTool] : []),
     ...(webFetchTool ? [webFetchTool] : []),
     ...(imageTool ? [imageTool] : []),
+    ...(options?.enableSystemExtensionTools ? createSystemExtensionTools() : []),
   ];
 
   const pluginTools = resolvePluginTools({

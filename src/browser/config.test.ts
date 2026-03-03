@@ -135,6 +135,28 @@ describe("browser config", () => {
     expect(resolved.defaultProfile).toBe("keanu");
   });
 
+  it("auto-creates a headless profile as alternative to chrome extension", () => {
+    const resolved = resolveBrowserConfig(undefined);
+    const headless = resolveProfile(resolved, "headless");
+    expect(headless).not.toBe(null);
+    expect(headless?.driver).toBe("keanu");
+    expect(headless?.headless).toBe(true);
+    expect(headless?.cdpPort).toBe(18793); // controlPort (18791) + 2
+    expect(headless?.color).toBe("#6B7280");
+  });
+
+  it("per-profile headless overrides global setting", () => {
+    const resolved = resolveBrowserConfig({
+      headless: false,
+      profiles: {
+        myheadless: { cdpPort: 19000, headless: true, color: "#333333" },
+      },
+    });
+    expect(resolved.headless).toBe(false);
+    const profile = resolveProfile(resolved, "myheadless");
+    expect(profile?.headless).toBe(true);
+  });
+
   it("defaults extraArgs to empty array when not provided", () => {
     const resolved = resolveBrowserConfig(undefined);
     expect(resolved.extraArgs).toEqual([]);

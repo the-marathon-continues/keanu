@@ -1,0 +1,8 @@
+{
+  "id": "wind",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}

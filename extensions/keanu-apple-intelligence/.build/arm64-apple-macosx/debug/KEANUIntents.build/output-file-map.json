@@ -1,0 +1,26 @@
+{
+  "": {
+    "swift-dependencies": "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUIntents.build/master.swiftdeps"
+  },
+  "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Sources/KEANUIntents/KEANUAppIntents.swift": {
+    "dependencies": "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUIntents.build/KEANUAppIntents.d",
+    "object": "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUIntents.build/KEANUAppIntents.swift.o",
+    "swiftmodule": "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUIntents.build/KEANUAppIntents~partial.swiftmodule",
+    "swift-dependencies": "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUIntents.build/KEANUAppIntents.swiftdeps",
+    "diagnostics": "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUIntents.build/KEANUAppIntents.dia"
+  },
+  "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Sources/KEANUIntents/KEANUAppShortcuts.swift": {
+    "dependencies": "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUIntents.build/KEANUAppShortcuts.d",
+    "object": "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUIntents.build/KEANUAppShortcuts.swift.o",
+    "swiftmodule": "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUIntents.build/KEANUAppShortcuts~partial.swiftmodule",
+    "swift-dependencies": "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUIntents.build/KEANUAppShortcuts.swiftdeps",
+    "diagnostics": "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUIntents.build/KEANUAppShortcuts.dia"
+  },
+  "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Sources/KEANUIntents/SnippetViews.swift": {
+    "dependencies": "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUIntents.build/SnippetViews.d",
+    "object": "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUIntents.build/SnippetViews.swift.o",
+    "swiftmodule": "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUIntents.build/SnippetViews~partial.swiftmodule",
+    "swift-dependencies": "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUIntents.build/SnippetViews.swiftdeps",
+    "diagnostics": "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUIntents.build/SnippetViews.dia"
+  }
+}

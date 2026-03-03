@@ -55,18 +55,19 @@ The system (Siri, Shortcuts, Spotlight, Action Button) triggers KEANU actions.
 
 ### Exposed Intents
 
-| Intent | Siri Phrase | What It Does |
-|--------|-------------|-------------|
-| `AskKEANUIntent` | "Ask KEANU about..." | Routes a query through KEANU's reasoning pipeline |
-| `KEANUStatusIntent` | "KEANU status" | Returns current signal, active projects, context state |
-| `KEANURouteIntent` | "Route this to KEANU" | Takes clipboard/selected text, processes through KEANU |
-| `KEANUMemoryIntent` | "KEANU remember..." | Stores context in KEANU's persistent memory |
-| `KEANUSignalIntent` | "KEANU signal" | Returns compressed signal state (emoji protocol) |
-| `KEANUActionIntent` | "KEANU do/refine/drop..." | Executes signal protocol commands |
+| Intent              | Siri Phrase               | What It Does                                           |
+| ------------------- | ------------------------- | ------------------------------------------------------ |
+| `AskKEANUIntent`    | "Ask KEANU about..."      | Routes a query through KEANU's reasoning pipeline      |
+| `KEANUStatusIntent` | "KEANU status"            | Returns current signal, active projects, context state |
+| `KEANURouteIntent`  | "Route this to KEANU"     | Takes clipboard/selected text, processes through KEANU |
+| `KEANUMemoryIntent` | "KEANU remember..."       | Stores context in KEANU's persistent memory            |
+| `KEANUSignalIntent` | "KEANU signal"            | Returns compressed signal state (emoji protocol)       |
+| `KEANUActionIntent` | "KEANU do/refine/drop..." | Executes signal protocol commands                      |
 
 ### App Shortcuts (Zero-Config Siri)
 
 These are available immediately on install, no setup needed:
+
 - "Hey Siri, ask KEANU"
 - "Hey Siri, what's KEANU thinking?"
 - "Hey Siri, KEANU status check"
@@ -79,14 +80,14 @@ KEANU leverages Apple's on-device AI for local processing, privacy, and speed.
 
 ### Capabilities KEANU Can Call
 
-| Capability | Framework | Use Case |
-|-----------|-----------|----------|
-| On-device LLM | Foundation Models | Fast local summarization, classification, entity extraction |
-| Guided Generation | Foundation Models | Structured Swift output from natural language |
-| Tool Calling | Foundation Models | Let Apple's LLM invoke KEANU's tools |
-| Writing Tools | WritingTools API | Rewrite/proofread/summarize text |
-| Image Generation | ImagePlayground / ImageCreator | Generate images on-device |
-| Smart Reply | System APIs | Context-aware reply suggestions |
+| Capability        | Framework                      | Use Case                                                    |
+| ----------------- | ------------------------------ | ----------------------------------------------------------- |
+| On-device LLM     | Foundation Models              | Fast local summarization, classification, entity extraction |
+| Guided Generation | Foundation Models              | Structured Swift output from natural language               |
+| Tool Calling      | Foundation Models              | Let Apple's LLM invoke KEANU's tools                        |
+| Writing Tools     | WritingTools API               | Rewrite/proofread/summarize text                            |
+| Image Generation  | ImagePlayground / ImageCreator | Generate images on-device                                   |
+| Smart Reply       | System APIs                    | Context-aware reply suggestions                             |
 
 ### Hybrid Routing: Apple On-Device vs Claude Cloud
 

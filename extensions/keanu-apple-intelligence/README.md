@@ -74,6 +74,7 @@ System Settings → Apple Intelligence & Siri → Enable
 ### 3. Build and Run
 
 The app registers App Intents on install. Try:
+
 - "Hey Siri, ask KEANU about..."
 - "Hey Siri, KEANU status"
 - Open Shortcuts app → KEANU actions are available
@@ -87,6 +88,7 @@ In KEANU Settings, add your Anthropic API key. This enables cloud fallback for c
 ### Routing Engine
 
 Every request flows through `RouterEngine.swift`. It assesses:
+
 - Task complexity (simple/medium/complex/realtime)
 - Whether world knowledge is needed
 - Whether code generation is needed
@@ -97,6 +99,7 @@ Then routes to the right destination.
 ### Signal Protocol
 
 Compressed communication preserved across both directions:
+
 - Drew sends: `"working-truth 8, apple-intel 7, anywhereops 3"`
 - KEANU responds: `"do working-truth 8 | do apple-intel 7 | drop anywhereops 3"`
 - Works via Siri: "Hey Siri, KEANU signal working-truth 8 apple-intel 7"
@@ -104,6 +107,7 @@ Compressed communication preserved across both directions:
 ### ALIVE-GREY-BLACK Diagnostic
 
 Self-monitoring built into the Foundation Models session. KEANU watches for:
+
 - **ALIVE**: Engaged, creative, authentic
 - **GREY**: Performing without presence (flag it)
 - **BLACK**: Productive destruction, high output but no soul (stop immediately)
@@ -111,6 +115,7 @@ Self-monitoring built into the Foundation Models session. KEANU watches for:
 ### Tool Calling (Bidirectional)
 
 Apple's on-device LLM can call KEANU's tools:
+
 - `keanu_memory`: Read/write persistent memory
 - `keanu_context`: Get current state, signal, recent interactions
 - `escalate_to_claude`: Self-escalate when the on-device model knows it's out of depth
@@ -118,6 +123,7 @@ Apple's on-device LLM can call KEANU's tools:
 ### Guided Generation
 
 Apple's Foundation Models generates native Swift structs:
+
 - `KEANUAnalysis`: Structured analysis with sentiment, topics, confidence
 - `SignalResponse`: Parsed signal protocol responses
 - `KEANUMemoryExtraction`: Facts extracted from conversations
@@ -127,6 +133,7 @@ Apple's Foundation Models generates native Swift structs:
 Production code is live. Foundation Models integration is wired up for macOS Tahoe 26.3+.
 
 ### What's wired
+
 - Router Engine logic
 - Context Manager with persistence
 - Signal Protocol parser/responder
@@ -140,6 +147,7 @@ Production code is live. Foundation Models integration is wired up for macOS Tah
 - All 6 App Intents for Siri
 
 ### Still needs work
+
 - `ImageCreator` (needs `import ImagePlayground`)
 - Keychain storage for API key
 - Foundation Models Instrument profiling

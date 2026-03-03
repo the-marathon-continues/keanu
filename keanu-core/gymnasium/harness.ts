@@ -21,9 +21,9 @@ import type { HarnessResult, RunConfig, ComparisonReport } from "./types.js";
 type BullshitExpectation = { type: string; minScore?: number } | string;
 interface ExtendedChallenge extends Challenge {
   expectedState?: string;
-  expectedPulse?: string;
+  // expectedPulse and expectedBullshitTypes are already in Challenge
+  // Use expectedBullshit for the extended form with minScore
   expectedBullshit?: BullshitExpectation[];
-  expectedBullshitTypes?: BullshitExpectation[];
 }
 
 // ============================================================

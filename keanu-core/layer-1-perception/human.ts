@@ -10,7 +10,8 @@
 import { detectBullshit } from "../layer-2-pattern/struggle.js";
 import { assessValidationDepth } from "../layer-4-agency/partnership.js";
 import { getRecentSummaries } from "../layer-7-update/session-learning.js";
-import type { HumanReading, HumanTone, ToneReading } from "../shared/types.js";
+import type { AxiomProfileSummary, HumanReading, HumanTone, ToneReading } from "../shared/types.js";
+import { buildProfile, type ArchetypeProfile } from "./profile.js";
 
 // COEF-extended human reading
 export interface COEFHumanReading extends HumanReading {
@@ -18,6 +19,11 @@ export interface COEFHumanReading extends HumanReading {
     depth?: number;
     subtext?: string;
   };
+}
+
+// Options for readHuman
+export interface ReadHumanOptions {
+  includeProfile?: boolean; // compute axiom profile (slightly more expensive)
 }
 
 /**
@@ -145,8 +151,13 @@ const TONE_WEIGHTS: Record<string, number> = {
 /**
  * Read human emotional state from input text.
  * Returns ALL detected tones, not just a winner. Even small signals.
+ * Pass includeProfile: true to also compute axiom profile.
  */
-export function readHuman(input: string, history: string[]): HumanReading {
+export function readHuman(
+  input: string,
+  history: string[],
+  options?: ReadHumanOptions,
+): HumanReading {
   const signals: string[] = [];
 
   // --- Terse, lowercase input: potential frustration or fatigue ---
@@ -245,6 +256,15 @@ export function readHuman(input: string, history: string[]): HumanReading {
   const sessionCount = getRecentSummaries(50).length;
   const validationDepth = assessValidationDepth(sessionCount);
 
+  // Axiom profile — optional, slightly more expensive
+  let axiomProfile: AxiomProfileSummary | undefined;
+  if (options?.includeProfile) {
+    const profile = buildProfile(input, history);
+    if (profile.personalization.confidence >= 0.25) {
+      axiomProfile = summarizeProfile(profile);
+    }
+  }
+
   return {
     tone: dominantTone,
     tones,
@@ -252,6 +272,20 @@ export function readHuman(input: string, history: string[]): HumanReading {
     signals,
     bullshit,
     validationDepth,
+    axiomProfile,
+  };
+}
+
+/**
+ * Convert full ArchetypeProfile to lightweight summary for embedding.
+ */
+function summarizeProfile(profile: ArchetypeProfile): AxiomProfileSummary {
+  return {
+    dominant: profile.axiomResonance.dominantAxioms,
+    polarity: profile.axiomResonance.overallPolarity,
+    collective: profile.collectiveContext.primary ?? undefined,
+    disciple: profile.discipleProfile.primary ?? undefined,
+    confidence: profile.personalization.confidence,
   };
 }
 

@@ -1,0 +1,44 @@
+{
+  "manifest_version": 3,
+  "name": "Keanu Research",
+  "version": "0.1.0",
+  "description": "Dialectical deep research that saves babies instead of throwing them out",
+
+  "permissions": ["activeTab", "tabs", "scripting", "storage", "sidePanel"],
+
+  "host_permissions": ["<all_urls>"],
+
+  "background": {
+    "service_worker": "build/service-worker.js",
+    "type": "module"
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["build/content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+
+  "side_panel": {
+    "default_path": "sidepanel/index.html"
+  },
+
+  "action": {
+    "default_title": "Keanu Research",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+
+  "options_page": "options/index.html"
+}

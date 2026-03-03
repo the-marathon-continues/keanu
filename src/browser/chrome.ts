@@ -198,7 +198,9 @@ export async function launchKeanuChrome(
       "--password-store=basic",
     ];
 
-    if (resolved.headless) {
+    // Per-profile headless overrides global setting
+    const useHeadless = profile.headless || resolved.headless;
+    if (useHeadless) {
       // Best-effort; older Chromes may ignore.
       args.push("--headless=new");
       args.push("--disable-gpu");

@@ -1,8 +1,8 @@
 name: Keanu Health Check
 on:
   schedule:
-    - cron: '0 12 * * *'  # Noon UTC daily
-  workflow_dispatch: {}     # Manual trigger for testing
+    - cron: "0 12 * * *" # Noon UTC daily
+  workflow_dispatch: {} # Manual trigger for testing
 
 permissions:
   issues: write

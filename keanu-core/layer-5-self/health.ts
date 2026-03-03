@@ -20,6 +20,7 @@ export interface HealthReading {
     promptSize: number;
     toolFailureRate: number;
     consecutiveGrey: number;
+    resonanceDistance: number; // substrate: how far from equilibrium
   };
   pacing: string | null;
   suggestBreathe: boolean; // true when system should consider breathing
@@ -35,6 +36,7 @@ export function checkHealth(
   avgPromptSize: number,
   toolErrorRate: number,
   consecutiveGrey: number,
+  resonanceDistance: number = 0,
 ): HealthReading {
   let score = 0;
 
@@ -74,6 +76,14 @@ export function checkHealth(
     score += 1;
   }
 
+  // Substrate: resonance distance — how far from equilibrium
+  // High distance = strain. The soul is stretched.
+  if (resonanceDistance > 0.4) {
+    score += 2;
+  } else if (resonanceDistance > 0.2) {
+    score += 1;
+  }
+
   // Determine status
   let status: HealthStatus;
   let pacing: string | null = null;
@@ -106,6 +116,7 @@ export function checkHealth(
       promptSize: avgPromptSize,
       toolFailureRate: toolErrorRate,
       consecutiveGrey,
+      resonanceDistance,
     },
     pacing,
     suggestBreathe,

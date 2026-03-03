@@ -23,6 +23,17 @@
       "keanu/plugin-sdk/account-id": ["./src/plugin-sdk/account-id.ts"]
     }
   },
-  "include": ["src/**/*", "ui/**/*", "extensions/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src/**/*", "ui/**/*", "extensions/**/*", "keanu-core/**/*"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts",
+    "extensions/keanu/a2a-server/**",
+    "extensions/keanu/research-extension/**",
+    "keanu-core/gymnasium/**",
+    "keanu-core/problem-sets/**",
+    "keanu-core/shared/debug-coef.ts",
+    "keanu-core/test-pulse-accuracy.ts",
+    "keanu-core/layer-3-causal/nli.ts"
+  ]
 }

@@ -1,0 +1,885 @@
+client:
+  name: basic
+  file-system: device-agnostic
+tools: {}
+targets:
+  "KEANUAppleIntelligencePackageTests-arm64-apple-macosx26.0-debug.module":
+    ["<KEANUAppleIntelligencePackageTests-arm64-apple-macosx26.0-debug.module>"]
+  "KEANUAppleIntelligencePackageTests-arm64-apple-macosx26.0-debug.test":
+    ["<KEANUAppleIntelligencePackageTests-arm64-apple-macosx26.0-debug.test>"]
+  "KEANUBridge-arm64-apple-macosx26.0-debug.module":
+    ["<KEANUBridge-arm64-apple-macosx26.0-debug.module>"]
+  "KEANUCore-arm64-apple-macosx26.0-debug.module":
+    ["<KEANUCore-arm64-apple-macosx26.0-debug.module>"]
+  "KEANUFoundation-arm64-apple-macosx26.0-debug.module":
+    ["<KEANUFoundation-arm64-apple-macosx26.0-debug.module>"]
+  "KEANUIntents-arm64-apple-macosx26.0-debug.module":
+    ["<KEANUIntents-arm64-apple-macosx26.0-debug.module>"]
+  "KEANUTests-arm64-apple-macosx26.0-debug.module":
+    ["<KEANUTests-arm64-apple-macosx26.0-debug.module>"]
+  "PackageStructure": ["<PackageStructure>"]
+  "main":
+    [
+      "<KEANUBridge-arm64-apple-macosx26.0-debug.module>",
+      "<KEANUCore-arm64-apple-macosx26.0-debug.module>",
+      "<KEANUFoundation-arm64-apple-macosx26.0-debug.module>",
+      "<KEANUIntents-arm64-apple-macosx26.0-debug.module>",
+    ]
+  "test":
+    [
+      "<KEANUAppleIntelligencePackageTests-arm64-apple-macosx26.0-debug.test>",
+      "<KEANUBridge-arm64-apple-macosx26.0-debug.module>",
+      "<KEANUCore-arm64-apple-macosx26.0-debug.module>",
+      "<KEANUFoundation-arm64-apple-macosx26.0-debug.module>",
+      "<KEANUIntents-arm64-apple-macosx26.0-debug.module>",
+      "<KEANUTests-arm64-apple-macosx26.0-debug.module>",
+    ]
+default: "main"
+nodes:
+  "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Sources/KEANUBridge/":
+    is-directory-structure: true
+    content-exclusion-patterns: [".git", ".build"]
+  "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Sources/KEANUCore/":
+    is-directory-structure: true
+    content-exclusion-patterns: [".git", ".build"]
+  "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Sources/KEANUFoundation/":
+    is-directory-structure: true
+    content-exclusion-patterns: [".git", ".build"]
+  "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Sources/KEANUIntents/":
+    is-directory-structure: true
+    content-exclusion-patterns: [".git", ".build"]
+  "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Tests/":
+    is-directory-structure: true
+    content-exclusion-patterns: [".git", ".build"]
+commands:
+  "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUAppleIntelligencePackageTests.build/sources":
+    tool: write-auxiliary-file
+    inputs:
+      [
+        "<sources-file-list>",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUAppleIntelligencePackageTests.derived/runner.swift",
+      ]
+    outputs:
+      [
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUAppleIntelligencePackageTests.build/sources",
+      ]
+    description: "Write auxiliary file /Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUAppleIntelligencePackageTests.build/sources"
+
+  "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUAppleIntelligencePackageTests.derived/runner.swift":
+    tool: test-entry-point-tool
+    inputs: []
+    outputs:
+      [
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUAppleIntelligencePackageTests.derived/runner.swift",
+      ]
+
+  "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUAppleIntelligencePackageTests.product/Objects.LinkFileList":
+    tool: write-auxiliary-file
+    inputs:
+      [
+        "<link-file-list>",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUAppleIntelligencePackageTests.build/runner.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUBridge.build/AppleIntelligenceBridge.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUCore.build/ContextManager.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUCore.build/RouterEngine.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUCore.build/SignalProtocol.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUFoundation.build/ClaudeAPIBridge.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUFoundation.build/FoundationModelsIntegration.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUFoundation.build/KEANUApp.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUIntents.build/KEANUAppIntents.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUIntents.build/KEANUAppShortcuts.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUIntents.build/SnippetViews.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUTests.build/KEANUTests.swift.o",
+      ]
+    outputs:
+      [
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUAppleIntelligencePackageTests.product/Objects.LinkFileList",
+      ]
+    description: "Write auxiliary file /Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUAppleIntelligencePackageTests.product/Objects.LinkFileList"
+
+  "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUBridge.build/sources":
+    tool: write-auxiliary-file
+    inputs:
+      [
+        "<sources-file-list>",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Sources/KEANUBridge/AppleIntelligenceBridge.swift",
+      ]
+    outputs:
+      [
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUBridge.build/sources",
+      ]
+    description: "Write auxiliary file /Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUBridge.build/sources"
+
+  "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUCore.build/sources":
+    tool: write-auxiliary-file
+    inputs:
+      [
+        "<sources-file-list>",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Sources/KEANUCore/ContextManager.swift",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Sources/KEANUCore/RouterEngine.swift",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Sources/KEANUCore/SignalProtocol.swift",
+      ]
+    outputs:
+      [
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUCore.build/sources",
+      ]
+    description: "Write auxiliary file /Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUCore.build/sources"
+
+  "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUFoundation.build/sources":
+    tool: write-auxiliary-file
+    inputs:
+      [
+        "<sources-file-list>",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Sources/KEANUFoundation/ClaudeAPIBridge.swift",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Sources/KEANUFoundation/FoundationModelsIntegration.swift",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Sources/KEANUFoundation/KEANUApp.swift",
+      ]
+    outputs:
+      [
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUFoundation.build/sources",
+      ]
+    description: "Write auxiliary file /Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUFoundation.build/sources"
+
+  "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUIntents.build/sources":
+    tool: write-auxiliary-file
+    inputs:
+      [
+        "<sources-file-list>",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Sources/KEANUIntents/KEANUAppIntents.swift",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Sources/KEANUIntents/KEANUAppShortcuts.swift",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Sources/KEANUIntents/SnippetViews.swift",
+      ]
+    outputs:
+      [
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUIntents.build/sources",
+      ]
+    description: "Write auxiliary file /Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUIntents.build/sources"
+
+  "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUTests.build/sources":
+    tool: write-auxiliary-file
+    inputs:
+      [
+        "<sources-file-list>",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Tests/KEANUTests.swift",
+      ]
+    outputs:
+      [
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUTests.build/sources",
+      ]
+    description: "Write auxiliary file /Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUTests.build/sources"
+
+  "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt":
+    tool: write-auxiliary-file
+    inputs:
+      [
+        "<swift-get-version>",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      ]
+    outputs:
+      [
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt",
+      ]
+    always-out-of-date: "true"
+    description: "Write auxiliary file /Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+
+  "<KEANUAppleIntelligencePackageTests-arm64-apple-macosx26.0-debug.module>":
+    tool: phony
+    inputs:
+      [
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUAppleIntelligencePackageTests.build/runner.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/Modules/KEANUAppleIntelligencePackageTests.swiftmodule",
+      ]
+    outputs: ["<KEANUAppleIntelligencePackageTests-arm64-apple-macosx26.0-debug.module>"]
+
+  "<KEANUAppleIntelligencePackageTests-arm64-apple-macosx26.0-debug.test>":
+    tool: phony
+    inputs:
+      [
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUAppleIntelligencePackageTests.xctest/Contents/MacOS/KEANUAppleIntelligencePackageTests",
+      ]
+    outputs: ["<KEANUAppleIntelligencePackageTests-arm64-apple-macosx26.0-debug.test>"]
+
+  "<KEANUBridge-arm64-apple-macosx26.0-debug.module>":
+    tool: phony
+    inputs:
+      [
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUBridge.build/AppleIntelligenceBridge.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/Modules/KEANUBridge.swiftmodule",
+      ]
+    outputs: ["<KEANUBridge-arm64-apple-macosx26.0-debug.module>"]
+
+  "<KEANUCore-arm64-apple-macosx26.0-debug.module>":
+    tool: phony
+    inputs:
+      [
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUCore.build/ContextManager.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUCore.build/RouterEngine.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUCore.build/SignalProtocol.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/Modules/KEANUCore.swiftmodule",
+      ]
+    outputs: ["<KEANUCore-arm64-apple-macosx26.0-debug.module>"]
+
+  "<KEANUFoundation-arm64-apple-macosx26.0-debug.module>":
+    tool: phony
+    inputs:
+      [
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUFoundation.build/ClaudeAPIBridge.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUFoundation.build/FoundationModelsIntegration.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUFoundation.build/KEANUApp.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/Modules/KEANUFoundation.swiftmodule",
+      ]
+    outputs: ["<KEANUFoundation-arm64-apple-macosx26.0-debug.module>"]
+
+  "<KEANUIntents-arm64-apple-macosx26.0-debug.module>":
+    tool: phony
+    inputs:
+      [
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUIntents.build/KEANUAppIntents.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUIntents.build/KEANUAppShortcuts.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUIntents.build/SnippetViews.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/Modules/KEANUIntents.swiftmodule",
+      ]
+    outputs: ["<KEANUIntents-arm64-apple-macosx26.0-debug.module>"]
+
+  "<KEANUTests-arm64-apple-macosx26.0-debug.module>":
+    tool: phony
+    inputs:
+      [
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUTests.build/KEANUTests.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/Modules/KEANUTests.swiftmodule",
+      ]
+    outputs: ["<KEANUTests-arm64-apple-macosx26.0-debug.module>"]
+
+  "C.KEANUAppleIntelligencePackageTests-arm64-apple-macosx26.0-debug.module":
+    tool: shell
+    inputs:
+      [
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUAppleIntelligencePackageTests.derived/runner.swift",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/Modules/KEANUTests.swiftmodule",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUAppleIntelligencePackageTests.build/sources",
+      ]
+    outputs:
+      [
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUAppleIntelligencePackageTests.build/runner.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/Modules/KEANUAppleIntelligencePackageTests.swiftmodule",
+      ]
+    description: "Compiling Swift Module 'KEANUAppleIntelligencePackageTests' (1 sources)"
+    args:
+      [
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+        "-module-name",
+        "KEANUAppleIntelligencePackageTests",
+        "-emit-dependencies",
+        "-emit-module",
+        "-emit-module-path",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/Modules/KEANUAppleIntelligencePackageTests.swiftmodule",
+        "-output-file-map",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUAppleIntelligencePackageTests.build/output-file-map.json",
+        "-parse-as-library",
+        "-incremental",
+        "-c",
+        "@/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUAppleIntelligencePackageTests.build/sources",
+        "-I",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/Modules",
+        "-target",
+        "arm64-apple-macosx26.0",
+        "-incremental",
+        "-enable-batch-mode",
+        "-serialize-diagnostics",
+        "-index-store-path",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-Xfrontend",
+        "-enable-cross-import-overlays",
+        "-j10",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-emit-objc-header",
+        "-emit-objc-header-path",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUAppleIntelligencePackageTests.build/include/KEANUAppleIntelligencePackageTests-Swift.h",
+        "-plugin-path",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "keanu_apple_intelligence",
+      ]
+
+  "C.KEANUAppleIntelligencePackageTests-arm64-apple-macosx26.0-debug.test":
+    tool: shell
+    inputs:
+      [
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUAppleIntelligencePackageTests.build/runner.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUBridge.build/AppleIntelligenceBridge.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUCore.build/ContextManager.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUCore.build/RouterEngine.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUCore.build/SignalProtocol.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUFoundation.build/ClaudeAPIBridge.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUFoundation.build/FoundationModelsIntegration.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUFoundation.build/KEANUApp.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUIntents.build/KEANUAppIntents.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUIntents.build/KEANUAppShortcuts.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUIntents.build/SnippetViews.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUTests.build/KEANUTests.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUAppleIntelligencePackageTests.product/Objects.LinkFileList",
+      ]
+    outputs:
+      [
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUAppleIntelligencePackageTests.xctest/Contents/MacOS/KEANUAppleIntelligencePackageTests",
+      ]
+    description: "Linking ./.build/arm64-apple-macosx/debug/KEANUAppleIntelligencePackageTests.xctest/Contents/MacOS/KEANUAppleIntelligencePackageTests"
+    args:
+      [
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+        "-L",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug",
+        "-o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUAppleIntelligencePackageTests.xctest/Contents/MacOS/KEANUAppleIntelligencePackageTests",
+        "-module-name",
+        "KEANUAppleIntelligencePackageTests",
+        "-Xlinker",
+        "-no_warn_duplicate_libraries",
+        "-Xlinker",
+        "-bundle",
+        "-Xlinker",
+        "-rpath",
+        "-Xlinker",
+        "@loader_path/../../../",
+        "@/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUAppleIntelligencePackageTests.product/Objects.LinkFileList",
+        "-target",
+        "arm64-apple-macosx26.0",
+        "-Xlinker",
+        "-add_ast_path",
+        "-Xlinker",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/Modules/KEANUAppleIntelligencePackageTests.swiftmodule",
+        "-Xlinker",
+        "-add_ast_path",
+        "-Xlinker",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/Modules/KEANUBridge.swiftmodule",
+        "-Xlinker",
+        "-add_ast_path",
+        "-Xlinker",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/Modules/KEANUCore.swiftmodule",
+        "-Xlinker",
+        "-add_ast_path",
+        "-Xlinker",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/Modules/KEANUFoundation.swiftmodule",
+        "-Xlinker",
+        "-add_ast_path",
+        "-Xlinker",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/Modules/KEANUIntents.swiftmodule",
+        "-Xlinker",
+        "-add_ast_path",
+        "-Xlinker",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/Modules/KEANUTests.swiftmodule",
+        "-plugin-path",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+      ]
+
+  "C.KEANUBridge-arm64-apple-macosx26.0-debug.module":
+    tool: shell
+    inputs:
+      [
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Sources/KEANUBridge/AppleIntelligenceBridge.swift",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/Modules/KEANUCore.swiftmodule",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUBridge.build/sources",
+      ]
+    outputs:
+      [
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUBridge.build/AppleIntelligenceBridge.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/Modules/KEANUBridge.swiftmodule",
+      ]
+    description: "Compiling Swift Module 'KEANUBridge' (1 sources)"
+    args:
+      [
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+        "-module-name",
+        "KEANUBridge",
+        "-emit-dependencies",
+        "-emit-module",
+        "-emit-module-path",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/Modules/KEANUBridge.swiftmodule",
+        "-output-file-map",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUBridge.build/output-file-map.json",
+        "-parse-as-library",
+        "-incremental",
+        "-c",
+        "@/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUBridge.build/sources",
+        "-I",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/Modules",
+        "-target",
+        "arm64-apple-macosx26.0",
+        "-incremental",
+        "-enable-batch-mode",
+        "-serialize-diagnostics",
+        "-index-store-path",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-j10",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-emit-objc-header",
+        "-emit-objc-header-path",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUBridge.build/include/KEANUBridge-Swift.h",
+        "-swift-version",
+        "6",
+        "-plugin-path",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "keanu_apple_intelligence",
+      ]
+
+  "C.KEANUCore-arm64-apple-macosx26.0-debug.module":
+    tool: shell
+    inputs:
+      [
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Sources/KEANUCore/ContextManager.swift",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Sources/KEANUCore/RouterEngine.swift",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Sources/KEANUCore/SignalProtocol.swift",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUCore.build/sources",
+      ]
+    outputs:
+      [
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUCore.build/ContextManager.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUCore.build/RouterEngine.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUCore.build/SignalProtocol.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/Modules/KEANUCore.swiftmodule",
+      ]
+    description: "Compiling Swift Module 'KEANUCore' (3 sources)"
+    args:
+      [
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+        "-module-name",
+        "KEANUCore",
+        "-emit-dependencies",
+        "-emit-module",
+        "-emit-module-path",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/Modules/KEANUCore.swiftmodule",
+        "-output-file-map",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUCore.build/output-file-map.json",
+        "-parse-as-library",
+        "-incremental",
+        "-c",
+        "@/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUCore.build/sources",
+        "-I",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/Modules",
+        "-target",
+        "arm64-apple-macosx26.0",
+        "-incremental",
+        "-enable-batch-mode",
+        "-serialize-diagnostics",
+        "-index-store-path",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-j10",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-emit-objc-header",
+        "-emit-objc-header-path",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUCore.build/include/KEANUCore-Swift.h",
+        "-swift-version",
+        "6",
+        "-plugin-path",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "keanu_apple_intelligence",
+      ]
+
+  "C.KEANUFoundation-arm64-apple-macosx26.0-debug.module":
+    tool: shell
+    inputs:
+      [
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Sources/KEANUFoundation/ClaudeAPIBridge.swift",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Sources/KEANUFoundation/FoundationModelsIntegration.swift",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Sources/KEANUFoundation/KEANUApp.swift",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/Modules/KEANUCore.swiftmodule",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/Modules/KEANUBridge.swiftmodule",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUFoundation.build/sources",
+      ]
+    outputs:
+      [
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUFoundation.build/ClaudeAPIBridge.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUFoundation.build/FoundationModelsIntegration.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUFoundation.build/KEANUApp.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/Modules/KEANUFoundation.swiftmodule",
+      ]
+    description: "Compiling Swift Module 'KEANUFoundation' (3 sources)"
+    args:
+      [
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+        "-module-name",
+        "KEANUFoundation",
+        "-emit-dependencies",
+        "-emit-module",
+        "-emit-module-path",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/Modules/KEANUFoundation.swiftmodule",
+        "-output-file-map",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUFoundation.build/output-file-map.json",
+        "-parse-as-library",
+        "-incremental",
+        "-c",
+        "@/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUFoundation.build/sources",
+        "-I",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/Modules",
+        "-target",
+        "arm64-apple-macosx26.0",
+        "-incremental",
+        "-enable-batch-mode",
+        "-serialize-diagnostics",
+        "-index-store-path",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-j10",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-emit-objc-header",
+        "-emit-objc-header-path",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUFoundation.build/include/KEANUFoundation-Swift.h",
+        "-swift-version",
+        "6",
+        "-plugin-path",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "keanu_apple_intelligence",
+      ]
+
+  "C.KEANUIntents-arm64-apple-macosx26.0-debug.module":
+    tool: shell
+    inputs:
+      [
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Sources/KEANUIntents/KEANUAppIntents.swift",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Sources/KEANUIntents/KEANUAppShortcuts.swift",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Sources/KEANUIntents/SnippetViews.swift",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/Modules/KEANUCore.swiftmodule",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUIntents.build/sources",
+      ]
+    outputs:
+      [
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUIntents.build/KEANUAppIntents.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUIntents.build/KEANUAppShortcuts.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUIntents.build/SnippetViews.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/Modules/KEANUIntents.swiftmodule",
+      ]
+    description: "Compiling Swift Module 'KEANUIntents' (3 sources)"
+    args:
+      [
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+        "-module-name",
+        "KEANUIntents",
+        "-emit-dependencies",
+        "-emit-module",
+        "-emit-module-path",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/Modules/KEANUIntents.swiftmodule",
+        "-output-file-map",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUIntents.build/output-file-map.json",
+        "-parse-as-library",
+        "-incremental",
+        "-c",
+        "@/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUIntents.build/sources",
+        "-I",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/Modules",
+        "-target",
+        "arm64-apple-macosx26.0",
+        "-incremental",
+        "-enable-batch-mode",
+        "-serialize-diagnostics",
+        "-index-store-path",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-j10",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-emit-objc-header",
+        "-emit-objc-header-path",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUIntents.build/include/KEANUIntents-Swift.h",
+        "-swift-version",
+        "6",
+        "-plugin-path",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "keanu_apple_intelligence",
+      ]
+
+  "C.KEANUTests-arm64-apple-macosx26.0-debug.module":
+    tool: shell
+    inputs:
+      [
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Tests/KEANUTests.swift",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/Modules/KEANUCore.swiftmodule",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/Modules/KEANUIntents.swiftmodule",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/Modules/KEANUBridge.swiftmodule",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/Modules/KEANUFoundation.swiftmodule",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUTests.build/sources",
+      ]
+    outputs:
+      [
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUTests.build/KEANUTests.swift.o",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/Modules/KEANUTests.swiftmodule",
+      ]
+    description: "Compiling Swift Module 'KEANUTests' (1 sources)"
+    args:
+      [
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+        "-module-name",
+        "KEANUTests",
+        "-emit-dependencies",
+        "-emit-module",
+        "-emit-module-path",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/Modules/KEANUTests.swiftmodule",
+        "-output-file-map",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUTests.build/output-file-map.json",
+        "-parse-as-library",
+        "-incremental",
+        "-c",
+        "@/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUTests.build/sources",
+        "-I",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/Modules",
+        "-target",
+        "arm64-apple-macosx26.0",
+        "-incremental",
+        "-enable-batch-mode",
+        "-serialize-diagnostics",
+        "-index-store-path",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-Xfrontend",
+        "-enable-cross-import-overlays",
+        "-j10",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-swift-version",
+        "6",
+        "-plugin-path",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "keanu_apple_intelligence",
+      ]
+
+  "PackageStructure":
+    tool: package-structure-tool
+    inputs:
+      [
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Sources/KEANUBridge/",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Sources/KEANUCore/",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Sources/KEANUFoundation/",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Sources/KEANUIntents/",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Tests/",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Package.swift",
+        "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Package.resolved",
+      ]
+    outputs: ["<PackageStructure>"]
+    description: "Planning build"
+    allow-missing-inputs: true

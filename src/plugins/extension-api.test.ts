@@ -6,7 +6,11 @@
  */
 
 import { describe, expect, it, beforeEach } from "vitest";
-import { createPluginRegistry, createEmptyPluginRegistry, type PluginRegistry } from "./registry.js";
+import {
+  createPluginRegistry,
+  createEmptyPluginRegistry,
+  type PluginRegistry,
+} from "./registry.js";
 import type { PluginRuntime } from "./runtime/types.js";
 
 // Minimal runtime stub for testing
@@ -170,7 +174,9 @@ describe("Extension API exposure", () => {
 
       // Memory-core queries keanu
       const memoryPluginApi = createApi(makeRecord("memory-core"), { config: {} as any });
-      const keanu = memoryPluginApi.getApi<{ getPulse: () => any; isAlive: () => boolean }>("keanu");
+      const keanu = memoryPluginApi.getApi<{ getPulse: () => any; isAlive: () => boolean }>(
+        "keanu",
+      );
 
       expect(keanu).toBeDefined();
       expect(keanu?.isAlive()).toBe(true);

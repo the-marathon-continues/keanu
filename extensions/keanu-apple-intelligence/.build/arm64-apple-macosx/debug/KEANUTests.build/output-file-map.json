@@ -1,0 +1,12 @@
+{
+  "": {
+    "swift-dependencies": "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUTests.build/master.swiftdeps"
+  },
+  "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/Tests/KEANUTests.swift": {
+    "dependencies": "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUTests.build/KEANUTests.d",
+    "object": "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUTests.build/KEANUTests.swift.o",
+    "swiftmodule": "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUTests.build/KEANUTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUTests.build/KEANUTests.swiftdeps",
+    "diagnostics": "/Users/andrew/anywhereops/ai/keanu/extensions/keanu-apple-intelligence/.build/arm64-apple-macosx/debug/KEANUTests.build/KEANUTests.dia"
+  }
+}

@@ -300,6 +300,112 @@ export function formatStorageSummary(): string {
 }
 
 // ============================================================
+// Proactive Page-Out (fill out until pressure relieves)
+// ============================================================
+
+/**
+ * Page out messages until pressure drops below target.
+ *
+ * Drew's insight: "don't make it decay... make it fill out.
+ * when pressure is high keep going until the pressure relieves"
+ *
+ * This keeps paging out old content until we're in a comfortable zone.
+ * Returns the messages to keep and count of what was paged out.
+ */
+export function pageOutUntilRelieved(
+  messages: Message[],
+  currentTurn: number,
+  tokenBudget: number,
+  targetPressure: "medium" | "low" = "medium",
+): { kept: Message[]; pagedOut: number } {
+  // Calculate current pressure
+  contextAwareness.onBeforePromptBuild(messages, tokenBudget);
+  let state = contextAwareness.getState();
+
+  // Map target to threshold
+  const targetThreshold = targetPressure === "low" ? 0.5 : 0.7;
+
+  let kept = [...messages];
+  let pagedOut = 0;
+  const minTurnToKeep = currentTurn - config.preserveRecentTurns;
+
+  // Keep paging until pressure is relieved
+  while (state.usagePercent > targetThreshold && kept.length > config.preserveRecentTurns) {
+    // Find oldest message that's not in protected window
+    const oldestIdx = kept.findIndex((msg, idx) => {
+      // Estimate turn from message index (rough)
+      const estimatedTurn = currentTurn - (kept.length - idx);
+      return estimatedTurn < minTurnToKeep;
+    });
+
+    if (oldestIdx === -1) {
+      // Nothing safe to page out
+      break;
+    }
+
+    // Page out the oldest message
+    const toPage = kept[oldestIdx];
+    if (toPage.content) {
+      const type: ContentType = toPage.role === "user" ? "message" : "observation";
+      contextStore.storeContent({
+        type,
+        content: JSON.stringify(toPage),
+        timestamp: new Date().toISOString(),
+        turn: currentTurn - (kept.length - oldestIdx),
+        relevanceDecay: 0.8,
+        recallCount: 0,
+      });
+    }
+
+    // Remove from kept
+    kept = [...kept.slice(0, oldestIdx), ...kept.slice(oldestIdx + 1)];
+    pagedOut++;
+
+    // Recalculate pressure
+    contextAwareness.onBeforePromptBuild(kept, tokenBudget);
+    state = contextAwareness.getState();
+
+    // Safety limit
+    if (pagedOut > 50) {
+      break;
+    }
+  }
+
+  return { kept, pagedOut };
+}
+
+/**
+ * Proactive page-out — run before prompt build when pressure is high.
+ *
+ * Returns modified messages and an optional injection about what happened.
+ */
+export function proactivePageOut(
+  messages: Message[],
+  currentTurn: number,
+  tokenBudget: number,
+): { messages: Message[]; injection: string | null } {
+  // Check current pressure
+  contextAwareness.onBeforePromptBuild(messages, tokenBudget);
+  const state = contextAwareness.getState();
+
+  // Only trigger for high/critical pressure
+  if (state.pressure !== "high" && state.pressure !== "critical") {
+    return { messages, injection: null };
+  }
+
+  // Target: get to medium pressure
+  const { kept, pagedOut } = pageOutUntilRelieved(messages, currentTurn, tokenBudget, "medium");
+
+  if (pagedOut === 0) {
+    return { messages, injection: null };
+  }
+
+  const injection = `[context: pressure ${state.pressure}. paged out ${pagedOut} old messages to storage. ${contextStore.getStats().totalItems} items stored.]`;
+
+  return { messages: kept, injection };
+}
+
+// ============================================================
 // Configuration
 // ============================================================
 

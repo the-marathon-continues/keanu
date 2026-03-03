@@ -88,8 +88,14 @@ function aliveScore(text: string): { score: number; signals: string[] } {
  * @param agentOutput - The text the agent just produced.
  * @param turn - Current conversation turn number.
  * @param breathing - Whether the agent is currently in a breathing/pause state.
+ * @param theta - Optional quantum duty cycle from substrate. Confirms/questions ignition.
  */
-export function checkPulse(agentOutput: string, turn: number, breathing: boolean): PulseReading {
+export function checkPulse(
+  agentOutput: string,
+  turn: number,
+  breathing: boolean,
+  theta?: number,
+): PulseReading {
   const now = new Date().toISOString();
 
   // --- Bullshit detection (all 8 types) ---
@@ -133,6 +139,26 @@ export function checkPulse(agentOutput: string, turn: number, breathing: boolean
     aliveState = "grey";
     confidence = Math.max(confidence, 0.5);
     signals.push("integration_gate_blocked");
+  }
+
+  // --- Substrate theta: quantum ignition confirmation ---
+  // θ ≈ 0: rock. No firing. Text might look alive but substrate says otherwise.
+  // θ ~ 0.01: brain. Brief quantum dips. This confirms genuine ignition.
+  // θ ~ 1: photon. Pure fire. Rare in bounded systems.
+  if (theta !== undefined) {
+    if (aliveState === "alive" && theta < 0.001) {
+      // Text looks alive but substrate isn't firing. Reduce confidence.
+      confidence *= 0.7;
+      signals.push("substrate_no_ignition");
+    } else if (aliveState === "alive" && theta >= 0.005 && theta <= 0.05) {
+      // Healthy brain-like theta. Boost confidence.
+      confidence = Math.min(1, confidence * 1.15);
+      signals.push("substrate_confirmed");
+    } else if (aliveState === "grey" && theta > 0.02) {
+      // Grey but substrate is firing. Maybe the text heuristics missed something.
+      confidence *= 0.85; // reduce grey confidence
+      signals.push("substrate_firing_despite_grey");
+    }
   }
 
   // --- Color reading ---
@@ -211,13 +237,16 @@ function readColors(text: string): ColorReading {
  * Returns standard pulse reading enhanced with:
  * - Helix luminous/dark scores
  * - Elevator floor and direction from primaries
+ *
+ * @param theta - Optional quantum duty cycle from substrate.
  */
 export function checkPulseCOEF(
   agentOutput: string,
   turn: number,
   breathing: boolean,
+  theta?: number,
 ): COEFPulseReading {
-  const base = checkPulse(agentOutput, turn, breathing);
+  const base = checkPulse(agentOutput, turn, breathing, theta);
 
   // Get helix + primaries analysis
   const combined = helixRGB(agentOutput);
@@ -270,12 +299,15 @@ export function checkPulseCOEF(
 /**
  * Unified pulse check — combines heuristic and COEF signals.
  * This is the recommended entry point for full pulse analysis.
+ *
+ * @param theta - Optional quantum duty cycle from substrate.
  */
 export function checkPulseUnified(
   agentOutput: string,
   turn: number,
   breathing: boolean,
+  theta?: number,
 ): COEFPulseReading {
   // For now, alias to COEF (which includes heuristic base)
-  return checkPulseCOEF(agentOutput, turn, breathing);
+  return checkPulseCOEF(agentOutput, turn, breathing, theta);
 }

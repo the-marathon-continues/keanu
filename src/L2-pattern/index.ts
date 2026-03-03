@@ -25,7 +25,7 @@ export {
   type ManipulationSeverity,
   type ManipulationSignal,
   type ManipulationReading,
-} from "../../keanu-core/layer-2-pattern/bullshit.js";
+} from "../../keanu-core/layer-2-pattern/struggle.js";
 
 // Pulse — ALIVE/GREY/BLACK detection
 export {

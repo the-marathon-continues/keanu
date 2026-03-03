@@ -3,12 +3,14 @@
 //
 // Single oracle call. Content + audience in, translation out.
 // Five built-in audiences. Custom descriptions also work.
+// Now profile-aware: PersonalizationVector can tune the translation.
 //
 // Ported from keanu daemon/src/hero/speak.ts — self-contained.
 // Need: Engagement (9/10)
 
 import { callOracle, extractJSON } from "../shared/oracle.js";
 import type { KeyShift, SpeakResult } from "../shared/types.js";
+import type { PersonalizationVector } from "./profile.js";
 
 export const AUDIENCES: Record<string, string> = {
   friend:
@@ -48,10 +50,64 @@ Rules:
 - key_shifts should be 1-4 items explaining what you adapted.`;
 
 /**
- * Translate content for an audience. Single oracle call.
+ * Build audience description from base + profile vector.
+ * Profile vector adds nuance: decision style, convergence rhythm, voice style.
  */
-export async function speak(content: string, audience: string): Promise<SpeakResult> {
-  const audienceDesc = AUDIENCES[audience] || audience;
+function buildAudienceDescription(base: string, profile?: PersonalizationVector): string {
+  if (!profile || profile.confidence < 0.25) {
+    return base;
+  }
+
+  const mods: string[] = [];
+
+  // Decision style
+  if (profile.decisionStyle === "options_rich") {
+    mods.push("Prefers seeing multiple options before deciding");
+  } else if (profile.decisionStyle === "recommendation") {
+    mods.push("Prefers clear recommendations over options");
+  }
+
+  // Convergence rhythm
+  if (profile.convergenceRhythm === "exploratory") {
+    mods.push("Likes to explore before converging");
+  } else if (profile.convergenceRhythm === "decisive") {
+    mods.push("Prefers quick convergence, minimal tangents");
+  }
+
+  // Voice style
+  if (profile.voiceStyle === "direct") {
+    mods.push("Direct, no hedging");
+  } else if (profile.voiceStyle === "collaborative") {
+    mods.push("Collaborative, 'we' over 'you'");
+  } else if (profile.voiceStyle === "questioning") {
+    mods.push("Likes questions that open space");
+  }
+
+  // Framing
+  if (profile.framing === "fire_first") {
+    mods.push("Lead with possibilities, options, what could be");
+  } else if (profile.framing === "ash_first") {
+    mods.push("Lead with constraints, realities, what is");
+  }
+
+  if (mods.length === 0) {
+    return base;
+  }
+
+  return `${base}\n\nAdditional context about this specific person:\n- ${mods.join("\n- ")}`;
+}
+
+/**
+ * Translate content for an audience. Single oracle call.
+ * Pass profile to personalize the translation based on axiom resonance.
+ */
+export async function speak(
+  content: string,
+  audience: string,
+  profile?: PersonalizationVector,
+): Promise<SpeakResult> {
+  const baseDesc = AUDIENCES[audience] || audience;
+  const audienceDesc = buildAudienceDescription(baseDesc, profile);
   const system = SPEAK_PROMPT.replaceAll("{audience}", audienceDesc);
 
   try {

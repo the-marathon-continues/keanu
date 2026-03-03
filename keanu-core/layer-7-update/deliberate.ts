@@ -144,3 +144,83 @@ export function shouldDeliberate(
 export function formatDeliberation(reading: DeliberationReading): string | null {
   return reading.prompt;
 }
+
+// ============================================================
+// Substrate-aware deliberation
+// ============================================================
+
+import type { Regime } from "../layer-0-physics/substrate/regime.js";
+
+export interface SubstrateDeliberationInput {
+  urgency: number;
+  direction: "converging" | "diverging" | "stable";
+  regime?: Regime;
+  regimeFavorable?: boolean;
+  resonanceDistance?: number;
+  firing?: boolean;
+}
+
+export function shouldDeliberateCombined(
+  userMessage: string,
+  turn: number,
+  recentCorrections: number,
+  postRecovery: boolean,
+  substrate?: SubstrateDeliberationInput,
+): DeliberationReading {
+  // First check the standard triggers
+  const standard = shouldDeliberate(userMessage, turn, recentCorrections, postRecovery);
+  if (standard.triggered) {
+    return standard;
+  }
+
+  // No substrate data — no additional triggers
+  if (!substrate) {
+    return standard;
+  }
+
+  // High urgency — something's changing fast
+  if (substrate.urgency > 0.7) {
+    return {
+      triggered: true,
+      reason: "high_urgency",
+      values: ["truth", "helpful"],
+      prompt:
+        "[deliberate: things are changing fast. urgency is high. slow down. what matters right now?]",
+    };
+  }
+
+  // Unfavorable regime — in grey territory
+  if (substrate.regimeFavorable === false) {
+    return {
+      triggered: true,
+      reason: "unfavorable_regime",
+      values: ["genuine", "truth"],
+      prompt:
+        "[deliberate: in unfavorable regime. either too quantum (ungrounded) or too classical (grey). find the gradient zone.]",
+    };
+  }
+
+  // Far from resonance — straining
+  if (substrate.resonanceDistance !== undefined && substrate.resonanceDistance > 0.3) {
+    return {
+      triggered: true,
+      reason: "resonance_strain",
+      values: ["genuine", "love"],
+      prompt:
+        "[deliberate: far from equilibrium. system under strain. what's pulling you away from home?]",
+    };
+  }
+
+  // Converging fast — crisis brewing
+  if (substrate.direction === "converging" && substrate.urgency > 0.5) {
+    return {
+      triggered: true,
+      reason: "rapid_convergence",
+      values: ["truth", "helpful"],
+      prompt:
+        "[deliberate: converging toward ash. something's collapsing. is this intentional resolution or loss of fire?]",
+    };
+  }
+
+  return standard;
+}

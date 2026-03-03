@@ -48,7 +48,7 @@ describe("Remote Skills Registry", () => {
         expect.stringContaining("api.github.com/repos"),
         expect.objectContaining({
           headers: expect.objectContaining({ "User-Agent": "keanu" }),
-        })
+        }),
       );
       expect(skills).toHaveLength(3);
       expect(skills.map((s) => s.name)).toContain("cascade");
@@ -125,7 +125,7 @@ A skill for complex problem decomposition.`;
 
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining("raw.githubusercontent.com"),
-        expect.anything()
+        expect.anything(),
       );
       expect(content).toContain("# Cascade");
       expect(content).toContain("name: cascade");
