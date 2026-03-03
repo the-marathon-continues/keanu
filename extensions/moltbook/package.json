@@ -1,0 +1,20 @@
+{
+  "name": "@openclaw/moltbook",
+  "version": "0.1.0",
+  "description": "Worldview-aware quest system. Real work, narrative meaning, convergent truth.",
+  "license": "BUSL-1.1",
+  "author": "Andrew Kemp-Dahlberg <andrew@the-marathon-continues.com>",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./quests": "./src/quests/index.ts",
+    "./worldviews": "./src/worldviews/index.ts",
+    "./convergence": "./src/convergence/index.ts",
+    "./molt": "./src/molt/index.ts",
+    "./progression": "./src/progression/index.ts"
+  },
+  "dependencies": {},
+  "peerDependencies": {
+    "keanu": ">=2026.1.26"
+  }
+}
