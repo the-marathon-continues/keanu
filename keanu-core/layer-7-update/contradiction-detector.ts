@@ -11,8 +11,14 @@
 import { randomUUID } from "node:crypto";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import { getAllClaims, crossCheck, contradictByText } from "../layer-3-causal/silverado.js";
+import {
+  getAllClaims,
+  crossCheck,
+  contradictByText,
+  trackClaimWithSource,
+} from "../layer-3-causal/silverado.js";
 import { memoryContradictionCheck } from "../layer-3-causal/truth.js";
+import type { TrackedClaim } from "../shared/types.js";
 
 // ============================================================
 // Types
@@ -24,7 +30,30 @@ export type ContradictionResolution =
   | "claim1_wins"
   | "claim2_wins"
   | "both_valid" // different contexts, both true
-  | "both_retracted"; // both were wrong
+  | "both_retracted" // both were wrong
+  | "synthesis"; // Phase 3: dialectical synthesis created a new claim
+
+// Phase 3: Disagreement classification per compass artifact
+export type DisagreementType =
+  | "factual" // Contradicting data points — verifiable
+  | "definitional" // Using terms differently
+  | "value" // Different priorities — preserve both
+  | "scope"; // Different contexts — boundary conditions
+
+// Phase 3: Synthesis architecture per compass artifact
+export type SynthesisType =
+  | "boundary_conditions" // SCOPE: "Both are right in different contexts"
+  | "complementary_integration" // DEFINITIONAL/VALUE: "Both perspectives contribute"
+  | "ontological_transcendence"; // FACTUAL: "Higher-level framework resolves"
+
+// Phase 3: Result of dialectical resolution
+export interface DialecticalResolutionResult {
+  resolved: boolean;
+  synthesisType?: SynthesisType;
+  synthesisClaim?: TrackedClaim;
+  disagreementType?: DisagreementType;
+  reason: string;
+}
 
 export interface DetectedContradiction {
   id: string;
@@ -415,6 +444,7 @@ export function getStats(): {
     claim2_wins: 0,
     both_valid: 0,
     both_retracted: 0,
+    synthesis: 0,
     unresolved: 0,
   };
 
@@ -433,4 +463,206 @@ export function getStats(): {
     bySeverity,
     byResolution,
   };
+}
+
+// ============================================================
+// Phase 3: Dialectical Resolution (meta plan)
+// ============================================================
+
+/**
+ * Classify the type of disagreement between two claims.
+ * Used to route to appropriate synthesis architecture.
+ */
+export function classifyDisagreement(claim1: string, claim2: string): DisagreementType {
+  const c1 = claim1.toLowerCase();
+  const c2 = claim2.toLowerCase();
+
+  // SCOPE: Different time/context markers
+  const scopeMarkers = [
+    /\b(before|after|when|during|in \d{4}|currently|previously|now|then)\b/,
+    /\b(in this case|in that case|for this|for that|here|there)\b/,
+    /\b(sometimes|usually|often|rarely|always|never)\b/,
+  ];
+  const c1HasScope = scopeMarkers.some((m) => m.test(c1));
+  const c2HasScope = scopeMarkers.some((m) => m.test(c2));
+  if (c1HasScope || c2HasScope) {
+    return "scope";
+  }
+
+  // DEFINITIONAL: Definition/terminology markers
+  const definitionMarkers = [
+    /\b(means|defined as|is a|refers to|by .+ i mean)\b/,
+    /\b(technically|literally|figuratively|colloquially)\b/,
+  ];
+  const c1HasDef = definitionMarkers.some((m) => m.test(c1));
+  const c2HasDef = definitionMarkers.some((m) => m.test(c2));
+  if (c1HasDef || c2HasDef) {
+    return "definitional";
+  }
+
+  // VALUE: Opinion/preference markers
+  const valueMarkers = [
+    /\b(should|ought|better|worse|prefer|important|matters)\b/,
+    /\b(i think|i believe|in my opinion|i feel)\b/,
+    /\b(right|wrong|good|bad|best|worst)\b/,
+  ];
+  const c1HasValue = valueMarkers.some((m) => m.test(c1));
+  const c2HasValue = valueMarkers.some((m) => m.test(c2));
+  if (c1HasValue || c2HasValue) {
+    return "value";
+  }
+
+  // Default to FACTUAL — claims about what IS
+  return "factual";
+}
+
+/**
+ * Select synthesis architecture based on disagreement type.
+ */
+export function selectSynthesisType(disagreementType: DisagreementType): SynthesisType {
+  switch (disagreementType) {
+    case "scope":
+      return "boundary_conditions"; // Both right in different contexts
+    case "definitional":
+    case "value":
+      return "complementary_integration"; // Both perspectives contribute
+    case "factual":
+      return "ontological_transcendence"; // Need higher-level framework
+  }
+}
+
+/**
+ * Attempt to resolve a contradiction via dialectical synthesis.
+ *
+ * Phase 3 of meta plan: Contradictions trigger the dialectic engine.
+ * - Classifies the disagreement type
+ * - Frames claim1 as thesis, claim2 as antithesis
+ * - If converged, creates a synthesis claim in silverado
+ * - Returns resolution result with new claim if successful
+ *
+ * NOTE: This is a LOCAL resolution (pattern-based, no LLM).
+ * For full dialectic with LLM synthesis, use the DialecticalEngine directly.
+ */
+export function resolveViaDialectic(
+  contradiction: DetectedContradiction,
+  _session: string,
+): DialecticalResolutionResult {
+  const { claim1, claim2 } = contradiction;
+
+  // Classify the disagreement
+  const disagreementType = classifyDisagreement(claim1.text, claim2.text);
+  const selectedSynthesisType = selectSynthesisType(disagreementType);
+
+  // For LOCAL resolution, we use simple pattern-based synthesis
+  // Full LLM-based synthesis would require the DialecticalEngine
+
+  // If it's a SCOPE disagreement, we can resolve without synthesis
+  if (disagreementType === "scope") {
+    // Mark as both_valid — they're true in different contexts
+    resolveContradiction(
+      contradiction.id,
+      "both_valid",
+      "Scope-based: both claims valid in their context",
+    );
+    return {
+      resolved: true,
+      synthesisType: selectedSynthesisType,
+      disagreementType,
+      reason: "Both claims are valid in their respective contexts. No synthesis needed.",
+    };
+  }
+
+  // If it's VALUE disagreement, preserve both
+  if (disagreementType === "value") {
+    resolveContradiction(contradiction.id, "both_valid", "Value-based: different perspectives");
+    return {
+      resolved: true,
+      synthesisType: selectedSynthesisType,
+      disagreementType,
+      reason: "Value disagreement — both perspectives are valid priorities.",
+    };
+  }
+
+  // For FACTUAL and DEFINITIONAL, we need more evidence to resolve
+  // Flag for human review or LLM-based dialectic
+  if (disagreementType === "factual") {
+    return {
+      resolved: false,
+      synthesisType: selectedSynthesisType,
+      disagreementType,
+      reason: "Factual contradiction requires verification or LLM-based dialectic synthesis.",
+    };
+  }
+
+  // DEFINITIONAL — could auto-resolve with definition clarification
+  return {
+    resolved: false,
+    synthesisType: selectedSynthesisType,
+    disagreementType,
+    reason: "Definitional disagreement requires term clarification.",
+  };
+}
+
+/**
+ * Create a synthesis claim from a dialectical resolution.
+ * Used when the dialectic engine produces a converged synthesis.
+ */
+export function createSynthesisClaim(
+  contradiction: DetectedContradiction,
+  synthesisText: string,
+  synthesisType: SynthesisType,
+  session: string,
+): TrackedClaim {
+  // Average confidence of the two claims, slightly boosted for successful synthesis
+  const synthesisConfidence = Math.min(
+    5,
+    (contradiction.claim1.confidence + contradiction.claim2.confidence) / 2 + 0.5,
+  );
+
+  // Create the synthesis claim with derivedFrom linking to original claims
+  const synthesisClaim = trackClaimWithSource(
+    synthesisText,
+    synthesisConfidence,
+    session,
+    0, // turn will be set by caller
+    { confidenceReason: "synthesis" },
+  );
+
+  // Set the synthesis metadata (TrackedClaim now has these fields from Phase 1)
+  synthesisClaim.derivedFrom = [contradiction.claim1.id, contradiction.claim2.id];
+  synthesisClaim.synthesisType = synthesisType;
+
+  // Mark the contradiction as resolved via synthesis
+  resolveContradiction(
+    contradiction.id,
+    "synthesis",
+    `Synthesized: "${synthesisText.slice(0, 50)}..."`,
+  );
+
+  return synthesisClaim;
+}
+
+/**
+ * Attempt dialectical resolution for all unresolved HIGH severity contradictions.
+ */
+export function attemptDialecticResolutions(session: string): DialecticalResolutionResult[] {
+  const highSeverity = getHighSeverityUnresolved();
+  const results: DialecticalResolutionResult[] = [];
+
+  for (const contradiction of highSeverity) {
+    const result = resolveViaDialectic(contradiction, session);
+    results.push(result);
+  }
+
+  return results;
+}
+
+/**
+ * Format dialectical resolution attempt for injection.
+ */
+export function formatDialecticAttempt(result: DialecticalResolutionResult): string {
+  if (result.resolved) {
+    return `[dialectic: ${result.disagreementType} disagreement resolved via ${result.synthesisType}]`;
+  }
+  return `[dialectic: ${result.disagreementType} disagreement needs ${result.reason.slice(0, 50)}...]`;
 }
