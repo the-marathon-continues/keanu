@@ -25,6 +25,13 @@ let package = Package(
     ],
     targets: [
         .target(
+            name: "KeanuExtensionKit",
+            dependencies: [],
+            path: "Sources/KeanuExtensionKit",
+            swiftSettings: [
+                .enableUpcomingFeature("StrictConcurrency"),
+            ]),
+        .target(
             name: "KeanuIPC",
             dependencies: [],
             path: "Sources/KeanuIPC",
@@ -45,6 +52,7 @@ let package = Package(
             dependencies: [
                 "KeanuIPC",
                 "KeanuDiscovery",
+                "KeanuExtensionKit",
                 .product(name: "KeanuKit", package: "KeanuKit"),
                 .product(name: "KeanuChatUI", package: "KeanuKit"),
                 .product(name: "KeanuProtocol", package: "KeanuKit"),
@@ -59,6 +67,7 @@ let package = Package(
             path: "Sources/Keanu",
             exclude: [
                 "Resources/Info.plist",
+                "Bundle+Module.swift",  // Conflicts with SPM-generated Bundle.module
             ],
             resources: [
                 .copy("Resources/Keanu.icns"),

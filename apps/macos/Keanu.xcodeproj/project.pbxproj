@@ -326,6 +326,7 @@
 		D7A4C8CBDC0E504B8D9D5123 /* OnboardingView+Actions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64195FBAE74E11001DC5F85E /* OnboardingView+Actions.swift */; };
 		D7B67763DDD1460974DE37AA /* ShellExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 430B8112C43E3FB2F6CF43A1 /* ShellExecutor.swift */; };
 		D8FF7D9A7C43B0082FFB16B5 /* ExecApprovalsGatewayPrompter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D65ABBEF2ADAF6623FD0511E /* ExecApprovalsGatewayPrompter.swift */; };
+		D98C469A916666227393DD74 /* RetentionPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AFD6DAD04BA84F2685C57F /* RetentionPolicy.swift */; };
 		D9DC4C5C4B95F70292ACE6E8 /* TalkModeConfigParsingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EEF3C5A65003389B9369D80 /* TalkModeConfigParsingTests.swift */; };
 		D9E3A922F9EA1AB477F4034D /* ProcessInfo+Keanu.swift in Sources */ = {isa = PBXBuildFile; fileRef = D42FE8A74E75EA8992319BF9 /* ProcessInfo+Keanu.swift */; };
 		DA3B450D752FAE6A151C55E6 /* GatewayAutostartPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2FBAFDCD5FEEF3F8E572C78 /* GatewayAutostartPolicyTests.swift */; };
@@ -707,6 +708,7 @@
 		91B5C3D6EC4329020785AB53 /* GatewayChannelConfigureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayChannelConfigureTests.swift; sourceTree = "<group>"; };
 		92915BADB46DB5744D4CAD56 /* VoiceWakeForwarder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceWakeForwarder.swift; sourceTree = "<group>"; };
 		94982DCB6CD73B5C70578AA1 /* TalkAudioPlayerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalkAudioPlayerTests.swift; sourceTree = "<group>"; };
+		94AFD6DAD04BA84F2685C57F /* RetentionPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetentionPolicy.swift; sourceTree = "<group>"; };
 		94E9BDA4E1764581EB8F1FA8 /* WebChatSwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebChatSwiftUI.swift; sourceTree = "<group>"; };
 		950B46361267A1089753CDC5 /* MacGatewayChatTransportMappingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacGatewayChatTransportMappingTests.swift; sourceTree = "<group>"; };
 		950CAD0ECDF3D3DB7E586D3E /* ConfigFileWatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigFileWatcher.swift; sourceTree = "<group>"; };
@@ -1020,6 +1022,7 @@
 				768CEB90AE5CB9AB564F5C16 /* ExtensionEvent.swift */,
 				66EAE15CB6A39A29E1E7DAF8 /* ExtensionIPCBridge.swift */,
 				382BB61B5675EF8C2D9608AF /* ExtensionPolicy.swift */,
+				94AFD6DAD04BA84F2685C57F /* RetentionPolicy.swift */,
 			);
 			path = KeanuExtensionKit;
 			sourceTree = "<group>";
@@ -1941,6 +1944,7 @@
 				98607401A22D2A09973E4493 /* ExtensionEvent.swift in Sources */,
 				584A973ACE5F945E57B1CDE3 /* ExtensionIPCBridge.swift in Sources */,
 				6A563E9B8A6095962F90DCC8 /* ExtensionPolicy.swift in Sources */,
+				D98C469A916666227393DD74 /* RetentionPolicy.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

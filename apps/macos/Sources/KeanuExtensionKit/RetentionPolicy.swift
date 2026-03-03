@@ -43,6 +43,34 @@ public struct RetentionPolicy: Codable, Sendable {
     /// Domain suffixes to exclude from DNS monitoring
     public var excludedDomainSuffixes: [String] = []
 
+    // MARK: - Initializer
+
+    public init(
+        maxDNSQueries: Int = 1000,
+        maxNetworkFlows: Int = 1000,
+        maxFileAccess: Int = 5000,
+        maxProcessExec: Int = 1000,
+        maxAgeSeconds: TimeInterval = 86400,
+        excludeUserDocuments: Bool = true,
+        excludeDownloads: Bool = false,
+        hashSensitivePaths: Bool = true,
+        excludedBundleIds: [String] = [],
+        excludedPathPrefixes: [String] = [],
+        excludedDomainSuffixes: [String] = []
+    ) {
+        self.maxDNSQueries = maxDNSQueries
+        self.maxNetworkFlows = maxNetworkFlows
+        self.maxFileAccess = maxFileAccess
+        self.maxProcessExec = maxProcessExec
+        self.maxAgeSeconds = maxAgeSeconds
+        self.excludeUserDocuments = excludeUserDocuments
+        self.excludeDownloads = excludeDownloads
+        self.hashSensitivePaths = hashSensitivePaths
+        self.excludedBundleIds = excludedBundleIds
+        self.excludedPathPrefixes = excludedPathPrefixes
+        self.excludedDomainSuffixes = excludedDomainSuffixes
+    }
+
     // MARK: - Default Policy
 
     public static let `default` = RetentionPolicy()

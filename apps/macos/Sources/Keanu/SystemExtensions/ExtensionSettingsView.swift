@@ -208,9 +208,9 @@ struct ExtensionSettingsView: View {
                 Image(systemName: "arrow.up.arrow.down")
                     .foregroundStyle(.purple)
                 VStack(alignment: .leading) {
-                    Text(flow.destinationHost ?? "unknown")
+                    Text(flow.destinationHost)
                         .font(.system(.body, design: .monospaced))
-                    Text("\(flow.protocol ?? "?") • \(flow.direction.rawValue)")
+                    Text("\(flow.`protocol`) • \(flow.direction.rawValue)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

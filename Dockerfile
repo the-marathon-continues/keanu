@@ -51,15 +51,16 @@ RUN pnpm ui:build
 
 ENV NODE_ENV=production
 
+# Docker-specific gateway config (enables LAN binding with Host-header origin fallback)
+# The docker-config.json file is copied with the rest of the app files above
+ENV KEANU_CONFIG_PATH=/app/docker-config.json
+
 # Security hardening: Run as non-root user
 # The node:22-bookworm image includes a 'node' user (uid 1000)
 # This reduces the attack surface by preventing container escape via root privileges
 USER node
 
-# Start gateway server with default config.
-# Binds to loopback (127.0.0.1) by default for security.
-#
-# For container platforms requiring external health checks:
-#   1. Set KEANU_GATEWAY_TOKEN or KEANU_GATEWAY_PASSWORD env var
-#   2. Override CMD: ["node","keanu.mjs","gateway","--allow-unconfigured","--bind","lan"]
-CMD ["node", "keanu.mjs", "gateway", "--allow-unconfigured"]
+# Start gateway server with LAN binding for container platforms.
+# ALB health checks require binding to LAN interface, not localhost.
+# Security: Set KEANU_GATEWAY_TOKEN or KEANU_GATEWAY_PASSWORD env var.
+CMD ["node", "keanu.mjs", "gateway", "--allow-unconfigured", "--bind", "lan"]

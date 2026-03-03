@@ -28,7 +28,9 @@ public final class ExtensionIPCBridge: @unchecked Sendable {
     public static let appGroupIdentifier = "group.ai.keanu"
     public static let eventsFileName = "extension-events.jsonl"
     public static let policyFileName = "extension-policy.json"
+    public static let commandFileName = "extension-command.json"
     public static let notificationName = "ai.keanu.extension.event"
+    public static let commandNotificationName = "ai.keanu.extension.command"
 
     // MARK: - Properties
 
@@ -110,47 +112,50 @@ public final class ExtensionIPCBridge: @unchecked Sendable {
 
     /// Reads and clears all pending events.
     /// Returns events in chronological order.
+    /// Serialized on fileQueue to prevent races with concurrent writes.
     public func readAndClearEvents() -> [ExtensionEvent] {
         guard let containerURL else {
             log.error("Cannot read events: no container URL")
             return []
         }
 
-        let eventsURL = containerURL.appendingPathComponent(Self.eventsFileName)
+        return fileQueue.sync {
+            let eventsURL = containerURL.appendingPathComponent(Self.eventsFileName)
 
-        guard FileManager.default.fileExists(atPath: eventsURL.path) else {
-            return []
-        }
-
-        do {
-            // Read all content
-            let content = try String(contentsOf: eventsURL, encoding: .utf8)
-
-            // Clear the file atomically
-            try "".write(to: eventsURL, atomically: true, encoding: .utf8)
-
-            // Parse JSONL
-            var events: [ExtensionEvent] = []
-            for line in content.components(separatedBy: .newlines) {
-                let trimmed = line.trimmingCharacters(in: .whitespaces)
-                guard !trimmed.isEmpty else { continue }
-
-                if let data = trimmed.data(using: .utf8) {
-                    do {
-                        let event = try decoder.decode(ExtensionEvent.self, from: data)
-                        events.append(event)
-                    } catch {
-                        log.warning("Failed to decode event line: \(error.localizedDescription)")
-                    }
-                }
+            guard FileManager.default.fileExists(atPath: eventsURL.path) else {
+                return []
             }
 
-            log.info("Read \(events.count) events from IPC bridge")
-            return events
+            do {
+                // Read all content
+                let content = try String(contentsOf: eventsURL, encoding: .utf8)
 
-        } catch {
-            log.error("Failed to read events: \(error.localizedDescription)")
-            return []
+                // Clear the file atomically
+                try "".write(to: eventsURL, atomically: true, encoding: .utf8)
+
+                // Parse JSONL
+                var events: [ExtensionEvent] = []
+                for line in content.components(separatedBy: .newlines) {
+                    let trimmed = line.trimmingCharacters(in: .whitespaces)
+                    guard !trimmed.isEmpty else { continue }
+
+                    if let data = trimmed.data(using: .utf8) {
+                        do {
+                            let event = try decoder.decode(ExtensionEvent.self, from: data)
+                            events.append(event)
+                        } catch {
+                            log.warning("Failed to decode event line: \(error.localizedDescription)")
+                        }
+                    }
+                }
+
+                log.info("Read \(events.count) events from IPC bridge")
+                return events
+
+            } catch {
+                log.error("Failed to read events: \(error.localizedDescription)")
+                return []
+            }
         }
     }
 
@@ -206,7 +211,7 @@ public final class ExtensionIPCBridge: @unchecked Sendable {
         var token: Int32 = 0
         let name = Self.notificationName
 
-        notify_register_dispatch(
+        _ = notify_register_dispatch(
             name,
             &token,
             DispatchQueue.main
@@ -220,7 +225,75 @@ public final class ExtensionIPCBridge: @unchecked Sendable {
 
     /// Unregisters from Darwin notifications.
     public func unregisterNotifications(token: Int32) {
-        notify_cancel(token)
+        _ = notify_cancel(token)
         log.info("Unregistered extension notification token: \(token)")
+    }
+
+    // MARK: - Command Channel (Main App → Extension)
+
+    /// Sends a command to extensions. Called from the main app.
+    public func sendCommand(_ command: ExtensionCommand) {
+        guard let containerURL else {
+            log.error("Cannot send command: no container URL")
+            return
+        }
+
+        let commandURL = containerURL.appendingPathComponent(Self.commandFileName)
+
+        do {
+            let data = try encoder.encode(command)
+            try data.write(to: commandURL, options: .atomic)
+            notifyExtensions()
+            log.info("Sent command to extensions")
+        } catch {
+            log.error("Failed to send command: \(error.localizedDescription)")
+        }
+    }
+
+    /// Loads and clears the pending command. Called by extensions.
+    public func loadCommand() -> ExtensionCommand? {
+        guard let containerURL else {
+            return nil
+        }
+
+        let commandURL = containerURL.appendingPathComponent(Self.commandFileName)
+
+        guard FileManager.default.fileExists(atPath: commandURL.path) else {
+            return nil
+        }
+
+        do {
+            let data = try Data(contentsOf: commandURL)
+            try FileManager.default.removeItem(at: commandURL)
+            let command = try decoder.decode(ExtensionCommand.self, from: data)
+            log.info("Loaded command from main app")
+            return command
+        } catch {
+            log.error("Failed to load command: \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    /// Registers for command notifications from the main app. Called by extensions.
+    public func registerForCommandNotifications(handler: @escaping () -> Void) -> Int32 {
+        var token: Int32 = 0
+        let name = Self.commandNotificationName
+
+        _ = notify_register_dispatch(
+            name,
+            &token,
+            DispatchQueue.main
+        ) { _ in
+            handler()
+        }
+
+        log.info("Registered for command notifications with token: \(token)")
+        return token
+    }
+
+    private func notifyExtensions() {
+        let name = Self.commandNotificationName as CFString
+        let center = CFNotificationCenterGetDarwinNotifyCenter()
+        CFNotificationCenterPostNotification(center, CFNotificationName(name), nil, nil, true)
     }
 }

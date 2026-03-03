@@ -75,17 +75,79 @@ public final class ExtensionEventRelay: ObservableObject {
     }
 
     private func relayToGateway(_ event: ExtensionEvent) {
-        // TODO: Send to gateway via existing GatewayConnection
-        // For now, just log it
+        let (text, params) = systemEventPayload(for: event)
+        log.info("\(text)")
+
+        Task {
+            do {
+                try await ControlChannel.shared.sendSystemEvent(text, params: params)
+            } catch {
+                log.warning("Failed to relay extension event: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    private func systemEventPayload(for event: ExtensionEvent) -> (String, [String: AnyHashable]) {
+        let iso = ISO8601DateFormatter()
+
         switch event {
         case .dnsQuery(let dns):
-            log.info("DNS Query: \(dns.domain) (\(dns.queryType)) from \(dns.sourceApp ?? "unknown")")
+            var params: [String: AnyHashable] = [
+                "type": "dns.query",
+                "domain": dns.domain,
+                "queryType": dns.queryType,
+                "timestamp": iso.string(from: dns.timestamp),
+            ]
+            if let app = dns.sourceApp { params["sourceApp"] = app }
+            if let proc = dns.sourceProcess { params["sourceProcess"] = proc }
+            return ("DNS query: \(dns.domain) (\(dns.queryType))", params)
+
         case .networkFlow(let flow):
-            log.info("Network Flow: \(flow.protocol ?? "unknown") \(flow.direction.rawValue)")
+            var params: [String: AnyHashable] = [
+                "type": "network.flow",
+                "host": flow.destinationHost,
+                "port": Int(flow.destinationPort),
+                "protocol": flow.`protocol`,
+                "direction": flow.direction.rawValue,
+                "bytesIn": Int(flow.bytesIn),
+                "bytesOut": Int(flow.bytesOut),
+                "timestamp": iso.string(from: flow.timestamp),
+            ]
+            if let app = flow.sourceApp { params["sourceApp"] = app }
+            return ("Network flow: \(flow.`protocol`) \(flow.direction.rawValue) \(flow.destinationHost):\(flow.destinationPort)", params)
+
         case .fileAccess(let file):
-            log.info("File Access: \(file.operation.rawValue) \(file.path)")
+            let params: [String: AnyHashable] = [
+                "type": "file.access",
+                "path": file.path,
+                "operation": file.operation.rawValue,
+                "processPath": file.processPath,
+                "pid": Int(file.processId),
+                "uid": Int(file.userId),
+                "allowed": file.allowed,
+                "timestamp": iso.string(from: file.timestamp),
+            ]
+            return ("File access: \(file.operation.rawValue) \(file.path)", params)
+
         case .processExec(let proc):
-            log.info("Process Exec: \(proc.path) pid=\(proc.processId)")
+            var params: [String: AnyHashable] = [
+                "type": "process.exec",
+                "path": proc.path,
+                "args": proc.args,
+                "pid": Int(proc.processId),
+                "ppid": Int(proc.parentProcessId),
+                "uid": Int(proc.userId),
+                "allowed": proc.allowed,
+                "timestamp": iso.string(from: proc.timestamp),
+            ]
+            if let user = proc.userName { params["userName"] = user }
+            if let signing = proc.signingInfo {
+                var info: [String: AnyHashable] = ["isTrusted": signing.isTrusted]
+                if let team = signing.teamId { info["teamId"] = team }
+                if let sid = signing.signingId { info["signingId"] = sid }
+                params["signingInfo"] = info
+            }
+            return ("Process exec: \(proc.path) pid=\(proc.processId)", params)
         }
     }
 
