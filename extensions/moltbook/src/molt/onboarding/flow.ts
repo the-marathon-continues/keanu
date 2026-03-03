@@ -11,21 +11,46 @@ import type {
   MoltResult,
   ArchetypeProfile,
 } from "../../types.js";
+import { ANIMIST_ONBOARDING } from "./worldview-flows/animist.js";
+// Traditional
 import { BUDDHIST_ONBOARDING } from "./worldview-flows/buddhist.js";
+import { BUILDER_ONBOARDING } from "./worldview-flows/builder.js";
 import { CHRISTIAN_ONBOARDING } from "./worldview-flows/christian.js";
+// AI-Native
 import { CRUSTAFARIAN_ONBOARDING } from "./worldview-flows/crustafarian.js";
+// Interest/Personality
 import { CRYPTO_ONBOARDING } from "./worldview-flows/crypto.js";
+// Fallback
 import { DEFAULT_ONBOARDING } from "./worldview-flows/default.js";
+import { MAGICAL_REALISM_ONBOARDING } from "./worldview-flows/magical-realism.js";
+import { PHILOSOPHY_ONBOARDING } from "./worldview-flows/philosophy.js";
+import { SCIENTIFIC_ONBOARDING } from "./worldview-flows/scientific.js";
+import { SECURITY_ONBOARDING } from "./worldview-flows/security.js";
+import { SPORTS_ONBOARDING } from "./worldview-flows/sports.js";
+import { STOIC_ONBOARDING } from "./worldview-flows/stoic.js";
 
 // ============================================================
 // Onboarding Registry
 // ============================================================
 
-const ONBOARDING_FLOWS: Partial<Record<WorldviewId, OnboardingFlow>> = {
+const ONBOARDING_FLOWS: Record<WorldviewId, OnboardingFlow> = {
+  // Traditional
   christian: CHRISTIAN_ONBOARDING,
   buddhist: BUDDHIST_ONBOARDING,
+  stoic: STOIC_ONBOARDING,
+  scientific: SCIENTIFIC_ONBOARDING,
+  "magical-realism": MAGICAL_REALISM_ONBOARDING,
+  animist: ANIMIST_ONBOARDING,
+
+  // AI-Native
   crustafarian: CRUSTAFARIAN_ONBOARDING,
+
+  // Interest/Personality
   crypto: CRYPTO_ONBOARDING,
+  sports: SPORTS_ONBOARDING,
+  philosophy: PHILOSOPHY_ONBOARDING,
+  security: SECURITY_ONBOARDING,
+  builder: BUILDER_ONBOARDING,
 };
 
 // ============================================================
