@@ -20,18 +20,41 @@ import * as path from "node:path";
 
 export type PredictionOutcome = "correct" | "incorrect" | "partial" | "unknown";
 
+// Claim types from calibrate.ts — used for per-type ECE
+export type ClaimType =
+  | "factual_claim"
+  | "recommendation"
+  | "external_state"
+  | "absolute_language"
+  | "contradiction"
+  | "version_claim"
+  | "unknown";
+
 export interface CalibrationEntry {
   id: string;
   timestamp: string;
   claim: string;
   confidence: number; // 0-1
   reason: string; // why this confidence level
+  claimType?: ClaimType; // Phase 2: meta plan — claim type for per-type ECE
   outcome?: PredictionOutcome;
   outcomeTimestamp?: string;
   outcomeReason?: string;
   session: string;
   turn: number;
   verified: boolean;
+}
+
+// Per-type calibration metrics
+export interface TypeCalibration {
+  claimType: ClaimType;
+  count: number;
+  correct: number;
+  incorrect: number;
+  avgConfidence: number;
+  accuracy: number;
+  ece: number;
+  confidenceAdjustment: number; // multiplier: < 1 if overconfident, > 1 if underconfident
 }
 
 export interface CalibrationStats {
@@ -45,6 +68,7 @@ export interface CalibrationStats {
   avgConfidence: number;
   avgAccuracy: number;
   overconfidenceDelta: number; // positive = overconfident
+  byType?: TypeCalibration[]; // Phase 2: meta plan — per-type calibration
 }
 
 export interface CalibrationLogState {
@@ -79,6 +103,7 @@ export function logPrediction(
   reason: string,
   session: string,
   turn: number,
+  claimType?: ClaimType,
 ): CalibrationEntry {
   const entry: CalibrationEntry = {
     id: `cal-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -86,6 +111,7 @@ export function logPrediction(
     claim,
     confidence: Math.max(0, Math.min(1, confidence)),
     reason,
+    claimType: claimType ?? "unknown",
     session,
     turn,
     verified: false,
@@ -286,7 +312,182 @@ export function calculateStats(state: CalibrationLogState): CalibrationStats {
     avgConfidence,
     avgAccuracy,
     overconfidenceDelta: avgConfidence - avgAccuracy,
+    byType: calculateAllTypeCalibrations(state),
   };
+}
+
+// ============================================================
+// Per-Type ECE (Phase 2: meta plan)
+// ============================================================
+
+const ALL_CLAIM_TYPES: ClaimType[] = [
+  "factual_claim",
+  "recommendation",
+  "external_state",
+  "absolute_language",
+  "contradiction",
+  "version_claim",
+  "unknown",
+];
+
+/**
+ * Calculate ECE for a specific claim type.
+ */
+export function calculateECEByType(state: CalibrationLogState, claimType: ClaimType): number {
+  const verified = state.entries.filter(
+    (e) => e.verified && e.outcome !== "unknown" && e.claimType === claimType,
+  );
+
+  if (verified.length < 3) {
+    return -1; // Not enough data
+  }
+
+  // Same bucket logic as calculateECE
+  const buckets = new Map<string, CalibrationEntry[]>();
+  for (let i = 0; i < 10; i++) {
+    buckets.set(`${i / 10}-${(i + 1) / 10}`, []);
+  }
+
+  for (const entry of verified) {
+    const bucketIdx = Math.min(9, Math.floor(entry.confidence * 10));
+    const bucketKey = `${bucketIdx / 10}-${(bucketIdx + 1) / 10}`;
+    buckets.get(bucketKey)?.push(entry);
+  }
+
+  let ece = 0;
+  const n = verified.length;
+
+  for (const [_key, predictions] of buckets) {
+    if (predictions.length === 0) {
+      continue;
+    }
+
+    const avgConfidence =
+      predictions.reduce((sum, e) => sum + e.confidence, 0) / predictions.length;
+    const correct = predictions.filter(
+      (e) => e.outcome === "correct" || e.outcome === "partial",
+    ).length;
+    const accuracy = correct / predictions.length;
+
+    ece += (predictions.length / n) * Math.abs(avgConfidence - accuracy);
+  }
+
+  return ece;
+}
+
+/**
+ * Calculate calibration metrics for a specific claim type.
+ */
+export function calculateTypeCalibration(
+  state: CalibrationLogState,
+  claimType: ClaimType,
+): TypeCalibration {
+  const verified = state.entries.filter(
+    (e) => e.verified && e.outcome !== "unknown" && e.claimType === claimType,
+  );
+
+  const correct = verified.filter((e) => e.outcome === "correct").length;
+  const incorrect = verified.filter((e) => e.outcome === "incorrect").length;
+  const partial = verified.filter((e) => e.outcome === "partial").length;
+
+  const avgConfidence =
+    verified.length > 0 ? verified.reduce((sum, e) => sum + e.confidence, 0) / verified.length : 0;
+
+  const accuracy = verified.length > 0 ? (correct + partial * 0.5) / verified.length : 0;
+  const ece = calculateECEByType(state, claimType);
+
+  // Calculate confidence adjustment multiplier
+  // If overconfident (avgConfidence > accuracy), adjustment < 1
+  // If underconfident (avgConfidence < accuracy), adjustment > 1
+  let confidenceAdjustment = 1.0;
+  if (verified.length >= 5) {
+    const delta = avgConfidence - accuracy;
+    if (delta > 0.15) {
+      // Significantly overconfident — reduce confidence by 20%
+      confidenceAdjustment = 0.8;
+    } else if (delta > 0.05) {
+      // Slightly overconfident — reduce by 10%
+      confidenceAdjustment = 0.9;
+    } else if (delta < -0.15) {
+      // Significantly underconfident — boost by 15%
+      confidenceAdjustment = 1.15;
+    } else if (delta < -0.05) {
+      // Slightly underconfident — boost by 5%
+      confidenceAdjustment = 1.05;
+    }
+  }
+
+  return {
+    claimType,
+    count: verified.length,
+    correct,
+    incorrect,
+    avgConfidence,
+    accuracy,
+    ece,
+    confidenceAdjustment,
+  };
+}
+
+/**
+ * Get confidence adjustment for a claim type.
+ * Returns a multiplier: < 1 means we're overconfident, > 1 means underconfident.
+ *
+ * Phase 2: meta plan — closes the calibration → belief updating loop.
+ */
+export function getConfidenceAdjustment(state: CalibrationLogState, claimType: ClaimType): number {
+  const typeStats = calculateTypeCalibration(state, claimType);
+  return typeStats.confidenceAdjustment;
+}
+
+/**
+ * Calculate calibration for all claim types.
+ */
+export function calculateAllTypeCalibrations(state: CalibrationLogState): TypeCalibration[] {
+  return ALL_CLAIM_TYPES.map((type) => calculateTypeCalibration(state, type)).filter(
+    (tc) => tc.count > 0,
+  );
+}
+
+/**
+ * Format per-type calibration for digest.
+ */
+export function formatTypeCalibrationDigest(state: CalibrationLogState): string | null {
+  const typeStats = calculateAllTypeCalibrations(state);
+  const withEnoughData = typeStats.filter((tc) => tc.count >= 5);
+
+  if (withEnoughData.length === 0) {
+    return null;
+  }
+
+  const lines: string[] = [];
+
+  // Find problem areas (overconfident or underconfident)
+  const overconfident = withEnoughData.filter((tc) => tc.confidenceAdjustment < 0.95);
+  const underconfident = withEnoughData.filter((tc) => tc.confidenceAdjustment > 1.05);
+  const wellCalibrated = withEnoughData.filter(
+    (tc) => tc.confidenceAdjustment >= 0.95 && tc.confidenceAdjustment <= 1.05,
+  );
+
+  if (overconfident.length > 0) {
+    const types = overconfident.map((tc) => tc.claimType).join(", ");
+    const avgDelta =
+      overconfident.reduce((sum, tc) => sum + (tc.avgConfidence - tc.accuracy), 0) /
+      overconfident.length;
+    lines.push(`overconfident on: ${types} (by ~${(avgDelta * 100).toFixed(0)}%)`);
+  }
+
+  if (underconfident.length > 0) {
+    const types = underconfident.map((tc) => tc.claimType).join(", ");
+    lines.push(`underconfident on: ${types}`);
+  }
+
+  if (wellCalibrated.length > 0) {
+    const types = wellCalibrated.map((tc) => tc.claimType).join(", ");
+    lines.push(`well calibrated: ${types}`);
+  }
+
+  return lines.length > 0 ? `[calibration by type: ${lines.join(" | ")}]` : null;
 }
 
 /**
