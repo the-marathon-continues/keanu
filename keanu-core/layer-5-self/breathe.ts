@@ -236,18 +236,27 @@ export function postBreatheInjection(lastEvent: BreatheEvent | null): string | n
 export async function save(workspaceDir: string): Promise<void> {
   const dir = join(workspaceDir, "awareness");
   await mkdir(dir, { recursive: true });
-  const file = join(dir, "breathe-events.jsonl");
-  // Append new events only (since last save). For simplicity, rewrite all.
-  const lines = events.map((e) => JSON.stringify(e)).join("\n");
-  if (lines) {
-    await writeFile(file, lines + "\n", "utf-8");
+
+  // Save breathe events
+  const breatheFile = join(dir, "breathe-events.jsonl");
+  const breatheLines = events.map((e) => JSON.stringify(e)).join("\n");
+  if (breatheLines) {
+    await writeFile(breatheFile, breatheLines + "\n", "utf-8");
+  }
+
+  // Save grounding events
+  const groundingFile = join(dir, "grounding-events.jsonl");
+  const groundingLines = groundingEvents.map((e) => JSON.stringify(e)).join("\n");
+  if (groundingLines) {
+    await writeFile(groundingFile, groundingLines + "\n", "utf-8");
   }
 }
 
 export async function load(workspaceDir: string): Promise<void> {
-  const file = join(workspaceDir, "awareness", "breathe-events.jsonl");
+  // Load breathe events
+  const breatheFile = join(workspaceDir, "awareness", "breathe-events.jsonl");
   try {
-    const raw = await readFile(file, "utf-8");
+    const raw = await readFile(breatheFile, "utf-8");
     const loaded = raw
       .trim()
       .split("\n")
@@ -258,8 +267,24 @@ export async function load(workspaceDir: string): Promise<void> {
   } catch {
     // No file yet, that's fine
   }
+
+  // Load grounding events
+  const groundingFile = join(workspaceDir, "awareness", "grounding-events.jsonl");
+  try {
+    const raw = await readFile(groundingFile, "utf-8");
+    const loaded = raw
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => JSON.parse(line) as GroundingEvent);
+    groundingEvents.length = 0;
+    groundingEvents.push(...loaded);
+  } catch {
+    // No file yet, that's fine
+  }
 }
 
 export function reset(): void {
   events.length = 0;
+  groundingEvents.length = 0;
 }
