@@ -8,4 +8,12 @@ const paper = defineCollection({
   }),
 });
 
-export const collections = { paper };
+const legend = defineCollection({
+  type: "content",
+  schema: z.object({
+    title: z.string().optional(),
+    order: z.number().optional(),
+  }),
+});
+
+export const collections = { paper, legend };
