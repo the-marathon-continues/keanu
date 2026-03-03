@@ -20,6 +20,7 @@ import type {
   Contradiction,
   DeclineEvent,
   MemoryChannel,
+  SubstrateChannel,
   Reflexion,
   ReflexionTrigger,
   SignalState,
@@ -27,7 +28,9 @@ import type {
   TrackedClaim,
   ClaimOutcome,
 } from "../shared/types.js";
+import type { DepthReading } from "./depth.js";
 import { type GreyEpisode, type SomaticMarker, type GreyTrigger } from "./experience.js";
+import type { LimboReading } from "./limbo.js";
 
 // ============================================================
 // Persisted state shape
@@ -103,6 +106,36 @@ export function clearSessionTranscript(): void {
 // always passed false. Now it's real.
 export let breathing = false;
 
+// Hall of Mirrors protection — depth and limbo tracking
+// Tracks how deep we are in the cognitive stack and whether we're caught in strange loops
+let _lastDepthReading: DepthReading | null = null;
+let _lastLimboReading: LimboReading | null = null;
+let _groundingEventCount = 0;
+
+export function recordDepthReading(reading: DepthReading): void {
+  _lastDepthReading = reading;
+}
+
+export function recordLimboReading(reading: LimboReading): void {
+  _lastLimboReading = reading;
+}
+
+export function recordGroundingEvent(): void {
+  _groundingEventCount++;
+}
+
+export function getLastDepthReading(): DepthReading | null {
+  return _lastDepthReading;
+}
+
+export function getLastLimboReading(): LimboReading | null {
+  return _lastLimboReading;
+}
+
+export function getGroundingEventCount(): number {
+  return _groundingEventCount;
+}
+
 // SELF-DISCOVER accuracy tracking
 export let discoveryHits = 0;
 export let discoveryMisses = 0;
@@ -139,6 +172,44 @@ export function getManipulationAttempts(): Array<{
 // Contradiction tracking
 export const recentContradictions: Contradiction[] = [];
 const MAX_CONTRADICTIONS = 10;
+
+// Substrate history tracking — feeds the five senses of Layer 0
+// Sigma history: how fire and ash are trending over time
+// Signal history: raw signal strength for noise detection
+const MAX_SUBSTRATE_HISTORY = 100;
+const _sigmaHistory: number[] = [];
+const _signalHistory: number[] = [];
+
+export function recordSigma(sigma: number): void {
+  _sigmaHistory.push(sigma);
+  if (_sigmaHistory.length > MAX_SUBSTRATE_HISTORY) {
+    _sigmaHistory.shift();
+  }
+}
+
+export function recordSignal(signalStrength: number): void {
+  _signalHistory.push(signalStrength);
+  if (_signalHistory.length > MAX_SUBSTRATE_HISTORY) {
+    _signalHistory.shift();
+  }
+}
+
+export function getSigmaHistory(): number[] {
+  return _sigmaHistory.slice();
+}
+
+export function getSignalHistory(): number[] {
+  return _signalHistory.slice();
+}
+
+export function getCurrentSigma(): number {
+  return _sigmaHistory.length > 0 ? _sigmaHistory[_sigmaHistory.length - 1] : 0.5;
+}
+
+export function clearSubstrateHistory(): void {
+  _sigmaHistory.length = 0;
+  _signalHistory.length = 0;
+}
 
 // Tool tracking
 export const toolCallCounts: Record<string, number> = {};
@@ -882,7 +953,11 @@ export async function saveReflexion(workspaceDir: string, r: Reflexion): Promise
 // COEF signal builder
 // ============================================================
 
-export function buildSignalState(pulse: PulseReading, memory?: MemoryChannel): SignalState {
+export function buildSignalState(
+  pulse: PulseReading,
+  memory?: MemoryChannel,
+  substrate?: SubstrateChannel,
+): SignalState {
   const human = lastHumanReading;
   const dStats = disagreementTracker.stats();
   const alerts = disagreementTracker.alerts(turnCount);
@@ -961,6 +1036,7 @@ export function buildSignalState(pulse: PulseReading, memory?: MemoryChannel): S
     lossy,
     wise,
     memory,
+    substrate,
   };
 }
 
@@ -1086,7 +1162,7 @@ function synthesize(
   const read = buildRead(
     pulse,
     dominantTone,
-    secondaryTone,
+    _secondaryTone,
     tension,
     bullshitType,
     greyStreak,

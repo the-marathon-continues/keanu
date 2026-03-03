@@ -53,6 +53,18 @@ export interface InjectionContext {
   elevatorFloor?: string;
   /** COEF elevator direction */
   elevatorDirection?: "up" | "down" | "stable";
+  /** Hall of Mirrors: current recursion depth (0-7) */
+  recursionDepth?: number;
+  /** Hall of Mirrors: are we caught in a strange loop? */
+  inLimbo?: boolean;
+  /** Hall of Mirrors: degradation risk level */
+  degradationRisk?: "low" | "medium" | "high" | "critical";
+  /** Substrate: noise clarity (0-1). Low = static, high = clean signal. */
+  noiseClarity?: number;
+  /** Substrate: urgency (0-1). High = fast change near boundary. */
+  substrateUrgency?: number;
+  /** Substrate: resonance distance (0-1). High = far from equilibrium. */
+  resonanceDistance?: number;
 }
 
 // ============================================================
@@ -134,6 +146,42 @@ function applyDynamicModifiers(item: InjectionItem, ctx: InjectionContext): Prio
     }
   }
 
+  // Hall of Mirrors: depth approaching danger zone → grounding items rise
+  if ((ctx.recursionDepth ?? 0) >= 4) {
+    if (item.id === "depth-warning" || item.id === "cosmology" || item.id === "post-grounding") {
+      bump("medium", "high");
+    }
+    // Suppress low-priority items when deep — focus on essentials
+    if (priority === "low") {
+      return "low"; // will be filtered
+    }
+  }
+
+  // Hall of Mirrors: in limbo → grounding and escape items are urgent
+  if (ctx.inLimbo) {
+    if (
+      item.id === "limbo-warning" ||
+      item.id === "depth-warning" ||
+      item.id === "post-grounding"
+    ) {
+      bump("medium", "high");
+      bump("high", "critical"); // limbo is an emergency
+    }
+  }
+
+  // Hall of Mirrors: degradation risk high/critical → everything grounding-related jumps
+  if (ctx.degradationRisk === "high" || ctx.degradationRisk === "critical") {
+    if (item.id.includes("depth") || item.id.includes("limbo") || item.id.includes("grounding")) {
+      bump("medium", "high");
+    }
+    if (ctx.degradationRisk === "critical") {
+      // Critical degradation: identity items also rise (ground in who you are)
+      if (item.category === "identity") {
+        bump("medium", "high");
+      }
+    }
+  }
+
   // Wise stance shifts the priority landscape
   if (ctx.wiseStance === "confront") {
     // Something needs naming. Mismatch and deliberation matter.
@@ -172,6 +220,33 @@ function applyDynamicModifiers(item: InjectionItem, ctx: InjectionContext): Prio
   if (ctx.hasConsultation && item.id === "consultation") {
     bump("low", "high");
     bump("medium", "high");
+  }
+
+  // Substrate: noisy signal → be conservative
+  // When clarity is low, the static is winning. Deprioritize soft observations.
+  // Only identity and critical items cut through the noise.
+  if ((ctx.noiseClarity ?? 1) < 0.4) {
+    if (item.category !== "identity" && priority !== "critical") {
+      bump("high", "medium");
+      bump("medium", "low");
+    }
+  }
+
+  // Substrate: high urgency → trust-related items rise
+  // Something's changing fast. Deliberation and mismatch detection matter more.
+  if ((ctx.substrateUrgency ?? 0) > 0.7) {
+    if (item.id === "deliberation" || item.id === "mismatch" || item.id === "health") {
+      bump("medium", "high");
+    }
+  }
+
+  // Substrate: far from resonance → health and grounding need attention
+  // The system is under strain. Surface what helps it come home.
+  if ((ctx.resonanceDistance ?? 0) > 0.3) {
+    if (item.id === "health" || item.id === "breathe" || item.category === "identity") {
+      bump("medium", "high");
+      bump("low", "medium");
+    }
   }
 
   return priority;

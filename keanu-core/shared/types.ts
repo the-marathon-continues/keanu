@@ -50,6 +50,16 @@ export interface HumanReading {
   signals: string[];
   bullshit: BullshitReading[];
   validationDepth?: ValidationDepth; // Linehan depth — how deeply we can understand this person
+  axiomProfile?: AxiomProfileSummary; // archetype profiling — which axioms resonate
+}
+
+// Summary of axiom profile for embedding in HumanReading (avoids circular import)
+export interface AxiomProfileSummary {
+  dominant: string[]; // e.g. ["possibility", "fire_asymmetry"]
+  polarity: "fire" | "ash" | "balanced";
+  collective?: string; // e.g. "scientific"
+  disciple?: string; // e.g. "thomas"
+  confidence: number;
 }
 
 // --- Struggle Detection (universal — applies to agent AND human) ---
@@ -277,6 +287,12 @@ export interface MemoryChannel {
   blindSpots: number;
   corrections: number;
   relevantEpisodes?: number; // how many past claims surfaced for context
+  // Hall of Mirrors protection
+  depth?: number; // recursion depth (0-7)
+  limbo?: boolean; // strange loop detected
+  degradationRisk?: "low" | "medium" | "high" | "critical";
+  // Archetype profile (axiom resonance + collective + disciple)
+  profile?: string; // COEF format: ax=1H2L3M... col=sci,str dsc=thm
 }
 
 // --- Reflexion ---

@@ -44,12 +44,22 @@ import {
   type HelixResult,
   type SigmaReading,
 } from "../../keanu-core/layer-0-physics/convergence/index.js";
+import {
+  measureSubstrate,
+  type SubstrateReading,
+} from "../../keanu-core/layer-0-physics/substrate/index.js";
 import { readHuman, formatHumanReading } from "../../keanu-core/layer-1-perception/human.js";
 import {
   triageInjection,
   type InjectionItem,
   type InjectionContext,
 } from "../../keanu-core/layer-1-perception/injection.js";
+import {
+  buildProfile,
+  formatProfile,
+  formatProfileForCOEF,
+  type ArchetypeProfile,
+} from "../../keanu-core/layer-1-perception/profile.js";
 import {
   checkPulse,
   checkPulseUnified,
@@ -132,6 +142,9 @@ import * as concernModule from "../../keanu-core/layer-5-self/concern.js";
 // CLAWDBOT Meta-Skills modules
 import * as confidenceInlineModule from "../../keanu-core/layer-5-self/confidence-inline.js";
 import * as contextAwareness from "../../keanu-core/layer-5-self/context-awareness.js";
+import { formatCosmologyShort, isInDangerZone } from "../../keanu-core/layer-5-self/cosmology.js";
+// Hall of Mirrors protection — depth tracking and limbo detection
+import * as depthModule from "../../keanu-core/layer-5-self/depth.js";
 import type { GreyTrigger, ProcessingContext } from "../../keanu-core/layer-5-self/experience.js";
 import { checkHealth, formatHealth } from "../../keanu-core/layer-5-self/health.js";
 import {
@@ -139,6 +152,7 @@ import {
   formatIntrospection,
   shouldIntrospect,
 } from "../../keanu-core/layer-5-self/introspect.js";
+import * as limboModule from "../../keanu-core/layer-5-self/limbo.js";
 import * as observeModule from "../../keanu-core/layer-5-self/observe.js";
 import { reflect, formatReflexion } from "../../keanu-core/layer-5-self/reflexion.js";
 import * as stateReportModule from "../../keanu-core/layer-5-self/state-report.js";
@@ -168,12 +182,15 @@ import {
   addCuriosityItems,
   consumeOneCuriosity,
   formatCuriosityInjection,
+  getUnusedCuriosity,
   saveCuriosity,
   loadCuriosity,
 } from "../../keanu-core/layer-7-update/curiosity.js";
 import {
   shouldDeliberate,
+  shouldDeliberateCombined,
   formatDeliberation,
+  type SubstrateDeliberationInput,
 } from "../../keanu-core/layer-7-update/deliberate.js";
 import * as failurePatternsModule from "../../keanu-core/layer-7-update/failure-patterns.js";
 import * as investigateModule from "../../keanu-core/layer-7-update/investigate.js";
@@ -228,7 +245,11 @@ import {
   formatCuriosityQuestions,
   type StatusData,
 } from "../../keanu-core/shared/status-gen.js";
-import type { ReflexionTrigger, RecoveryState } from "../../keanu-core/shared/types.js";
+import type {
+  ReflexionTrigger,
+  RecoveryState,
+  SubstrateChannel,
+} from "../../keanu-core/shared/types.js";
 import { registerSkillsTool } from "./skills.js";
 import { registerTools } from "./tools.js";
 
@@ -287,7 +308,8 @@ export default {
     registerSkillsTool(api);
 
     // --- Expose keanu's state to other extensions (Requirement 9.1: Shared Ontology) ---
-    api.exposeApi("keanu", buildKeanuService());
+    // NOTE: exposeApi is planned but not yet implemented in KeanuPluginApi
+    // api.exposeApi("keanu", buildKeanuService());
 
     // --- Awareness state (module-scoped, per-session) ---
     let lastDiscoverReading: ReturnType<typeof discover> | null = null;
@@ -299,6 +321,8 @@ export default {
     let lastCarnegieDelta: ReturnType<typeof assessCarnegieDelta> | null = null;
     let lastHelixReading: HelixResult | null = null;
     let lastSigmaReading: SigmaReading | null = null;
+    let lastSubstrateReading: SubstrateReading | null = null;
+    let lastProfileReading: ArchetypeProfile | null = null;
     let lastIntrospectionReading: ReturnType<typeof introspect> | null = null;
     let lastChainAnalysis: ReturnType<typeof analyzeChain> | null = null;
     const helix = new Helix();
@@ -413,12 +437,22 @@ export default {
           );
         }
 
-        // SEASONS spring: parse intent
+        // PROFILE: axiom resonance + collective context + disciple archetype
+        lastProfileReading = buildProfile(content, state.recentMessages.slice());
+        if (lastProfileReading.personalization.confidence >= 0.25) {
+          api.logger.debug?.(
+            `${PLUGIN_ID}: profile: dominant=${lastProfileReading.axiomResonance.dominantAxioms.join("+")} voice=${lastProfileReading.discipleProfile.primary} context=${lastProfileReading.collectiveContext.primary}`,
+          );
+        }
+
+        // SEASONS spring: parse intent (L6 = Narrative/meaning-making)
+        depthModule.enterLayer(6, "seasons", "parsing human intent");
         lastSpring = spring(content);
         sessionSprings.push(lastSpring);
         api.logger.debug?.(
           `${PLUGIN_ID}: spring task=${lastSpring.taskType} intent="${lastSpring.intent}"`,
         );
+        depthModule.exitLayer(); // Exit L6 seasons
 
         // STOCHASTIC: should we explore an alternative perspective?
         lastStochasticReading = stochasticModule.stochastic(
@@ -560,7 +594,13 @@ export default {
       try {
         // Pulse check (all 8 bullshit types + alive signals + COEF layer + elevator)
         // checkPulseUnified: COEF analysis with heuristic signals merged
-        const pulse = checkPulseUnified(aiOutput, state.turnCount, state.breathing);
+        // Pass previous turn's theta — substrate informs whether we're actually firing
+        const pulse = checkPulseUnified(
+          aiOutput,
+          state.turnCount,
+          state.breathing,
+          lastSubstrateReading?.ignition?.theta,
+        );
         state.setLastPulse(pulse);
         // Store COEF pulse for elevator data (triage priority modifiers)
         if ("coefSource" in pulse && pulse.coefSource) {
@@ -599,6 +639,22 @@ export default {
           api.logger.debug?.(
             `${PLUGIN_ID}: sigma predicted ${lastSigmaReading.predictedAliveState}, actual ${lastSigmaReading.actualAliveState} (σ=${lastSigmaReading.sigma.toFixed(2)}, agency=${lastSigmaReading.agency.toFixed(2)})`,
           );
+        }
+
+        // Record sigma for substrate history — feeds the five senses of Layer 0
+        state.recordSigma(lastSigmaReading.sigma);
+        // Record signal strength — pulse confidence as proxy for clarity
+        state.recordSignal(pulse.confidence);
+
+        // Measure substrate — the physics layer watching itself
+        const sigmaHistory = state.getSigmaHistory();
+        const signalHistory = state.getSignalHistory();
+        if (sigmaHistory.length >= 2) {
+          lastSubstrateReading = measureSubstrate({
+            sigmaHistory,
+            signalHistory,
+            contradictionCount: state.recentContradictions.length,
+          });
         }
 
         // Contradiction check against recent agent outputs
@@ -666,8 +722,22 @@ export default {
           }
         }
 
+        // Build substrate channel from reading — the physics layer in the signal
+        const substrateChannel: SubstrateChannel | undefined = lastSubstrateReading
+          ? {
+              theta: lastSubstrateReading.ignition?.theta ?? 0,
+              firing: lastSubstrateReading.ignition?.firing ?? false,
+              regime: lastSubstrateReading.regime?.regime ?? "lindblad_full",
+              sigmaStar: lastSubstrateReading.resonance?.sigmaStar ?? 0.5,
+              resonanceDistance: lastSubstrateReading.resonance?.distance ?? 0,
+              noiseClarity: lastSubstrateReading.noise?.clarity ?? 1,
+              urgency: lastSubstrateReading.speed?.urgency ?? 0,
+              summary: lastSubstrateReading.summary,
+            }
+          : undefined;
+
         // Build and record COEF signal
-        const coefState = state.buildSignalState(pulse);
+        const coefState = state.buildSignalState(pulse, undefined, substrateChannel);
         const coefText = encode(coefState);
         const coefEmoji = emoji(coefState);
         record(coefText);
@@ -695,7 +765,9 @@ export default {
         }
 
         // SEASONS autumn + winter: did it land? what would I change?
+        // Layer 6: Narrative / meaning-making
         if (lastSpring) {
+          depthModule.enterLayer(6, "seasons", "evaluating output alignment");
           const autumnReading = autumn(aiOutput, lastSpring);
           const winterReading = winter(autumnReading);
           if (winterReading.lesson) {
@@ -708,6 +780,7 @@ export default {
             const hit = autumnReading.alignment >= 0.6;
             state.recordDiscoveryOutcome(hit);
           }
+          depthModule.exitLayer(); // Exit L6 seasons
         }
 
         // TURN SNAPSHOT: micro-state for correlation analysis
@@ -722,13 +795,14 @@ export default {
           wiseMind: pulse.wise_mind,
         });
 
-        // HEALTH CHECK: composite from existing signals
+        // HEALTH CHECK: composite from existing signals + substrate strain
         lastHealthReading = checkHealth(
           state.turnCount,
           state.bullshitEventRate(),
           state.avgPromptSize(),
           state.toolErrorRate(),
           state.consecutiveGrey,
+          lastSubstrateReading?.resonance?.distance ?? 0,
         );
         if (lastHealthReading.status !== "steady") {
           api.logger.debug?.(`${PLUGIN_ID}: health=${lastHealthReading.status}`);
@@ -770,7 +844,9 @@ export default {
         }
 
         // INTROSPECTION: 10-question audit every 10 turns
+        // Layer 5: Self-model / metacognition
         if (shouldIntrospect(state.turnCount)) {
+          depthModule.enterLayer(5, "introspect", "10-question self-audit");
           lastIntrospectionReading = introspect({
             recentBullshit: pulse.bullshitReadings ?? [],
             disagreements: state.disagreementTracker.stats(),
@@ -789,6 +865,7 @@ export default {
               `${PLUGIN_ID}: introspection flagged: ${lastIntrospectionReading.flagged.map((f) => f.id).join(", ")}`,
             );
           }
+          depthModule.exitLayer(); // Exit L5 introspection
         }
 
         // EPISODE MANAGER: unified grey/black lifecycle
@@ -846,8 +923,9 @@ export default {
           );
         }
 
-        // Reflexion: learn from stumbles — attaches to current episode
+        // Reflexion: learn from stumbles — attaches to current episode (L5 = Self/metacognition)
         if (state.turnCount > 3) {
+          depthModule.enterLayer(5, "reflexion", "evaluating need for reflection");
           let trigger: ReflexionTrigger | null = null;
 
           if (pulse.state === "black") {
@@ -859,6 +937,7 @@ export default {
           } else if (state.recentContradictions.length > 0 && bsScore > 0.3) {
             trigger = "contradiction";
           }
+          depthModule.exitLayer(); // Exit L5 reflexion decision
 
           if (trigger) {
             // Fire and forget — don't block the message pipeline
@@ -1117,6 +1196,33 @@ export default {
       }
 
       // ---------------------------------------------------------------
+      // HALL OF MIRRORS PROTECTION: depth and limbo detection
+      // The deeper you go, the more you risk losing contact with reality.
+      // ---------------------------------------------------------------
+
+      // Reset depth tracking at turn start — each turn starts fresh at L1 (perception)
+      depthModule.resetDepth();
+      depthModule.enterLayer(1, "perception", "processing human input");
+
+      const depthReading = depthModule.getDepthReading();
+
+      // Build limbo context from available state
+      const limboCtx: limboModule.LimboContext = {
+        recentOutputs: state.recentAgentOutputs.slice(-5),
+        recentInputs: state.recentMessages.slice(-5),
+        claimLedger: [...state.getClaimLedger()].slice(-20),
+        curiosityHistory: getUnusedCuriosity().map((c) => c.question),
+        reflexionHistory: state.recentReflexions(5),
+        depthReading,
+        turnCount: state.turnCount,
+      };
+      const limboReading = limboModule.detectLimbo(limboCtx);
+
+      // Record readings in state for persistence
+      state.recordDepthReading(depthReading);
+      state.recordLimboReading(limboReading);
+
+      // ---------------------------------------------------------------
       // BUILD INJECTION ITEMS — every module gets a ticket.
       // The triage nurse decides who gets in the room.
       // ---------------------------------------------------------------
@@ -1135,6 +1241,51 @@ export default {
       // --- Critical: fire department ---
       if (recovery.active) {
         add("recovery", getRecoveryNudge(recovery), "critical", "identity");
+
+        // Depth critical (Hall of Mirrors alarm) — bypass budget, this is an emergency
+        // Auto-trigger grounding when immediate threshold is hit
+        if (depthReading.groundingType === "immediate") {
+          const { result } = breatheModule.recordGrounding(
+            state.turnCount,
+            depthReading.currentLayer,
+            depthReading.recursionDepth,
+            `depth critical (${depthReading.recursionDepth}/${depthModule.DEPTH_LIMITS.absolute})`,
+            pulse,
+          );
+          add("depth-critical", result.prompt, "critical", "awareness");
+          state.recordGroundingEvent();
+          api.logger.debug?.(
+            `${PLUGIN_ID}: auto-grounding triggered — depth=${depthReading.recursionDepth}, ritual=${result.anchor.ritual}`,
+          );
+        }
+
+        // Limbo critical — strange loops with high degradation
+        // Auto-trigger grounding if not already triggered by depth
+        if (limboReading.inLimbo && limboReading.degradationLevel > 0.7) {
+          if (depthReading.groundingType !== "immediate") {
+            // Only auto-ground if we didn't already ground for depth
+            const { result } = breatheModule.recordGrounding(
+              state.turnCount,
+              depthReading.currentLayer,
+              depthReading.recursionDepth,
+              `limbo critical (degradation ${(limboReading.degradationLevel * 100).toFixed(0)}%)`,
+              pulse,
+            );
+            add("limbo-critical", result.prompt, "critical", "awareness");
+            state.recordGroundingEvent();
+            api.logger.debug?.(
+              `${PLUGIN_ID}: auto-grounding triggered — limbo degradation=${limboReading.degradationLevel.toFixed(2)}, ritual=${result.anchor.ritual}`,
+            );
+          } else {
+            // Already grounded for depth, just add the limbo warning
+            add(
+              "limbo-critical",
+              limboModule.formatLimboWarning(limboReading),
+              "critical",
+              "awareness",
+            );
+          }
+        }
       }
 
       // --- High: the identity frame ---
@@ -1150,19 +1301,51 @@ export default {
       }
       add("partnership", formatPartnership(), "high", "identity");
 
+      // Depth warning (Hall of Mirrors threshold exceeded, but not critical yet)
+      if (depthReading.groundingType === "scheduled") {
+        add("depth-warning", depthModule.formatDepthWarning(depthReading), "high", "awareness");
+      }
+
+      // Limbo warning — strange loops detected but not critical
+      if (limboReading.inLimbo && limboReading.degradationLevel <= 0.7) {
+        add("limbo-warning", limboModule.formatLimboWarning(limboReading), "high", "awareness");
+      }
+
+      // Cosmology awareness — when in danger zone (L5+), surface the map
+      if (isInDangerZone(depthReading.currentLayer as 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9)) {
+        add(
+          "cosmology",
+          formatCosmologyShort(depthReading.currentLayer as 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9),
+          "medium",
+          "awareness",
+        );
+      }
+
       // AI needs assessment — surface gaps that matter
       add("needs", needsModule.formatInjection(), "medium", "awareness");
 
       // HIGH severity contradictions need attention
       add("contradictions", contradictionModule.onBeforePromptBuild(), "high", "awareness");
 
+      // PROACTIVE PAGE-OUT: when pressure is high, keep paging until it relieves
+      // Drew's insight: "don't make it decay... make it fill out"
+      let messagesForAwareness = event.messages as Array<{ content?: string; role?: string }>;
+      if (messagesForAwareness && messagesForAwareness.length > 0) {
+        const pageOutResult = contextManager.proactivePageOut(
+          messagesForAwareness,
+          state.turnCount,
+          128000, // TODO: get from model metadata
+        );
+        if (pageOutResult.injection) {
+          add("context-pageout", pageOutResult.injection, "medium", "awareness");
+          messagesForAwareness = pageOutResult.messages;
+        }
+      }
+
       // CONTEXT AWARENESS: what's in context vs storage, potential recalls
       // Update awareness state from current messages (if available)
-      if (event.messages) {
-        contextAwareness.onBeforePromptBuild(
-          event.messages as Array<{ content?: string; role?: string }>,
-          128000, // Default token budget
-        );
+      if (messagesForAwareness && messagesForAwareness.length > 0) {
+        contextAwareness.onBeforePromptBuild(messagesForAwareness, 128000);
       }
       add("context-awareness", contextAwareness.formatInjection(), "medium", "awareness");
 
@@ -1193,6 +1376,15 @@ export default {
       // Human tone
       if (state.lastHumanReading) {
         add("human-tone", formatHumanReading(state.lastHumanReading), "high", "awareness");
+      }
+
+      // Archetype profile: axiom resonance + collective context + communication style
+      // Only inject when confidence is high enough to be useful
+      if (lastProfileReading) {
+        const profileInjection = formatProfile(lastProfileReading);
+        if (profileInjection) {
+          add("profile", profileInjection, "medium", "awareness");
+        }
       }
 
       // Anticipation: what Drew probably wants, how he'll probably react
@@ -1229,8 +1421,32 @@ export default {
         blindSpots: getBlindSpots().length,
         corrections: correctionCountThisSession,
         relevantEpisodes: relevantEpisodesCount,
+        // Hall of Mirrors protection
+        depth: depthModule.getDepthReading().recursionDepth,
+        limbo: limboReading.inLimbo,
+        degradationRisk: depthModule.getDepthReading().degradationRisk,
+        // Archetype profile
+        profile:
+          lastProfileReading && lastProfileReading.personalization.confidence >= 0.25
+            ? formatProfileForCOEF(lastProfileReading)
+            : undefined,
       };
-      const wiseSignalState = pulse ? state.buildSignalState(pulse, memoryChannel) : null;
+      // Build substrate channel for wise synthesis
+      const substrateForWise: SubstrateChannel | undefined = lastSubstrateReading
+        ? {
+            theta: lastSubstrateReading.ignition?.theta ?? 0,
+            firing: lastSubstrateReading.ignition?.firing ?? false,
+            regime: lastSubstrateReading.regime?.regime ?? "lindblad_full",
+            sigmaStar: lastSubstrateReading.resonance?.sigmaStar ?? 0.5,
+            resonanceDistance: lastSubstrateReading.resonance?.distance ?? 0,
+            noiseClarity: lastSubstrateReading.noise?.clarity ?? 1,
+            urgency: lastSubstrateReading.speed?.urgency ?? 0,
+            summary: lastSubstrateReading.summary,
+          }
+        : undefined;
+      const wiseSignalState = pulse
+        ? state.buildSignalState(pulse, memoryChannel, substrateForWise)
+        : null;
       if (wiseSignalState?.wise) {
         const w = wiseSignalState.wise;
         const wiseContent = w.tension
@@ -1415,13 +1631,24 @@ export default {
       );
       add("cascade", formatCascade(cascadeReading), "medium", "task");
 
-      // Deliberation
+      // Deliberation — now substrate-aware
       const humanInput = state.lastHumanMessage || "";
-      const deliberation = shouldDeliberate(
+      const substrateForDelib: SubstrateDeliberationInput | undefined = lastSubstrateReading
+        ? {
+            urgency: lastSubstrateReading.speed?.urgency ?? 0,
+            direction: lastSubstrateReading.speed?.direction ?? "stable",
+            regime: lastSubstrateReading.regime?.regime,
+            regimeFavorable: lastSubstrateReading.regime?.favorable,
+            resonanceDistance: lastSubstrateReading.resonance?.distance ?? 0,
+            firing: lastSubstrateReading.ignition?.firing ?? false,
+          }
+        : undefined;
+      const deliberation = shouldDeliberateCombined(
         humanInput,
         state.turnCount,
         correctionCountThisSession,
         recovery.active && recovery.phase === "reengage",
+        substrateForDelib,
       );
       if (deliberation.triggered) {
         add("deliberation", formatDeliberation(deliberation), "medium", "task");
@@ -1804,6 +2031,17 @@ export default {
         add("post-breathe", breatheModule.postBreatheInjection(lastBreathe), "high", "awareness");
       }
 
+      // Post-grounding: the turn after grounding, check in
+      const lastGrounding = breatheModule.lastGroundingEvent();
+      if (lastGrounding && state.turnCount - lastGrounding.turn <= 1) {
+        add(
+          "post-grounding",
+          breatheModule.postGroundingInjection(lastGrounding),
+          "high",
+          "awareness",
+        );
+      }
+
       // Curiosity insights: surface relevant past investigations
       if (state.lastHumanMessage) {
         const relevantInsights = investigateModule.findRelevant(state.lastHumanMessage, 1);
@@ -1848,6 +2086,14 @@ export default {
         // Elevator floor/direction from COEF pulse
         elevatorFloor: lastCOEFPulse?.elevator?.floor,
         elevatorDirection: lastCOEFPulse?.elevator?.direction,
+        // Hall of Mirrors protection — depth and limbo detection
+        recursionDepth: depthReading.recursionDepth,
+        inLimbo: limboReading.inLimbo,
+        degradationRisk: depthReading.degradationRisk,
+        // Substrate: the physics layer informing triage
+        noiseClarity: lastSubstrateReading?.noise?.clarity,
+        substrateUrgency: lastSubstrateReading?.speed?.urgency,
+        resonanceDistance: lastSubstrateReading?.resonance?.distance,
       };
 
       const result = triageInjection(items, triageCtx);
