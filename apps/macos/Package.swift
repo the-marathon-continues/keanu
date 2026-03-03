@@ -1,5 +1,5 @@
 // swift-tools-version: 6.0
-// Package manifest for the Keanu macOS companion (menu bar app + IPC library).
+// Keanu macOS — menu bar app, system extensions, IPC bridge.
 
 import PackageDescription
 
