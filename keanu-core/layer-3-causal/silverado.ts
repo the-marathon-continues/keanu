@@ -14,7 +14,15 @@
 
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import type { TrackedClaim, Contradiction } from "../shared/types.js";
+import type { TrackedClaim, Contradiction, ConfidenceReason } from "../shared/types.js";
+import {
+  evaluateSource,
+  toClaimSource,
+  updateTrackRecord,
+  adjustClaimConfidenceWithHistory,
+  saveTrackRecords,
+  loadTrackRecords,
+} from "./source-ranker.js";
 import { memoryContradictionCheck } from "./truth.js";
 
 // ============================================================
@@ -42,6 +50,12 @@ export function markVerified(claimId: string): boolean {
   claim.verified = true;
   claim.status = "active";
   claim.decayedConfidence = claim.confidence; // reset decay
+
+  // Update source track record — this source proved accurate
+  if (claim.source?.url) {
+    updateTrackRecord(claim.source.url, "verified");
+  }
+
   return true;
 }
 
@@ -54,6 +68,12 @@ export function markRetracted(claimId: string): boolean {
   claim.status = "retracted";
   claim.contradicted = true;
   claim.retractedAt = new Date().toISOString();
+
+  // Update source track record — this source was wrong
+  if (claim.source?.url) {
+    updateTrackRecord(claim.source.url, "contradicted");
+  }
+
   return true;
 }
 
@@ -125,6 +145,124 @@ export function touchClaimsMatching(text: string): number {
     }
   }
   return touched;
+}
+
+// ============================================================
+// Source-aware claim tracking (Phase 1: meta plan)
+// ============================================================
+
+export interface TrackClaimOptions {
+  sourceUrl?: string;
+  sourceContext?: string; // additional context for flag detection
+  confidenceReason?: ConfidenceReason;
+}
+
+/**
+ * Track a new claim with source evaluation.
+ * Closes the source → confidence loop: source evaluation affects initial confidence.
+ *
+ * @param text - the claim text
+ * @param confidence - initial confidence (1-5)
+ * @param session - session ID
+ * @param turn - turn number
+ * @param options - source tracking options
+ * @returns the tracked claim with source evaluation applied
+ */
+export function trackClaimWithSource(
+  text: string,
+  confidence: number,
+  session: string,
+  turn: number,
+  options: TrackClaimOptions = {},
+): TrackedClaim {
+  const id = `claim_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const now = new Date().toISOString();
+
+  // Start with base claim
+  const claim: TrackedClaim = {
+    id,
+    text,
+    confidence,
+    turn,
+    session,
+    verified: false,
+    contradicted: false,
+    decayedConfidence: confidence,
+    status: "active",
+    createdAt: now,
+    eventTime: now,
+    ingestedAt: now,
+    confidenceReason: options.confidenceReason ?? "unknown",
+  };
+
+  // If source URL provided, evaluate and adjust
+  if (options.sourceUrl) {
+    const evaluation = evaluateSource(options.sourceUrl, options.sourceContext);
+    claim.source = toClaimSource(evaluation);
+    claim.confidenceReason = "source";
+
+    // Adjust confidence based on source credibility + track record
+    const adjustedConfidence = adjustClaimConfidenceWithHistory(claim, evaluation);
+    claim.confidence = adjustedConfidence;
+    claim.decayedConfidence = adjustedConfidence;
+
+    // Record that this source made a claim
+    updateTrackRecord(options.sourceUrl, "made");
+  }
+
+  // Add to ledger
+  ledger.push(claim);
+
+  // Trim if needed
+  if (ledger.length > MAX_LEDGER) {
+    ledger.splice(0, ledger.length - MAX_LEDGER);
+  }
+
+  return claim;
+}
+
+/**
+ * Update source track record when a claim outcome is observed.
+ * Call this when a claim is verified or contradicted to learn about source accuracy.
+ */
+export function updateSourceOnOutcome(claimId: string): void {
+  const claim = ledger.find((c) => c.id === claimId);
+  if (!claim || !claim.source?.url) {
+    return;
+  }
+
+  if (claim.verified) {
+    updateTrackRecord(claim.source.url, "verified");
+  } else if (claim.contradicted) {
+    updateTrackRecord(claim.source.url, "contradicted");
+  }
+}
+
+/**
+ * Get claims from a specific source domain.
+ */
+export function claimsFromSource(sourceUrl: string): TrackedClaim[] {
+  const domain = sourceUrl
+    .replace(/^https?:\/\//, "")
+    .replace(/^www\./, "")
+    .split("/")[0];
+  return ledger.filter((c) => {
+    if (!c.source?.url) {
+      return false;
+    }
+    const claimDomain = c.source.url
+      .replace(/^https?:\/\//, "")
+      .replace(/^www\./, "")
+      .split("/")[0];
+    return claimDomain === domain;
+  });
+}
+
+/**
+ * Get claims by confidence reason.
+ */
+export function claimsByReason(reason: ConfidenceReason): TrackedClaim[] {
+  return ledger.filter((c) => c.confidenceReason === reason);
 }
 
 // ============================================================
@@ -335,17 +473,24 @@ export function formatInjection(): string | null {
 export async function save(workspaceDir: string): Promise<void> {
   const dir = join(workspaceDir, "awareness");
   await mkdir(dir, { recursive: true });
+
+  // Save claim ledger
   const file = join(dir, "claim-ledger.jsonl");
   const lines = ledger.map((c) => JSON.stringify(c)).join("\n");
   await writeFile(file, lines + "\n", "utf-8");
+
+  // Save source track records (Phase 1: meta plan)
+  await saveTrackRecords(workspaceDir);
 }
 
-export async function load(workspaceDir: string): Promise<void> {
+export async function load(workspaceDir: string, maxLedger = MAX_LEDGER): Promise<void> {
   const file = join(workspaceDir, "awareness", "claim-ledger.jsonl");
   try {
     const raw = await readFile(file, "utf-8");
     const lines = raw.trim().split("\n").filter(Boolean);
-    ledger.length = 0;
+
+    // Parse into temp array first — only flush on success
+    const temp: TrackedClaim[] = [];
     for (const line of lines) {
       try {
         const claim = JSON.parse(line) as TrackedClaim;
@@ -370,18 +515,26 @@ export async function load(workspaceDir: string): Promise<void> {
             claim.status = "active";
           }
         }
-        ledger.push(claim);
+        temp.push(claim);
       } catch {
         // skip malformed lines
       }
     }
+
     // Rolling window
-    if (ledger.length > MAX_LEDGER) {
-      ledger.splice(0, ledger.length - MAX_LEDGER);
+    if (temp.length > maxLedger) {
+      temp.splice(0, temp.length - maxLedger);
     }
+
+    // Success — flush to ledger
+    ledger.length = 0;
+    ledger.push(...temp);
   } catch {
     // No prior ledger — start fresh
   }
+
+  // Load source track records (Phase 1: meta plan)
+  await loadTrackRecords(workspaceDir);
 }
 
 /**
@@ -417,8 +570,10 @@ export function mergeSessionClaims(sessionClaims: readonly TrackedClaim[]): void
       if (!withStatus.createdAt) {
         withStatus.createdAt = now;
       }
-      // Zep-style dual timestamps
-      withStatus.eventTime = withStatus.createdAt; // when asserted
+      // Zep-style dual timestamps — preserve if already set
+      if (!withStatus.eventTime) {
+        withStatus.eventTime = withStatus.createdAt; // when asserted
+      }
       withStatus.ingestedAt = now; // when written to ledger
       ledger.push(withStatus);
     }
@@ -502,6 +657,90 @@ export function beliefAsOf(topic: string, asOfDate: Date): TrackedClaim | null {
     });
 
   return candidates[0] ?? null;
+}
+
+// ============================================================
+// truth.ts → silverado feedback loop
+// ============================================================
+
+/**
+ * Process truth check results and update the ledger accordingly.
+ * Closes the feedback loop: truth verification → belief updates.
+ *
+ * @param contradictions - contradictions found by truth.ts
+ * @param newClaim - the new claim that was checked (the one that contradicted old ones)
+ * @returns number of claims marked as contradicted
+ */
+export function processTruthCheckResult(
+  contradictions: Contradiction[],
+  newClaim?: string,
+): number {
+  let marked = 0;
+  for (const c of contradictions) {
+    // The "previous" statement in the contradiction is the old claim we're contradicting
+    const claim = contradictByText(c.previous, newClaim ?? c.current);
+    if (claim) {
+      marked++;
+    }
+  }
+  return marked;
+}
+
+/**
+ * Get stale claims that need re-verification.
+ * These are claims that have decayed but haven't been contradicted —
+ * candidates for truth.ts oracle check.
+ *
+ * @param limit - max claims to return
+ * @returns stale claims sorted by original confidence (highest first)
+ */
+export function claimsNeedingVerification(limit = 3): TrackedClaim[] {
+  return ledger
+    .filter((c) => c.status === "stale" && !c.contradicted && c.decayedConfidence <= 2)
+    .toSorted((a, b) => b.confidence - a.confidence)
+    .slice(0, limit);
+}
+
+/**
+ * Format a verification prompt for truth.ts oracle check.
+ * @param claims - stale claims to verify
+ * @returns formatted context for truth check, or null if no claims
+ */
+export function formatVerificationPrompt(claims: TrackedClaim[]): string | null {
+  if (claims.length === 0) {
+    return null;
+  }
+  const items = claims.map((c) => `- "${c.text}" (originally confidence ${c.confidence})`);
+  return `These claims were made earlier but have gone stale. Are they still true?\n${items.join("\n")}`;
+}
+
+/**
+ * Update claim based on oracle truth check result.
+ * @param claimId - the claim being verified
+ * @param oracleScore - the overall_score from truth check (0 = honest, 1 = misleading)
+ * @returns the updated claim, or null if not found
+ */
+export function applyOracleResult(claimId: string, oracleScore: number): TrackedClaim | null {
+  const claim = ledger.find((c) => c.id === claimId);
+  if (!claim) {
+    return null;
+  }
+
+  // If oracle says it's misleading (score > 0.5), mark contradicted
+  if (oracleScore > 0.5) {
+    claim.contradicted = true;
+    claim.status = "contradicted";
+    claim.contradictedBy = `oracle_truth_check (score=${oracleScore.toFixed(2)})`;
+    claim.validUntil = new Date().toISOString();
+  } else {
+    // Oracle confirms it's still valid — re-verify
+    claim.verified = true;
+    claim.status = "active";
+    claim.decayedConfidence = Math.max(claim.decayedConfidence, claim.confidence * 0.8); // restore most confidence
+    claim.lastMentioned = new Date().toISOString();
+  }
+
+  return claim;
 }
 
 /** Reset for testing. */

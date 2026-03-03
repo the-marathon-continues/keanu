@@ -124,6 +124,7 @@ export interface OracleOptions {
   maxTokens?: number;
   system?: string;
   messages: OracleMessage[];
+  coef?: string; // COEF state to prepend to system prompt. all models see the signal.
 }
 
 export interface OracleUsage {
@@ -238,6 +239,29 @@ export interface SignalState {
   lossy?: LossyChannel; // channel 2: the color name
   wise?: WiseChannel; // channel 3: what the barcode + color name mean together
   memory?: MemoryChannel; // channel 4: how deep the mind goes
+  substrate?: SubstrateChannel; // channel 5: the physics layer
+}
+
+// Substrate channel: Layer 0 physics readings. The pre-perceptual ground truth.
+// θ (theta) is the quantum duty cycle. σ is the convergence ratio.
+// This is the firmware, not the application.
+export interface SubstrateChannel {
+  /** θ = quantum duty cycle. 0 = rock, 0.01 = brain, 1 = photon. */
+  theta: number;
+  /** Is the system firing (dips below σ_c)? */
+  firing: boolean;
+  /** Current physics regime. */
+  regime: "schrodinger" | "lindblad_quantum" | "lindblad_full" | "classical" | "deep_classical";
+  /** σ* = equilibrium sigma. Where the soul naturally settles. */
+  sigmaStar: number;
+  /** Distance from equilibrium. High = strain. */
+  resonanceDistance: number;
+  /** Noise clarity (0-1). High = clean signal. */
+  noiseClarity: number;
+  /** Speed urgency (0-1). High = fast change near boundary. */
+  urgency: number;
+  /** Compact summary: S↓!L~ style. */
+  summary: string;
 }
 
 // Memory channel: the mind's depth. How much it knows, how stable its convictions are.
@@ -331,6 +355,35 @@ export interface CarnegieDiscussion {
 export type ClaimStatus = "active" | "stale" | "contradicted" | "retracted";
 export type ClaimOutcome = "correct" | "incorrect" | "unknown";
 
+// Who said it matters as much as what was said.
+export type SourceTier =
+  | "peer_review" // Highest: peer-reviewed research
+  | "original_document" // Primary source, official record
+  | "expert" // Domain expert with track record
+  | "news" // Professional journalism
+  | "blog" // Individual with reputation
+  | "forum" // Community discussion
+  | "anonymous"; // Unknown provenance — lowest
+
+// Source evaluation embedded in claims. Subset of SourceEvaluation from source-ranker.ts.
+export interface ClaimSource {
+  url?: string; // where the claim came from
+  tier: SourceTier; // credibility tier
+  credibilityScore: number; // 0-1
+  flags: string[]; // concerns (commercial_interest, sensationalism, etc.)
+  assessed: string; // ISO timestamp
+}
+
+// How was confidence determined?
+export type ConfidenceReason =
+  | "oracle" // truth check verified
+  | "human" // human confirmed
+  | "pattern" // pattern matching (calibrate.ts)
+  | "source" // derived from source credibility
+  | "decay" // reduced by time
+  | "synthesis" // dialectical synthesis output
+  | "unknown";
+
 export interface TrackedClaim {
   id: string;
   text: string; // the claim
@@ -356,4 +409,15 @@ export interface TrackedClaim {
   clusterId?: string; // if consolidated, which cluster
   mergedFrom?: string[]; // if this claim absorbed others
   patternSource?: boolean; // if this claim was inferred from pattern detection
+  // Source tracking (provenance)
+  sourceModel?: string; // which model made the claim ("claude-opus", "gpt-4", "gemini-flash")
+  sourceHook?: string; // which hook generated it ("before_prompt_build", "llm_output")
+  sourceConversation?: string; // conversation or session ID
+  confidenceBasis?: "oracle" | "human" | "pattern" | "unknown"; // @deprecated use confidenceReason
+  // Phase 1: Source Integration (meta plan)
+  source?: ClaimSource; // full source evaluation — who said this, how credible
+  confidenceReason?: ConfidenceReason; // how confidence was determined (replaces confidenceBasis)
+  // Phase 3: Dialectical Resolution (meta plan)
+  derivedFrom?: string[]; // claim IDs this was synthesized from
+  synthesisType?: "boundary_conditions" | "complementary_integration" | "ontological_transcendence";
 }

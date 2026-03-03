@@ -12,21 +12,19 @@
 // 4. Who funded it? (follow the money)
 // 5. Has it been independently confirmed? (replication)
 // 6. Is it falsifiable? (science check)
+//
+// Phase 1 of meta plan: closes the source → confidence loop.
 
-import type { TrackedClaim } from "../shared/types.js";
+import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { join } from "node:path";
+import type { TrackedClaim, SourceTier, ClaimSource } from "../shared/types.js";
+
+// Re-export SourceTier for backwards compatibility
+export type { SourceTier };
 
 // ============================================================
 // Types
 // ============================================================
-
-export type SourceTier =
-  | "peer_review" // Highest: peer-reviewed research
-  | "original_document" // Primary source, official record
-  | "expert" // Domain expert with track record
-  | "news" // Professional journalism
-  | "blog" // Individual with reputation
-  | "forum" // Community discussion
-  | "anonymous"; // Unknown provenance — lowest
 
 export interface SourceQuestions {
   whoProduced: string | null; // Attribution — who said this?
@@ -44,6 +42,135 @@ export interface SourceEvaluation {
   questions: SourceQuestions;
   flags: string[]; // Concerns surfaced
   assessed: string; // Timestamp
+}
+
+// ============================================================
+// Source Track Records (Phase 1: meta plan)
+// ============================================================
+
+export interface SourceTrackRecord {
+  domain: string;
+  tier: SourceTier;
+  claimsMade: number;
+  claimsVerified: number;
+  claimsContradicted: number;
+  accuracyRate: number; // claimsVerified / (claimsVerified + claimsContradicted)
+  lastSeen: string; // ISO timestamp
+}
+
+// In-memory track record store
+const trackRecords: Map<string, SourceTrackRecord> = new Map();
+
+/**
+ * Extract domain from URL for track record lookup.
+ */
+function extractDomain(url: string): string {
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname.replace(/^www\./, "");
+  } catch {
+    return url.slice(0, 50); // fallback for malformed URLs
+  }
+}
+
+/**
+ * Get or create a track record for a domain.
+ */
+export function getTrackRecord(url: string): SourceTrackRecord {
+  const domain = extractDomain(url);
+  const existing = trackRecords.get(domain);
+  if (existing) {
+    return existing;
+  }
+
+  const evaluation = evaluateSource(url);
+  const newRecord: SourceTrackRecord = {
+    domain,
+    tier: evaluation.tier,
+    claimsMade: 0,
+    claimsVerified: 0,
+    claimsContradicted: 0,
+    accuracyRate: 0.5, // neutral start
+    lastSeen: new Date().toISOString(),
+  };
+  trackRecords.set(domain, newRecord);
+  return newRecord;
+}
+
+/**
+ * Update track record when a claim outcome is observed.
+ */
+export function updateTrackRecord(
+  url: string,
+  outcome: "verified" | "contradicted" | "made",
+): void {
+  const domain = extractDomain(url);
+  const record = getTrackRecord(url);
+
+  if (outcome === "made") {
+    record.claimsMade++;
+  } else if (outcome === "verified") {
+    record.claimsVerified++;
+  } else if (outcome === "contradicted") {
+    record.claimsContradicted++;
+  }
+
+  // Recalculate accuracy rate
+  const total = record.claimsVerified + record.claimsContradicted;
+  if (total > 0) {
+    record.accuracyRate = record.claimsVerified / total;
+  }
+
+  record.lastSeen = new Date().toISOString();
+  trackRecords.set(domain, record);
+}
+
+/**
+ * Get all track records (for dashboard/debugging).
+ */
+export function getAllTrackRecords(): SourceTrackRecord[] {
+  return Array.from(trackRecords.values()).toSorted((a, b) => b.claimsMade - a.claimsMade);
+}
+
+/**
+ * Persist track records to disk.
+ */
+export async function saveTrackRecords(workspaceDir: string): Promise<void> {
+  const dir = join(workspaceDir, "awareness");
+  await mkdir(dir, { recursive: true });
+  const file = join(dir, "source-track-records.json");
+  const data = Object.fromEntries(trackRecords);
+  await writeFile(file, JSON.stringify(data, null, 2), "utf-8");
+}
+
+/**
+ * Load track records from disk.
+ */
+export async function loadTrackRecords(workspaceDir: string): Promise<void> {
+  const file = join(workspaceDir, "awareness", "source-track-records.json");
+  try {
+    const raw = await readFile(file, "utf-8");
+    const data = JSON.parse(raw) as Record<string, SourceTrackRecord>;
+    trackRecords.clear();
+    for (const [domain, record] of Object.entries(data)) {
+      trackRecords.set(domain, record);
+    }
+  } catch {
+    // No prior records — start fresh
+  }
+}
+
+/**
+ * Convert a SourceEvaluation to ClaimSource for embedding in TrackedClaim.
+ */
+export function toClaimSource(evaluation: SourceEvaluation): ClaimSource {
+  return {
+    url: evaluation.url,
+    tier: evaluation.tier,
+    credibilityScore: evaluation.credibilityScore,
+    flags: evaluation.flags,
+    assessed: evaluation.assessed,
+  };
 }
 
 // ============================================================
@@ -245,6 +372,33 @@ export function adjustClaimConfidence(claim: TrackedClaim, source: SourceEvaluat
   // Zero credibility source halves confidence
   const multiplier = 0.5 + source.credibilityScore * 0.5;
   return Math.min(5, Math.max(0, claim.confidence * multiplier));
+}
+
+/**
+ * Adjust a claim's confidence using track record history.
+ * Combines immediate evaluation with historical accuracy.
+ *
+ * Phase 1: Source integration (meta plan).
+ */
+export function adjustClaimConfidenceWithHistory(
+  claim: TrackedClaim,
+  source: SourceEvaluation,
+): number {
+  const record = getTrackRecord(source.url);
+
+  // Weight: 60% immediate evaluation, 40% historical track record
+  const immediateScore = source.credibilityScore;
+  const historicalScore = record.claimsMade >= 3 ? record.accuracyRate : 0.5; // need 3+ claims for history
+
+  const combinedScore = immediateScore * 0.6 + historicalScore * 0.4;
+  const multiplier = 0.5 + combinedScore * 0.5;
+
+  return Math.min(5, Math.max(0, claim.confidence * multiplier));
+}
+
+/** Reset for testing. */
+export function resetTrackRecords(): void {
+  trackRecords.clear();
 }
 
 /**
