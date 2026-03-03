@@ -15,6 +15,6 @@
   },
   "dependencies": {},
   "peerDependencies": {
-    "keanu": ">=2026.1.26"
+    "keanu": "workspace:*"
   }
 }

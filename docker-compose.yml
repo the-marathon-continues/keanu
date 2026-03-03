@@ -1,46 +1,78 @@
+# Keanu docker-compose — mirrors silverado/infra/keanu ECS task definition
+#
+# This is the source of truth for local deployment.
+# Changes here should be reflected in silverado/infra/keanu/*.tf
+#
+# Run: docker compose up -d
+# With browser: docker compose --profile browser up -d
+
 services:
-  openclaw-gateway:
-    image: ${OPENCLAW_IMAGE:-openclaw:local}
+  keanu:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: keanu
     environment:
-      HOME: /home/node
-      TERM: xterm-256color
-      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
-      CLAUDE_AI_SESSION_KEY: ${CLAUDE_AI_SESSION_KEY}
-      CLAUDE_WEB_SESSION_KEY: ${CLAUDE_WEB_SESSION_KEY}
-      CLAUDE_WEB_COOKIE: ${CLAUDE_WEB_COOKIE}
+      # Core
+      PORT: "18789"
+      NODE_ENV: production
+      OPENCLAW_GATEWAY_PORT: "18789"
+      # Identity
+      KEANU_USER_ID: ${KEANU_USER_ID:-local}
+      # API keys (bring your own)
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      # Browser sidecar (if enabled via --profile browser)
+      KEANU_BROWSER_ENABLED: ${KEANU_BROWSER_ENABLED:-false}
+      KEANU_BROWSER_HEADLESS: "true"
+      KEANU_BROWSER_CDP_URL: "http://headless-browser:3000"
+      KEANU_BROWSER_ATTACH_ONLY: "true"
+      # Git-sync (optional)
+      KEANU_MEMORY_REPO: ${KEANU_MEMORY_REPO:-}
+      KEANU_MEMORY_TOKEN: ${KEANU_MEMORY_TOKEN:-}
+      KEANU_MEMORY_BRANCH: ${KEANU_MEMORY_BRANCH:-main}
+      # Gateway auth
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-}
     volumes:
-      - ${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw
-      - ${OPENCLAW_WORKSPACE_DIR}:/home/node/.openclaw/workspace
+      # Persistence — awareness files survive container restarts
+      - keanu-data:/home/node/.keanu
+      # Config
+      - ${OPENCLAW_CONFIG_DIR:-~/.openclaw}:/home/node/.openclaw
     ports:
-      - "${OPENCLAW_GATEWAY_PORT:-18789}:18789"
-      - "${OPENCLAW_BRIDGE_PORT:-18790}:18790"
+      - "${KEANU_PORT:-18789}:18789"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:18789/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
     init: true
     restart: unless-stopped
-    command:
-      [
-        "node",
-        "dist/index.js",
-        "gateway",
-        "--bind",
-        "${OPENCLAW_GATEWAY_BIND:-lan}",
-        "--port",
-        "18789",
-      ]
+    depends_on:
+      headless-browser:
+        condition: service_healthy
+        required: false
 
-  openclaw-cli:
-    image: ${OPENCLAW_IMAGE:-openclaw:local}
+  headless-browser:
+    image: browserless/chrome:latest
+    container_name: headless-browser
+    profiles: ["browser"]
     environment:
-      HOME: /home/node
-      TERM: xterm-256color
-      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
-      BROWSER: echo
-      CLAUDE_AI_SESSION_KEY: ${CLAUDE_AI_SESSION_KEY}
-      CLAUDE_WEB_SESSION_KEY: ${CLAUDE_WEB_SESSION_KEY}
-      CLAUDE_WEB_COOKIE: ${CLAUDE_WEB_COOKIE}
-    volumes:
-      - ${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw
-      - ${OPENCLAW_WORKSPACE_DIR}:/home/node/.openclaw/workspace
-    stdin_open: true
-    tty: true
-    init: true
-    entrypoint: ["node", "dist/index.js"]
+      CONNECTION_TIMEOUT: "60000"
+      MAX_CONCURRENT_SESSIONS: "5"
+      ENABLE_CORS: "true"
+      DEFAULT_HEADLESS: "new"
+      DEFAULT_LAUNCH_ARGS: '["--no-sandbox","--disable-setuid-sandbox","--disable-dev-shm-usage","--disable-gpu"]'
+    ports:
+      - "${BROWSER_PORT:-9222}:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/json/version || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+volumes:
+  keanu-data:
+    driver: local

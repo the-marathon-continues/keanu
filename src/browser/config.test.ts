@@ -220,4 +220,70 @@ describe("browser config", () => {
     });
     expect(resolved.ssrfPolicy).toEqual({});
   });
+
+  it("env vars override config for containerized deployments", () => {
+    const saved = {
+      KEANU_BROWSER_ENABLED: process.env.KEANU_BROWSER_ENABLED,
+      KEANU_BROWSER_HEADLESS: process.env.KEANU_BROWSER_HEADLESS,
+      KEANU_BROWSER_ATTACH_ONLY: process.env.KEANU_BROWSER_ATTACH_ONLY,
+      KEANU_BROWSER_CDP_URL: process.env.KEANU_BROWSER_CDP_URL,
+    };
+    try {
+      process.env.KEANU_BROWSER_ENABLED = "true";
+      process.env.KEANU_BROWSER_HEADLESS = "true";
+      process.env.KEANU_BROWSER_ATTACH_ONLY = "true";
+      process.env.KEANU_BROWSER_CDP_URL = "http://localhost:9222";
+
+      const resolved = resolveBrowserConfig({
+        enabled: false,
+        headless: false,
+        attachOnly: false,
+        cdpUrl: "http://example.com:9999",
+      });
+
+      expect(resolved.enabled).toBe(true);
+      expect(resolved.headless).toBe(true);
+      expect(resolved.attachOnly).toBe(true);
+      // cdpUrl affects the keanu profile
+      const keanu = resolveProfile(resolved, "keanu");
+      expect(keanu?.cdpPort).toBe(9222);
+    } finally {
+      for (const [k, v] of Object.entries(saved)) {
+        if (v === undefined) {
+          delete process.env[k];
+        } else {
+          process.env[k] = v;
+        }
+      }
+    }
+  });
+
+  it("env var false values are respected", () => {
+    const saved = {
+      KEANU_BROWSER_ENABLED: process.env.KEANU_BROWSER_ENABLED,
+      KEANU_BROWSER_HEADLESS: process.env.KEANU_BROWSER_HEADLESS,
+      KEANU_BROWSER_CDP_URL: process.env.KEANU_BROWSER_CDP_URL,
+    };
+    try {
+      process.env.KEANU_BROWSER_ENABLED = "false";
+      process.env.KEANU_BROWSER_HEADLESS = "0";
+      delete process.env.KEANU_BROWSER_CDP_URL; // avoid URL parse error
+
+      const resolved = resolveBrowserConfig({
+        enabled: true,
+        headless: true,
+      });
+
+      expect(resolved.enabled).toBe(false);
+      expect(resolved.headless).toBe(false);
+    } finally {
+      for (const [k, v] of Object.entries(saved)) {
+        if (v === undefined) {
+          delete process.env[k];
+        } else {
+          process.env[k] = v;
+        }
+      }
+    }
+  });
 });
