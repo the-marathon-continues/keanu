@@ -35,6 +35,14 @@ jobs:
           fetch-depth: 0
           submodules: false
 
+      - name: Select Xcode
+        run: |
+          if [ -d "/Applications/Xcode_26.1.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_26.1.app
+          fi
+          xcodebuild -version
+          swift --version
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
