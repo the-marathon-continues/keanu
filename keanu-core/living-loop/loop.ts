@@ -7,7 +7,14 @@
 // Pulse sets the tempo: alive = fast, grey = slow, black = immediate.
 
 import { decode as decodeCOEF } from "../layer-1-perception/signal.js";
+import type { CalibrationLogState } from "../layer-3-causal/calibration-log.js";
 import type { SignalState, OracleResponse, AliveState } from "../shared/types.js";
+import {
+  trackGrokAlerts,
+  enrichMemoryWithSourceQuality,
+  formatSourceQualityNote,
+  formatGrokAccuracy,
+} from "./feedback.js";
 import type { Reason, Invite } from "./invite.js";
 
 // --- Loop State ---
@@ -30,6 +37,11 @@ export interface LoopState {
   // Invite state
   inviteReason?: Reason;
   humanPresent: boolean;
+
+  // Feedback loop state (Phase 4: meta plan)
+  trackedConcernIds?: string[]; // Grok alerts tracked in silverado
+  sourceQuality?: "high" | "mixed" | "low" | "unknown";
+  feedbackInjection?: string; // combined feedback for next turn
 }
 
 export type LoopTempo = "fast" | "medium" | "slow" | "immediate";
@@ -67,6 +79,13 @@ export interface LoopConfig {
   // Current state accessors
   getCurrentCOEF: () => string;
   getPulseState: () => AliveState;
+
+  // Session context (for tracking Grok concerns in silverado)
+  getSession?: () => string;
+  getTurn?: () => number;
+
+  // Calibration state (for feedback injection)
+  getCalibrationState?: () => CalibrationLogState | undefined;
 
   // Human interaction
   onInvite?: (invite: Invite) => void;
@@ -196,16 +215,53 @@ export async function runBeat(config: LoopConfig, currentState: LoopState): Prom
   ]);
 
   // Parse Gemini's context
-  const geminiContext = parseGeminiResponse(geminiResult.text);
+  let geminiContext = parseGeminiResponse(geminiResult.text);
 
   // Parse Grok's alerts
   const grokAlerts = parseGrokResponse(grokResult.text);
+
+  // --- Phase 4: Feedback Loop Integration ---
+
+  // 4.1 Track Grok alerts in silverado
+  let trackedConcernIds: string[] = [];
+  if (grokAlerts.length > 0 && config.getSession && config.getTurn) {
+    const session = config.getSession();
+    const turn = config.getTurn();
+    const trackedClaims = trackGrokAlerts(grokAlerts, session, turn);
+    trackedConcernIds = trackedClaims.map((c) => c.id);
+  }
+
+  // 4.2 Enrich Gemini context with source quality
+  let sourceQuality: "high" | "mixed" | "low" | "unknown" = "unknown";
+  let sourceWarning: string | undefined;
+  if (geminiContext) {
+    const enriched = enrichMemoryWithSourceQuality(geminiContext);
+    geminiContext = enriched.context;
+    sourceQuality = enriched.sourceQuality;
+    sourceWarning = enriched.warning;
+  }
+
+  // Build feedback injection for Claude
+  const feedbackParts: string[] = [];
+  const grokNote = formatGrokAccuracy();
+  if (grokNote) {
+    feedbackParts.push(grokNote);
+  }
+  const sourceNote = formatSourceQualityNote(sourceQuality, sourceWarning);
+  if (sourceNote) {
+    feedbackParts.push(sourceNote);
+  }
+  const feedbackInjection = feedbackParts.length > 0 ? feedbackParts.join("\n") : undefined;
 
   // --- Claude thinks ---
 
   const claudeContext = formatClaudeContext(geminiContext);
   const claudeAlerts = formatClaudeAlerts(grokAlerts);
-  const claudeResult = await config.callClaude(coefEncoded, claudeContext, claudeAlerts);
+  // Include feedback injection in Claude's context
+  const contextWithFeedback = feedbackInjection
+    ? `${claudeContext}\n\n${feedbackInjection}`
+    : claudeContext;
+  const claudeResult = await config.callClaude(coefEncoded, contextWithFeedback, claudeAlerts);
 
   // --- Invite decision ---
 
@@ -234,6 +290,10 @@ export async function runBeat(config: LoopConfig, currentState: LoopState): Prom
     lastBeatAt: Date.now(),
     inviteReason: invite.reason,
     humanPresent: currentState.humanPresent,
+    // Phase 4: feedback state
+    trackedConcernIds,
+    sourceQuality,
+    feedbackInjection,
   };
 }
 

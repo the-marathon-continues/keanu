@@ -74,3 +74,21 @@ export {
   getSignalState,
   onInvite,
 } from "./init.js";
+
+export {
+  // Feedback (Phase 4: meta plan)
+  type SessionCalibrationSummary,
+  trackGrokConcern,
+  trackGrokAlerts,
+  validateGrokConcern,
+  dismissGrokConcern,
+  getGrokAccuracy,
+  formatGrokAccuracy,
+  adjustMemoryConfidence,
+  enrichMemoryWithSourceQuality,
+  formatSourceQualityNote,
+  getSessionCalibrationSummary,
+  formatCalibrationSummary,
+  getLearnedConfidenceAdjustment,
+  formatFeedbackInjection,
+} from "./feedback.js";

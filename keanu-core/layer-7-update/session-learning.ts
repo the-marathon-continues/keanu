@@ -11,8 +11,10 @@
 
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
+import type { CalibrationLogState, ClaimType } from "../layer-3-causal/calibration-log.js";
 import type { ChainAnalysis } from "../layer-3-causal/chain.js";
 import type { SpringReading, WinterReading } from "../layer-6-narrative/seasons.js";
+import { getSessionCalibrationSummary } from "../living-loop/feedback.js";
 import type { Correction, BlindSpot } from "./mastery.js";
 
 // ============================================================
@@ -25,6 +27,11 @@ export interface MetaLearning {
   calibrationImprovement: boolean;
   discoveryHits: number;
   discoveryMisses: number;
+  // Phase 4: calibration feedback
+  ece?: number;
+  overconfidenceDelta?: number;
+  calibrationWarning?: string;
+  confidenceAdjustments?: Record<string, number>; // ClaimType → multiplier
 }
 
 export interface SessionSummary {
@@ -57,6 +64,7 @@ export function buildSessionSummary(ctx: {
   blindSpots: BlindSpot[];
   discoveryHits: number;
   discoveryMisses: number;
+  calibrationState?: CalibrationLogState; // Phase 4: calibration feedback
 }): SessionSummary {
   // Worked on: unique task types from spring readings
   const workedOn = [...new Set(ctx.springs.map((s) => `${s.taskType}: ${s.intent}`))].slice(0, 5);
@@ -100,6 +108,26 @@ export function buildSessionSummary(ctx: {
     discoveryMisses: ctx.discoveryMisses,
   };
 
+  // Phase 4: integrate calibration feedback
+  if (ctx.calibrationState) {
+    const calibSummary = getSessionCalibrationSummary(ctx.calibrationState);
+    meta.ece = calibSummary.ece;
+    meta.overconfidenceDelta = calibSummary.overconfidenceDelta;
+    if (calibSummary.warning) {
+      meta.calibrationWarning = calibSummary.warning;
+    }
+    // Convert Map to plain object for serialization
+    const adjustments: Record<string, number> = {};
+    for (const [type, adj] of calibSummary.adjustments) {
+      if (adj !== 1.0) {
+        adjustments[type] = adj;
+      }
+    }
+    if (Object.keys(adjustments).length > 0) {
+      meta.confidenceAdjustments = adjustments;
+    }
+  }
+
   return {
     id: ctx.sessionId,
     date: new Date().toISOString().slice(0, 10),
@@ -135,6 +163,31 @@ export function formatSessionSummary(summary: SessionSummary): string {
 
   if (summary.corrections > 0) {
     parts.push(`Corrections: ${summary.corrections} (${summary.correctionCategories.join(", ")})`);
+  }
+
+  // Phase 4: calibration insights
+  if (summary.meta.ece !== undefined && summary.meta.ece >= 0) {
+    const ecePct = (summary.meta.ece * 100).toFixed(1);
+    let calibNote = `Calibration: ECE=${ecePct}%`;
+    if (summary.meta.overconfidenceDelta && Math.abs(summary.meta.overconfidenceDelta) > 0.05) {
+      const dir = summary.meta.overconfidenceDelta > 0 ? "over" : "under";
+      const pct = (Math.abs(summary.meta.overconfidenceDelta) * 100).toFixed(0);
+      calibNote += ` (${dir}confident by ${pct}%)`;
+    }
+    parts.push(calibNote);
+  }
+
+  if (
+    summary.meta.confidenceAdjustments &&
+    Object.keys(summary.meta.confidenceAdjustments).length > 0
+  ) {
+    const adjustments = Object.entries(summary.meta.confidenceAdjustments)
+      .map(([type, adj]) => {
+        const pct = ((1 - adj) * 100).toFixed(0);
+        return adj < 1 ? `${type}: -${pct}%` : `${type}: +${Math.abs(Number(pct))}%`;
+      })
+      .join(", ");
+    parts.push(`Confidence adjustments: ${adjustments}`);
   }
 
   if (summary.watchFor.length > 0) {
@@ -187,6 +240,29 @@ export function addSummary(summary: SessionSummary): void {
 
 export function getRecentSummaries(n = 3): SessionSummary[] {
   return _summaries.slice(-n);
+}
+
+/**
+ * Get learned confidence adjustments from previous sessions.
+ * Closes the skill loop → calibration feedback loop.
+ *
+ * @param claimType - the type of claim to get adjustment for
+ * @returns multiplier (< 1 if we were overconfident, > 1 if underconfident, 1 if well-calibrated)
+ */
+export function getLearnedConfidenceAdjustment(claimType: ClaimType): number {
+  const latest = _summaries[_summaries.length - 1];
+  if (!latest?.meta?.confidenceAdjustments) {
+    return 1.0;
+  }
+  return latest.meta.confidenceAdjustments[claimType] ?? 1.0;
+}
+
+/**
+ * Get all learned confidence adjustments from the latest session.
+ */
+export function getAllLearnedAdjustments(): Record<string, number> {
+  const latest = _summaries[_summaries.length - 1];
+  return latest?.meta?.confidenceAdjustments ?? {};
 }
 
 export async function saveSummaries(workspaceDir: string): Promise<void> {
