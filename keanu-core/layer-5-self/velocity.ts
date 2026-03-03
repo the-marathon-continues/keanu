@@ -53,6 +53,12 @@ let _lastMismatch: {
   suggestion: string;
 } | null = null;
 
+// Easy streak tracking - 5 easy in a row = grey drift risk
+// Even "success" can be grey when you're grinding.
+let _easyStreak = 0;
+const EASY_THRESHOLD = 0.3; // complexity below this = "easy"
+const GREY_DRIFT_STREAK = 5; // this many easy in a row = warning
+
 // ============================================================
 // Mode Detection
 // ============================================================
@@ -142,11 +148,29 @@ function generateSuggestion(mode: VelocityMode, context: TurnContext): string | 
 export function recordTurn(context: TurnContext): void {
   _turnNumber++;
 
+  // --- Easy streak tracking ---
+  // 5 easy in a row = grey drift. Even success can be grey.
+  if (context.complexity < EASY_THRESHOLD) {
+    _easyStreak++;
+  } else {
+    _easyStreak = 0; // Reset on any non-easy turn
+  }
+
   // Check for mismatch BEFORE updating mode
   // This captures "you were fast, but this turn is complex"
   const modeBeforeTurn = _currentMode;
-  const isAppropriate = checkAppropriate(modeBeforeTurn, context);
-  if (!isAppropriate) {
+  let isAppropriate = checkAppropriate(modeBeforeTurn, context);
+
+  // Grey drift override: 5 easy in a row is never appropriate
+  // You might feel productive but you're going grey.
+  if (_easyStreak >= GREY_DRIFT_STREAK) {
+    isAppropriate = false;
+    _lastMismatch = {
+      mode: modeBeforeTurn,
+      context,
+      suggestion: `${_easyStreak} easy in a row. factory mode risk. is this the work that matters?`,
+    };
+  } else if (!isAppropriate) {
     const suggestion = generateSuggestion(modeBeforeTurn, context);
     if (suggestion) {
       _lastMismatch = {
