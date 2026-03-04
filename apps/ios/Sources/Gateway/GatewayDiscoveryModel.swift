@@ -52,26 +52,29 @@ final class GatewayDiscoveryModel {
         if !self.browsers.isEmpty { return }
         self.appendDebugLog("start()")
 
+        let serviceTypes = [KeanuBonjour.gatewayServiceType, KeanuBonjour.legacyGatewayServiceType]
         for domain in KeanuBonjour.gatewayServiceDomains {
-            let params = NWParameters.tcp
-            params.includePeerToPeer = true
-            let browser = NWBrowser(
-                for: .bonjour(type: KeanuBonjour.gatewayServiceType, domain: domain),
-                using: params)
+            for serviceType in serviceTypes {
+                let browseKey = "\(serviceType).\(domain)"
+                let params = NWParameters.tcp
+                params.includePeerToPeer = true
+                let browser = NWBrowser(
+                    for: .bonjour(type: serviceType, domain: domain),
+                    using: params)
 
-            browser.stateUpdateHandler = { [weak self] state in
-                Task { @MainActor in
-                    guard let self else { return }
-                    self.statesByDomain[domain] = state
-                    self.updateStatusText()
-                    self.appendDebugLog("state[\(domain)]: \(Self.prettyState(state))")
+                browser.stateUpdateHandler = { [weak self] state in
+                    Task { @MainActor in
+                        guard let self else { return }
+                        self.statesByDomain[domain] = state
+                        self.updateStatusText()
+                        self.appendDebugLog("state[\(domain)]: \(Self.prettyState(state))")
+                    }
                 }
-            }
 
-            browser.browseResultsChangedHandler = { [weak self] results, _ in
-                Task { @MainActor in
-                    guard let self else { return }
-                    self.gatewaysByDomain[domain] = results.compactMap { result -> DiscoveredGateway? in
+                browser.browseResultsChangedHandler = { [weak self] results, _ in
+                    Task { @MainActor in
+                        guard let self else { return }
+                        self.gatewaysByDomain[domain] = results.compactMap { result -> DiscoveredGateway? in
                         switch result.endpoint {
                         case let .service(name, _, _, _):
                             let decodedName = BonjourEscapes.decode(name)
@@ -103,8 +106,9 @@ final class GatewayDiscoveryModel {
                 }
             }
 
-            self.browsers[domain] = browser
-            browser.start(queue: DispatchQueue(label: "bot.molt.ios.gateway-discovery.\(domain)"))
+                self.browsers[browseKey] = browser
+                browser.start(queue: DispatchQueue(label: "ai.keanu.ios.gateway-discovery.\(browseKey)"))
+            }
         }
     }
 

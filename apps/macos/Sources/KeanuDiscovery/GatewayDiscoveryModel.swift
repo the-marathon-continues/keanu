@@ -91,32 +91,36 @@ public final class GatewayDiscoveryModel {
     public func start() {
         if !self.browsers.isEmpty { return }
 
+        let serviceTypes = [KeanuBonjour.gatewayServiceType, KeanuBonjour.legacyGatewayServiceType]
         for domain in KeanuBonjour.gatewayServiceDomains {
-            let params = NWParameters.tcp
-            params.includePeerToPeer = true
-            let browser = NWBrowser(
-                for: .bonjour(type: KeanuBonjour.gatewayServiceType, domain: domain),
-                using: params)
+            for serviceType in serviceTypes {
+                let browseKey = "\(serviceType).\(domain)"
+                let params = NWParameters.tcp
+                params.includePeerToPeer = true
+                let browser = NWBrowser(
+                    for: .bonjour(type: serviceType, domain: domain),
+                    using: params)
 
-            browser.stateUpdateHandler = { [weak self] state in
-                Task { @MainActor in
-                    guard let self else { return }
-                    self.statesByDomain[domain] = state
-                    self.updateStatusText()
+                browser.stateUpdateHandler = { [weak self] state in
+                    Task { @MainActor in
+                        guard let self else { return }
+                        self.statesByDomain[domain] = state
+                        self.updateStatusText()
+                    }
                 }
-            }
 
-            browser.browseResultsChangedHandler = { [weak self] results, _ in
-                Task { @MainActor in
-                    guard let self else { return }
-                    self.resultsByDomain[domain] = results
-                    self.updateGateways(for: domain)
-                    self.recomputeGateways()
+                browser.browseResultsChangedHandler = { [weak self] results, _ in
+                    Task { @MainActor in
+                        guard let self else { return }
+                        self.resultsByDomain[domain] = self.resultsByDomain[domain, default: Set()].union(results)
+                        self.updateGateways(for: domain)
+                        self.recomputeGateways()
+                    }
                 }
-            }
 
-            self.browsers[domain] = browser
-            browser.start(queue: DispatchQueue(label: "ai.keanu.macos.gateway-discovery.\(domain)"))
+                self.browsers[browseKey] = browser
+                browser.start(queue: DispatchQueue(label: "ai.keanu.macos.gateway-discovery.\(browseKey)"))
+            }
         }
 
         self.scheduleWideAreaFallback()

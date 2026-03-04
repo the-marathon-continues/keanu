@@ -16,7 +16,7 @@ public struct DeviceIdentity: Codable, Sendable {
 }
 
 enum DeviceIdentityPaths {
-    private static let stateDirEnv = ["OPENCLAW_STATE_DIR"]
+    private static let stateDirEnv = ["KEANU_STATE_DIR", "OPENCLAW_STATE_DIR"]
 
     static func stateDirURL() -> URL {
         for key in self.stateDirEnv {

@@ -31,11 +31,11 @@ import Testing
         let tmp = try makeTempDir()
         CommandResolver.setProjectRoot(tmp.path)
 
-        let openclawPath = tmp.appendingPathComponent("node_modules/.bin/openclaw")
-        try self.makeExec(at: openclawPath)
+        let keanuPath = tmp.appendingPathComponent("node_modules/.bin/keanu")
+        try self.makeExec(at: keanuPath)
 
-        let cmd = CommandResolver.openclawCommand(subcommand: "gateway", defaults: defaults, configRoot: [:])
-        #expect(cmd.prefix(2).elementsEqual([openclawPath.path, "gateway"]))
+        let cmd = CommandResolver.keanuCommand(subcommand: "gateway", defaults: defaults, configRoot: [:])
+        #expect(cmd.prefix(2).elementsEqual([keanuPath.path, "gateway"]))
     }
 
     @Test func fallsBackToNodeAndScript() async throws {
@@ -46,13 +46,13 @@ import Testing
         CommandResolver.setProjectRoot(tmp.path)
 
         let nodePath = tmp.appendingPathComponent("node_modules/.bin/node")
-        let scriptPath = tmp.appendingPathComponent("bin/openclaw.js")
+        let scriptPath = tmp.appendingPathComponent("bin/keanu.js")
         try self.makeExec(at: nodePath)
         try "#!/bin/sh\necho v22.0.0\n".write(to: nodePath, atomically: true, encoding: .utf8)
         try FileManager().setAttributes([.posixPermissions: 0o755], ofItemAtPath: nodePath.path)
         try self.makeExec(at: scriptPath)
 
-        let cmd = CommandResolver.openclawCommand(
+        let cmd = CommandResolver.keanuCommand(
             subcommand: "rpc",
             defaults: defaults,
             configRoot: [:],
@@ -79,7 +79,7 @@ import Testing
         try self.makeExec(at: openclawPath)
         try self.makeExec(at: pnpmPath)
 
-        let cmd = CommandResolver.openclawCommand(
+        let cmd = CommandResolver.keanuCommand(
             subcommand: "rpc",
             defaults: defaults,
             configRoot: [:],
@@ -99,7 +99,7 @@ import Testing
         let openclawPath = binDir.appendingPathComponent("keanu")
         try self.makeExec(at: openclawPath)
 
-        let cmd = CommandResolver.openclawCommand(
+        let cmd = CommandResolver.keanuCommand(
             subcommand: "gateway",
             defaults: defaults,
             configRoot: [:],
@@ -118,7 +118,7 @@ import Testing
         let pnpmPath = tmp.appendingPathComponent("node_modules/.bin/pnpm")
         try self.makeExec(at: pnpmPath)
 
-        let cmd = CommandResolver.openclawCommand(
+        let cmd = CommandResolver.keanuCommand(
             subcommand: "rpc",
             defaults: defaults,
             configRoot: [:],
@@ -137,7 +137,7 @@ import Testing
         let pnpmPath = tmp.appendingPathComponent("node_modules/.bin/pnpm")
         try self.makeExec(at: pnpmPath)
 
-        let cmd = CommandResolver.openclawCommand(
+        let cmd = CommandResolver.keanuCommand(
             subcommand: "health",
             extraArgs: ["--json", "--timeout", "5"],
             defaults: defaults,
@@ -163,7 +163,7 @@ import Testing
         defaults.set("/tmp/id_ed25519", forKey: remoteIdentityKey)
         defaults.set("/srv/openclaw", forKey: remoteProjectRootKey)
 
-        let cmd = CommandResolver.openclawCommand(
+        let cmd = CommandResolver.keanuCommand(
             subcommand: "status",
             extraArgs: ["--json"],
             defaults: defaults,
@@ -201,15 +201,16 @@ import Testing
         let tmp = try makeTempDir()
         CommandResolver.setProjectRoot(tmp.path)
 
-        let openclawPath = tmp.appendingPathComponent("node_modules/.bin/openclaw")
-        try self.makeExec(at: openclawPath)
+        let keanuPath = tmp.appendingPathComponent("node_modules/.bin/keanu")
+        try self.makeExec(at: keanuPath)
 
-        let cmd = CommandResolver.openclawCommand(
+        let cmd = CommandResolver.keanuCommand(
             subcommand: "daemon",
             defaults: defaults,
-            configRoot: ["gateway": ["mode": "local"]])
+            configRoot: ["gateway": ["mode": "local"]],
+            searchPaths: [tmp.appendingPathComponent("node_modules/.bin").path])
 
-        #expect(cmd.first == openclawPath.path)
+        #expect(cmd.first == keanuPath.path)
         #expect(cmd.count >= 2)
         if cmd.count >= 2 {
             #expect(cmd[1] == "daemon")

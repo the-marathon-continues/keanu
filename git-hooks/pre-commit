@@ -38,12 +38,27 @@ while IFS= read -r -d '' file; do
   format_files+=("$file")
 done < <(node "$FILTER_FILES" format -- "${files[@]}")
 
+run_tool_lenient() {
+  local output
+  output=$("$@" 2>&1) || {
+    local rc=$?
+    # oxlint/oxfmt exit 1 with "Expected at least one target file" when no
+    # files match their supported set. Treat that as a no-op, not an error.
+    if echo "$output" | grep -q "Expected at least one target file"; then
+      return 0
+    fi
+    echo "$output" >&2
+    return $rc
+  }
+  echo "$output"
+}
+
 if [ "${#lint_files[@]}" -gt 0 ]; then
-  "$RUN_NODE_TOOL" oxlint --type-aware --fix -- "${lint_files[@]}"
+  run_tool_lenient "$RUN_NODE_TOOL" oxlint --type-aware --fix -- "${lint_files[@]}"
 fi
 
 if [ "${#format_files[@]}" -gt 0 ]; then
-  "$RUN_NODE_TOOL" oxfmt --write -- "${format_files[@]}"
+  run_tool_lenient "$RUN_NODE_TOOL" oxfmt --write -- "${format_files[@]}"
 fi
 
 git add -- "${files[@]}"
