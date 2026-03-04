@@ -287,6 +287,12 @@ export type KeanuPluginApi = {
     handler: PluginHookHandlerMap[K],
     opts?: { priority?: number },
   ) => void;
+  /**
+   * Broadcast an event to all connected gateway clients (Mac app, web UI, etc).
+   * Use `opts.dropIfSlow` for high-frequency events (per-turn metrics).
+   * No-op when the gateway WebSocket hasn't started yet or in CLI mode.
+   */
+  emit: (event: string, payload: unknown, opts?: { dropIfSlow?: boolean }) => void;
 };
 
 export type PluginOrigin = "bundled" | "global" | "workspace" | "config";
@@ -553,6 +559,10 @@ export type PluginHookSessionContext = {
 export type PluginHookSessionStartEvent = {
   sessionId: string;
   resumedFrom?: string;
+  /** Authenticated user identity from gateway auth (e.g. Cognito sub via trusted-proxy). */
+  userId?: string;
+  /** How the identity was resolved (e.g. "trusted-proxy", "tailscale", "token", "none"). */
+  authMethod?: string;
 };
 
 // session_end hook

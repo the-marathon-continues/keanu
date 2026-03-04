@@ -267,8 +267,12 @@ export async function startGatewayServer(
   const defaultWorkspaceDir = resolveAgentWorkspaceDir(cfgAtStart, defaultAgentId);
   const baseMethods = listGatewayMethods();
   const emptyPluginRegistry = createEmptyPluginRegistry();
-  const { pluginRegistry, gatewayMethods: baseGatewayMethods } = minimalTestGateway
-    ? { pluginRegistry: emptyPluginRegistry, gatewayMethods: baseMethods }
+  const {
+    pluginRegistry,
+    pluginRuntime,
+    gatewayMethods: baseGatewayMethods,
+  } = minimalTestGateway
+    ? { pluginRegistry: emptyPluginRegistry, pluginRuntime: null, gatewayMethods: baseMethods }
     : loadGatewayPlugins({
         cfg: cfgAtStart,
         workspaceDir: defaultWorkspaceDir,
@@ -402,6 +406,12 @@ export async function startGatewayServer(
     logHooks,
     logPlugins,
   });
+
+  // Late-bind the gateway broadcast into the plugin runtime so extensions can emit events.
+  if (pluginRuntime) {
+    pluginRuntime.gateway.broadcast = broadcast;
+  }
+
   let bonjourStop: (() => Promise<void>) | null = null;
   const nodeRegistry = new NodeRegistry();
   const nodePresenceTimers = new Map<string, ReturnType<typeof setInterval>>();

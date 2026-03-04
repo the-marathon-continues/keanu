@@ -23,7 +23,7 @@ function defaultPulse(): PulseReading {
     wise_mind: 0.5,
     colors: { red: 0.33, yellow: 0.33, blue: 0.33 },
     signals: [],
-    bullshitReadings: [],
+    struggleReadings: [],
     timestamp: new Date().toISOString(),
   };
 }

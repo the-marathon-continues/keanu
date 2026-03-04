@@ -4,14 +4,14 @@ on:
   push:
     branches: [main]
     paths:
-      - 'apps/macos/**'
-      - 'apps/shared/**'
-      - 'Swabble/**'
+      - "apps/macos/**"
+      - "apps/shared/**"
+      - "Swabble/**"
   pull_request:
     paths:
-      - 'apps/macos/**'
-      - 'apps/shared/**'
-      - 'Swabble/**'
+      - "apps/macos/**"
+      - "apps/shared/**"
+      - "Swabble/**"
   workflow_dispatch:
 
 concurrency:

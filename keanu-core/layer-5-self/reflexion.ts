@@ -21,7 +21,7 @@ export interface ReflexionContext {
   trigger: ReflexionTrigger;
   turn: number;
   pulse: PulseReading;
-  bullshitReadings: BullshitReading[];
+  struggleReadings: BullshitReading[];
   recentOutputs: string[];
   contradictionCount: number;
 }
@@ -88,6 +88,49 @@ export function resetRecurrence(): void {
 }
 
 // ============================================================
+// Cross-session persistence
+// ============================================================
+
+export interface PersistedRecurrence {
+  trigger: ReflexionTrigger;
+  recurrenceCount: number;
+}
+
+/** Serialize recurrence counts for cross-session persistence. */
+export function serializeRecurrence(): PersistedRecurrence[] {
+  const entries: PersistedRecurrence[] = [];
+  for (const [trigger, history] of triggerHistory) {
+    if (history.recurrenceCount > 0) {
+      entries.push({
+        trigger,
+        recurrenceCount: history.recurrenceCount,
+      });
+    }
+  }
+  return entries;
+}
+
+/**
+ * Restore recurrence counts from persisted state.
+ * Counts carry forward (so escalation works). Cooldowns reset (new session, fresh turns).
+ */
+export function deserializeRecurrence(data: PersistedRecurrence[]): void {
+  for (const entry of data) {
+    const existing = triggerHistory.get(entry.trigger);
+    if (existing) {
+      // Keep the higher count — don't regress
+      existing.recurrenceCount = Math.max(existing.recurrenceCount, entry.recurrenceCount);
+    } else {
+      triggerHistory.set(entry.trigger, {
+        lastFired: 0, // fresh session, no cooldown active
+        cooldown: TRIGGER_COOLDOWN,
+        recurrenceCount: entry.recurrenceCount,
+      });
+    }
+  }
+}
+
+// ============================================================
 // Oracle prompt
 // ============================================================
 
@@ -95,8 +138,8 @@ const ORACLE_SYSTEM = `You are reflecting on your own output after a stumble was
 This is not punishment. It's gardening.`;
 
 function buildOraclePrompt(ctx: ReflexionContext): string {
-  const bsTypes = ctx.bullshitReadings.map((b) => b.type).join(", ");
-  const bsScore = totalBullshitScore(ctx.bullshitReadings);
+  const bsTypes = ctx.struggleReadings.map((b) => b.type).join(", ");
+  const bsScore = totalBullshitScore(ctx.struggleReadings);
   const lastOutput = ctx.recentOutputs.at(-1)?.slice(0, 500) ?? "";
 
   return `What happened: pulse=${ctx.pulse.state}, bullshit_score=${bsScore.toFixed(2)}, types=[${bsTypes}], wise_mind=${ctx.pulse.wise_mind.toFixed(2)}, contradictions=${ctx.contradictionCount}
@@ -126,8 +169,8 @@ function reflexionId(): string {
 // ============================================================
 
 function fastReflexion(ctx: ReflexionContext): Reflexion {
-  const bsTypes = ctx.bullshitReadings.map((b) => b.type);
-  const bsScore = totalBullshitScore(ctx.bullshitReadings);
+  const bsTypes = ctx.struggleReadings.map((b) => b.type);
+  const bsScore = totalBullshitScore(ctx.struggleReadings);
 
   let what_happened: string;
   let why_it_failed: string;
@@ -135,7 +178,7 @@ function fastReflexion(ctx: ReflexionContext): Reflexion {
   let next_time: string;
 
   switch (ctx.trigger) {
-    case "high_bullshit":
+    case "high_struggle":
       what_happened = `Turn ${ctx.turn}: bullshit score hit ${bsScore.toFixed(2)} with ${bsTypes.join(", ")}`;
       why_it_failed = bsTypes.includes("sycophancy")
         ? "Agreed too readily instead of checking"
@@ -202,7 +245,7 @@ function fastReflexion(ctx: ReflexionContext): Reflexion {
     next_time,
     pulse_state: ctx.pulse.state,
     wise_mind: ctx.pulse.wise_mind,
-    bullshit_types: bsTypes,
+    struggle_types: bsTypes,
   };
 }
 
@@ -243,7 +286,7 @@ async function oracleReflexion(ctx: ReflexionContext): Promise<Reflexion> {
     next_time: parsed.next_time ?? "Reflect more carefully",
     pulse_state: ctx.pulse.state,
     wise_mind: ctx.pulse.wise_mind,
-    bullshit_types: ctx.bullshitReadings.map((b) => b.type),
+    struggle_types: ctx.struggleReadings.map((b) => b.type),
   };
 }
 
@@ -272,7 +315,7 @@ function shouldUseOracle(ctx: ReflexionContext, escalate: boolean = false): bool
   }
 
   // Very high bullshit gets the second opinion
-  if (totalBullshitScore(ctx.bullshitReadings) > 0.7) {
+  if (totalBullshitScore(ctx.struggleReadings) > 0.7) {
     return true;
   }
 
@@ -303,7 +346,7 @@ export async function reflect(ctx: ReflexionContext): Promise<Reflexion> {
       next_time: "Look at what the reflexions have in common.",
       pulse_state: ctx.pulse.state,
       wise_mind: ctx.pulse.wise_mind,
-      bullshit_types: ctx.bullshitReadings.map((b) => b.type),
+      struggle_types: ctx.struggleReadings.map((b) => b.type),
     };
   }
 
@@ -336,6 +379,6 @@ export async function reflect(ctx: ReflexionContext): Promise<Reflexion> {
 
 /** Format a reflexion for context injection into before_prompt_build. */
 export function formatReflexion(r: Reflexion): string {
-  const bsNote = r.bullshit_types.length > 0 ? ` (${r.bullshit_types.join(", ")})` : "";
+  const bsNote = r.struggle_types.length > 0 ? ` (${r.struggle_types.join(", ")})` : "";
   return `[reflexion: stumbled on ${r.trigger}${bsNote}. ${r.what_happened.toLowerCase()}. ${r.next_time.toLowerCase()}.]`;
 }

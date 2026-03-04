@@ -365,6 +365,18 @@ final class ControlChannel {
             {
                 NotificationCenter.default.post(name: .controlHeartbeat, object: data)
             }
+        case let .event(evt) where evt.event == "keanu.turn":
+            if let payload = evt.payload,
+               let turn = try? GatewayPayloadDecoding.decode(payload, as: KeanuTurnSnapshot.self)
+            {
+                KeanuAwarenessStore.shared.handleTurn(turn)
+            }
+        case let .event(evt) where evt.event == "keanu.session":
+            if let payload = evt.payload,
+               let session = try? GatewayPayloadDecoding.decode(payload, as: KeanuSessionSnapshot.self)
+            {
+                KeanuAwarenessStore.shared.handleSession(session)
+            }
         case let .event(evt) where evt.event == "shutdown":
             self.state = .degraded("gateway shutdown")
         case .snapshot:

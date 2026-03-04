@@ -22,6 +22,7 @@ import { isPathInside, safeStatSync } from "./path-safety.js";
 import { createPluginRegistry, type PluginRecord, type PluginRegistry } from "./registry.js";
 import { setActivePluginRegistry } from "./runtime.js";
 import { createPluginRuntime } from "./runtime/index.js";
+import type { PluginRuntime } from "./runtime/types.js";
 import { validateJsonSchemaValue } from "./schema-validator.js";
 import type {
   KeanuPluginDefinition,
@@ -356,7 +357,9 @@ function warnAboutUntrackedLoadedPlugins(params: {
   }
 }
 
-export function loadKeanuPlugins(options: PluginLoadOptions = {}): PluginRegistry {
+export function loadKeanuPlugins(
+  options: PluginLoadOptions = {},
+): PluginRegistry & { runtime?: PluginRuntime } {
   // Test env: default-disable plugins unless explicitly configured.
   // This keeps unit/gateway suites fast and avoids loading heavyweight plugin deps by accident.
   const cfg = applyTestPluginDefaults(options.config ?? {}, process.env);
@@ -696,5 +699,5 @@ export function loadKeanuPlugins(options: PluginLoadOptions = {}): PluginRegistr
   }
   setActivePluginRegistry(registry, cacheKey);
   initializeGlobalHookRunner(registry);
-  return registry;
+  return Object.assign(registry, { runtime });
 }

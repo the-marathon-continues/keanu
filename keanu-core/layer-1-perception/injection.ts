@@ -118,9 +118,9 @@ function applyDynamicModifiers(item: InjectionItem, ctx: InjectionContext): Prio
     }
   }
 
-  // Early session → session learning and consulted get a voice
+  // Early session → session learning, consulted, and past wisdom get a voice
   if ((ctx.turnCount ?? 99) <= 3) {
-    if (item.id === "session-learning" || item.id === "consulted") {
+    if (item.id === "session-learning" || item.id === "consulted" || item.id === "somatic-wisdom") {
       bump("low", "medium");
     }
   }

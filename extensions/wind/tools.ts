@@ -314,7 +314,7 @@ function buildRecallResult(focus: RecallFocus) {
       if (greySnapshots.length >= 2) {
         const bsCounts: Record<string, number> = {};
         for (const s of greySnapshots) {
-          for (const t of s.bullshitTypes) bsCounts[t] = (bsCounts[t] ?? 0) + 1;
+          for (const t of s.struggleTypes) bsCounts[t] = (bsCounts[t] ?? 0) + 1;
         }
         const topBs = Object.entries(bsCounts).sort((a, b) => b[1] - a[1])[0];
         if (topBs && topBs[1] >= 2) {

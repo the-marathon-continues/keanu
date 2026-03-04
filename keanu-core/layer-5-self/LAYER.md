@@ -15,6 +15,7 @@ modules:
     reflexion,
     state,
     state-report,
+    struggle-voice,
     velocity,
   ]
 hooks: [before_prompt_build, after_response, on_introspection]
@@ -41,6 +42,7 @@ Twelve modules. One job: know thyself.
 | reflexion.ts         | Learn from stumbles. Persist across sessions.            | reflexion.test.ts         |
 | state.ts             | Full session state + persistence.                        | Yes                       |
 | state-report.ts      | State reporting for debugging.                           | Yes                       |
+| struggle-voice.ts    | Say what you feel. Air it, work it, flag it.             | struggle-voice.test.ts    |
 | velocity.ts          | Response velocity tracking.                              | velocity.test.ts          |
 
 ## The Flow

@@ -833,6 +833,8 @@ export function attachGatewayWsMessageHandler(params: {
           clientIp: reportedClientIp,
           canvasCapability,
           canvasCapabilityExpiresAtMs,
+          authUser: authResult.user,
+          authMethod,
         };
         setClient(nextClient);
         setHandshakeState("connected");

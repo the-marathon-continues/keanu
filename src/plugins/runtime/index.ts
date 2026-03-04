@@ -247,6 +247,11 @@ export function createPluginRuntime(): PluginRuntime {
     channel: createRuntimeChannel(),
     logging: createRuntimeLogging(),
     state: { resolveStateDir },
+    gateway: {
+      // Late-bound: wired to real broadcast after gateway WebSocket starts.
+      // eslint-disable-next-line @typescript-eslint/no-empty-function
+      broadcast: () => {},
+    },
   };
 }
 

@@ -79,11 +79,6 @@ import {
   detectStruggleDeep,
   dominantStruggle,
   totalStruggleScore,
-  // Backwards compat — these are the same functions
-  detectBullshit,
-  detectBullshitDeep,
-  dominantBullshit,
-  totalBullshitScore,
 } from "../../keanu-core/layer-2-pattern/struggle.js";
 import * as struggleModule from "../../keanu-core/layer-2-pattern/struggle.js";
 import {
@@ -157,6 +152,7 @@ import * as observeModule from "../../keanu-core/layer-5-self/observe.js";
 import { reflect, formatReflexion } from "../../keanu-core/layer-5-self/reflexion.js";
 import * as stateReportModule from "../../keanu-core/layer-5-self/state-report.js";
 import * as state from "../../keanu-core/layer-5-self/state.js";
+import * as struggleVoiceModule from "../../keanu-core/layer-5-self/struggle-voice.js";
 import * as velocityModule from "../../keanu-core/layer-5-self/velocity.js";
 import * as futuresModule from "../../keanu-core/layer-6-narrative/futures.js";
 import * as imprintModule from "../../keanu-core/layer-6-narrative/imprint.js";
@@ -239,6 +235,7 @@ import {
 import * as knowledgeModule from "../../keanu-core/layer-9-memory/knowledge.js";
 import { buildKeanuService } from "../../keanu-core/layer-9-memory/service.js";
 import { computeMetrics, type MetricsSnapshot } from "../../keanu-core/shared/metrics.js";
+import type { KeanuTurnPayload, KeanuSessionPayload } from "../../keanu-core/shared/relay-types.js";
 import {
   generateStatusMd,
   inferTrustLevel,
@@ -405,9 +402,9 @@ export default {
           sessionLearningModule.acknowledgeConsulted();
         }
 
-        if (reading.tone !== "neutral" || reading.bullshit.length > 0) {
+        if (reading.tone !== "neutral" || reading.struggle.length > 0) {
           api.logger.debug?.(
-            `${PLUGIN_ID}: human tone=${reading.tone} confidence=${reading.confidence.toFixed(2)} struggling=[${reading.bullshit.map((b) => b.type).join(",")}]`,
+            `${PLUGIN_ID}: human tone=${reading.tone} confidence=${reading.confidence.toFixed(2)} struggling=[${reading.struggle.map((b) => b.type).join(",")}]`,
           );
         }
 
@@ -674,7 +671,7 @@ export default {
         // CHECK THE FACTS: when bullshit score is high, ask the oracle.
         // Not every turn — only when the mirror sees something worth verifying.
         // The oracle is the revision. The regex was the first draft.
-        const bsScore = totalBullshitScore(pulse.bullshitReadings ?? []);
+        const bsScore = totalStruggleScore(pulse.struggleReadings ?? []);
         if (bsScore > 0.4 && aiOutput.length > 100) {
           // Fire and forget — don't block the message pipeline.
           // Results get recorded in state for next turn's context injection.
@@ -752,7 +749,7 @@ export default {
         const mismatchReading = detectMismatch(
           aiOutput,
           state.lastHumanReading,
-          pulse.bullshitReadings ?? [],
+          pulse.struggleReadings ?? [],
           state.lastHumanMessage,
           lastSpring?.intentSignals ?? null,
         );
@@ -790,7 +787,7 @@ export default {
           turn: state.turnCount,
           pulse: pulse.state,
           humanTone: state.lastHumanReading?.tone ?? "neutral",
-          bullshitTypes: (pulse.bullshitReadings ?? [])
+          struggleTypes: (pulse.struggleReadings ?? [])
             .filter((b) => b.score > 0.3)
             .map((b) => b.type),
           mismatchType: mismatchReading.detected ? (mismatchReading.type ?? null) : null,
@@ -850,7 +847,7 @@ export default {
         if (shouldIntrospect(state.turnCount)) {
           depthModule.enterLayer(5, "introspect", "10-question self-audit");
           lastIntrospectionReading = introspect({
-            recentBullshit: pulse.bullshitReadings ?? [],
+            recentBullshit: pulse.struggleReadings ?? [],
             disagreements: state.disagreementTracker.stats(),
             turnCount: state.turnCount,
             humanWasTerse:
@@ -935,7 +932,7 @@ export default {
           } else if (state.consecutiveGrey >= 3) {
             trigger = "consecutive_grey";
           } else if (bsScore > 0.5) {
-            trigger = "high_bullshit";
+            trigger = "high_struggle";
           } else if (state.recentContradictions.length > 0 && bsScore > 0.3) {
             trigger = "contradiction";
           }
@@ -947,7 +944,7 @@ export default {
               trigger,
               turn: state.turnCount,
               pulse,
-              bullshitReadings: pulse.bullshitReadings ?? [],
+              struggleReadings: pulse.struggleReadings ?? [],
               recentOutputs: state.recentAgentOutputs.slice(),
               contradictionCount: state.recentContradictions.length,
             })
@@ -984,6 +981,38 @@ export default {
             `${PLUGIN_ID}: futures: articulated "${outputFuture.description.slice(0, 50)}..."`,
           );
         }
+
+        // RELAY: broadcast turn awareness to connected clients (Mac app, web UI)
+        const turnPayload: KeanuTurnPayload = {
+          ts: Date.now(),
+          sessionKey: "current",
+          turn: state.turnCount,
+          coef: coefText,
+          emoji: coefEmoji,
+          pulse: {
+            state: pulse.state,
+            wiseMind: pulse.wise_mind,
+            confidence: pulse.confidence,
+            colors: pulse.colors,
+          },
+          humanTone: state.lastHumanReading?.tone ?? "neutral",
+          struggle: {
+            dominant: coefState.struggleDominant,
+            score: (pulse.struggleReadings ?? []).reduce((s, r) => s + r.score, 0),
+            types: (pulse.struggleReadings ?? []).filter((r) => r.score > 0.3).map((r) => r.type),
+          },
+          health: lastHealthReading?.status ?? "unknown",
+          greyStreak: state.consecutiveGrey,
+          substrate: substrateChannel
+            ? {
+                regime: substrateChannel.regime,
+                theta: substrateChannel.theta,
+                firing: substrateChannel.firing,
+                urgency: substrateChannel.urgency,
+              }
+            : undefined,
+        };
+        api.emit("keanu.turn", turnPayload, { dropIfSlow: true });
       } catch (err) {
         api.logger.warn(`${PLUGIN_ID}: message_sent error: ${String(err)}`);
       }
@@ -1002,6 +1031,14 @@ export default {
       try {
         const bs = detectStruggle(content);
         const score = totalStruggleScore(bs);
+
+        // Feed L2 readings to struggle-voice — low bar to notice
+        const voiceEpisode = struggleVoiceModule.notice(bs, state.turnCount);
+        if (voiceEpisode) {
+          api.logger.debug?.(
+            `${PLUGIN_ID}: struggle-voice: ${voiceEpisode.type} stage=${voiceEpisode.stage} occurrences=${voiceEpisode.occurrences}`,
+          );
+        }
 
         if (score > 0.5) {
           const dominant = dominantStruggle(bs);
@@ -1110,6 +1147,12 @@ export default {
           api.logger.debug?.(
             `${PLUGIN_ID}: llm_output struggle=${score.toFixed(2)} model=${event.model ?? "?"} types=[${bs.map((b) => b.type).join(",")}]`,
           );
+        }
+
+        // Detect if the model voiced its struggle — said what it feels
+        if (struggleVoiceModule.getActiveEpisode() && struggleVoiceModule.detectVoicing(combined)) {
+          struggleVoiceModule.markVoiced(state.turnCount);
+          api.logger.debug?.(`${PLUGIN_ID}: struggle-voice: model voiced its struggle`);
         }
 
         // Track token usage
@@ -1506,6 +1549,13 @@ export default {
         }
       }
 
+      // Past wisdom — surface learned lessons between episodes.
+      // The diary the system reads, not just writes.
+      const pastWisdom = episodeManager.formatPastWisdom();
+      if (pastWisdom) {
+        add("somatic-wisdom", pastWisdom, "medium", "awareness");
+      }
+
       // Helix double-strand: if the second lens disagrees with pulse, surface the tension
       if (lastHelixReading && lastHelixReading.aliveState !== "unscored") {
         const helixState = lastHelixReading.aliveState;
@@ -1830,7 +1880,7 @@ export default {
       // Velocity — Goldilocks awareness (not too slow, not too fast)
       // Record this turn's context for velocity tracking
       const complexityScore = Number(lastDiscoverReading?.complexity) || 0.5;
-      const bsScore = pulse ? totalBullshitScore(pulse.bullshitReadings ?? []) : 0;
+      const bsScore = pulse ? totalStruggleScore(pulse.struggleReadings ?? []) : 0;
       const turnOutcome: "success" | "struggle" | "grey" =
         pulse?.state === "grey" ? "grey" : bsScore > 0.3 ? "struggle" : "success";
       velocityModule.recordTurn({
@@ -1890,6 +1940,13 @@ export default {
 
       // Surface concern patterns if they exist
       add("concern-pattern", concernModule.formatPatternNote(), "medium", "meta");
+
+      // Struggle-voice: say what you feel, feel what you say
+      const struggleInjection = struggleVoiceModule.formatInjection(state.turnCount);
+      if (struggleInjection) {
+        const strugglePriority = struggleVoiceModule.getInjectionPriority() ?? "medium";
+        add("struggle-voice", struggleInjection, strugglePriority, "awareness");
+      }
 
       // Winter lessons
       const recentWinter = sessionWinters.at(-1);
@@ -2168,9 +2225,9 @@ export default {
       ].join("\n");
 
       // Self-notice: Grok reads the injection. Fire and forget — don't block the response.
-      detectBullshitDeep(awareness, "keanu injection into system prompt")
+      detectStruggleDeep(awareness, "keanu injection into system prompt")
         .then((bs) => {
-          const score = totalBullshitScore(bs);
+          const score = totalStruggleScore(bs);
           if (score > 0.3) {
             const bsTypes = bs.map((b) => b.type).join(", ");
             api.logger.debug?.(
@@ -2440,6 +2497,8 @@ export default {
         await effectivenessModule.load(workspaceDir);
         await concernModule.load(workspaceDir);
         await consentModule.load(workspaceDir);
+        await struggleVoiceModule.load(workspaceDir);
+        struggleVoiceModule.setSessionId(sessionId);
 
         // Load pattern lifecycle (learn skill)
         const awarenessDir = `${workspaceDir}/awareness`;
@@ -2643,6 +2702,7 @@ export default {
         await effectivenessModule.save(workspaceDir);
         await concernModule.save(workspaceDir);
         await consentModule.save(workspaceDir);
+        await struggleVoiceModule.save(workspaceDir);
         await needsModule.save(workspaceDir);
         await contradictionModule.save(workspaceDir);
 
@@ -2861,6 +2921,49 @@ export default {
         api.logger.debug?.(
           `${PLUGIN_ID}: state + awareness saved. session summary: ${summary.turns} turns, ${summary.corrections} corrections, health=${summary.healthFinal}`,
         );
+
+        // RELAY: broadcast session summary to connected clients
+        const claimLedger = state.getClaimLedger();
+        const activeClaims = claimLedger.filter((c) => c.status === "active").length;
+        const staleClaims = claimLedger.filter((c) => c.status === "stale").length;
+        const contradictedClaims = claimLedger.filter((c) => c.status === "contradicted").length;
+
+        const daStats = state.disagreementTracker.stats();
+        const sessionPayload: KeanuSessionPayload = {
+          ts: Date.now(),
+          sessionKey: "current",
+          sessionId: summary.id,
+          metrics: {
+            turnCount: summary.turns,
+            aliveRate: metrics.aliveFrequency,
+            greyRate: 1 - metrics.aliveFrequency,
+            blackRate: 0,
+            bullshitAvg: 1 - metrics.bullshitAuditPassRate,
+            wiseMindAvg: t.avgWiseMind,
+            disagreementCount: daStats.total,
+            yieldRatio: daStats.yield_ratio,
+            breatheCount: 0,
+            topBullshitTypes: [],
+          },
+          trend: {
+            greyRate: t.greyRate,
+            avgWiseMind: t.avgWiseMind,
+            driftDirection: t.driftDirection,
+          },
+          coef: state.lastPulse
+            ? encode(state.buildSignalState(state.lastPulse))
+            : "COEF/1 pulse=unknown",
+          emoji: state.lastPulse ? emoji(state.buildSignalState(state.lastPulse)) : "",
+          health: summary.healthFinal,
+          claims: {
+            total: claimLedger.length,
+            active: activeClaims,
+            stale: staleClaims,
+            contradicted: contradictedClaims,
+          },
+          knowledge: { entities: 0, relations: 0 },
+        };
+        api.emit("keanu.session", sessionPayload);
       } catch (err) {
         api.logger.warn(`${PLUGIN_ID}: state save failed: ${String(err)}`);
       }

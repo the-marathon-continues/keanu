@@ -12,7 +12,7 @@ const greyPulse: PulseReading = {
   wise_mind: 0.5,
   colors: { red: 0.3, yellow: 0.4, blue: 0.3 },
   signals: ["vagueness:0.6"],
-  bullshitReadings: [{ type: "vagueness", score: 0.6, signals: ["generic phrasing"] }],
+  struggleReadings: [{ type: "vagueness", score: 0.6, signals: ["generic phrasing"] }],
   timestamp: new Date().toISOString(),
 };
 
@@ -22,7 +22,7 @@ const blackPulse: PulseReading = {
   wise_mind: 0.2,
   colors: { red: 0.8, yellow: 0.1, blue: 0.1 },
   signals: ["high_volume", "no_pause"],
-  bullshitReadings: [{ type: "list_dumping", score: 0.8, signals: ["many bullets"] }],
+  struggleReadings: [{ type: "list_dumping", score: 0.8, signals: ["many bullets"] }],
   timestamp: new Date().toISOString(),
 };
 
@@ -31,7 +31,7 @@ const humanState: HumanReading = {
   tones: [{ tone: "frustrated", score: 0.7, meaning: "They're not getting what they need" }],
   confidence: 0.8,
   signals: ["short_messages"],
-  bullshit: [],
+  struggle: [],
 };
 
 describe("episode-manager", () => {
@@ -69,7 +69,7 @@ describe("episode-manager", () => {
       expect(episode).not.toBeNull();
       expect(episode.id).toMatch(/^ep-5-/);
       expect(episode.pulseState).toBe("grey");
-      expect(episode.trigger).toBe("high_bullshit");
+      expect(episode.trigger).toBe("high_struggle");
     });
 
     it("attaches chain analysis on start", () => {
@@ -83,7 +83,7 @@ describe("episode-manager", () => {
           status: "hot",
           factors: {
             contextAge: 25,
-            bullshitTrend: 0.5,
+            struggleTrend: 0.5,
             promptSize: 60000,
             toolFailureRate: 0.1,
             consecutiveGrey: 4,
@@ -200,7 +200,7 @@ describe("episode-manager", () => {
           status: "fading",
           factors: {
             contextAge: 50,
-            bullshitTrend: 0.6,
+            struggleTrend: 0.6,
             promptSize: 90000,
             toolFailureRate: 0.3,
             consecutiveGrey: 6,
@@ -231,21 +231,21 @@ describe("episode-manager", () => {
         id: "r-test-123",
         turn: 5,
         timestamp: new Date().toISOString(),
-        trigger: "high_bullshit",
+        trigger: "high_struggle",
         what_happened: "Test reflexion",
         why_it_failed: "Testing",
         what_was_missed: "Nothing",
         next_time: "Keep testing",
         pulse_state: "grey",
         wise_mind: 0.5,
-        bullshit_types: ["vagueness"],
+        struggle_types: ["vagueness"],
       };
 
       episodeManager.attachReflexion(reflexion);
 
       const episode = episodeManager.getCurrentEpisode();
       expect(episode?.reflexions).toHaveLength(1);
-      expect(episode?.reflexions[0]?.trigger).toBe("high_bullshit");
+      expect(episode?.reflexions[0]?.trigger).toBe("high_struggle");
       expect(episode?.reflexions[0]?.lesson).toBe("Keep testing");
     });
   });

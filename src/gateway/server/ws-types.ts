@@ -9,4 +9,8 @@ export type GatewayWsClient = {
   clientIp?: string;
   canvasCapability?: string;
   canvasCapabilityExpiresAtMs?: number;
+  /** Authenticated user identity from gateway auth (e.g. Cognito email via trusted-proxy). */
+  authUser?: string;
+  /** Auth method that resolved the identity. */
+  authMethod?: string;
 };

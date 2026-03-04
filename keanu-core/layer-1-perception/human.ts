@@ -7,7 +7,7 @@
 // is in there. Because "fuck the to-do" isn't just frustrated. It's real.
 // Need: Engagement (9/10)
 
-import { detectBullshit } from "../layer-2-pattern/struggle.js";
+import { detectStruggle } from "../layer-2-pattern/struggle.js";
 import { assessValidationDepth } from "../layer-4-agency/partnership.js";
 import { getRecentSummaries } from "../layer-7-update/session-learning.js";
 import type { AxiomProfileSummary, HumanReading, HumanTone, ToneReading } from "../shared/types.js";
@@ -247,8 +247,8 @@ export function readHuman(
   }
 
   // --- Bullshit detection (same 8 types as agent) ---
-  const bullshit = detectBullshit(input);
-  for (const bs of bullshit) {
+  const struggle = detectStruggle(input);
+  for (const bs of struggle) {
     signals.push(`human_bs:${bs.type}:${bs.score.toFixed(2)}`);
   }
 
@@ -270,7 +270,7 @@ export function readHuman(
     tones,
     confidence: Math.min(1, confidence),
     signals,
-    bullshit,
+    struggle,
     validationDepth,
     axiomProfile,
   };
@@ -295,7 +295,7 @@ function summarizeProfile(profile: ArchetypeProfile): AxiomProfileSummary {
  * Returns null if tone is neutral and no bullshit detected.
  */
 export function formatHumanReading(reading: HumanReading): string | null {
-  if (reading.tone === "neutral" && reading.tones.length === 0 && reading.bullshit.length === 0) {
+  if (reading.tone === "neutral" && reading.tones.length === 0 && reading.struggle.length === 0) {
     return null;
   }
 
@@ -317,8 +317,8 @@ export function formatHumanReading(reading: HumanReading): string | null {
     parts.push(`tone=${reading.tone} (${empathy.meaning})`);
   }
 
-  if (reading.bullshit.length > 0) {
-    const bsTypes = reading.bullshit.map((b) => b.type).join(", ");
+  if (reading.struggle.length > 0) {
+    const bsTypes = reading.struggle.map((b) => b.type).join(", ");
     parts.push(`mirror=[${bsTypes} -- assume they're trying, help them get there]`);
   }
 

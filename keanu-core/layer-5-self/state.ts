@@ -7,7 +7,7 @@
 import { appendFile, readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { encode, emoji } from "../layer-1-perception/signal.js";
-import { dominantBullshit } from "../layer-2-pattern/struggle.js";
+import { dominantStruggle } from "../layer-2-pattern/struggle.js";
 import { DisagreementTracker } from "../layer-4-agency/disagreement.js";
 import * as episodeManager from "../layer-9-memory/episode-manager.js";
 import type { PersistedManagerState } from "../layer-9-memory/episode-manager.js";
@@ -31,6 +31,11 @@ import type {
 import type { DepthReading } from "./depth.js";
 import { type GreyEpisode, type SomaticMarker, type GreyTrigger } from "./experience.js";
 import type { LimboReading } from "./limbo.js";
+import {
+  serializeRecurrence,
+  deserializeRecurrence,
+  type PersistedRecurrence,
+} from "./reflexion.js";
 
 // ============================================================
 // Persisted state shape
@@ -53,6 +58,8 @@ type PersistedState = {
   reflexionCount?: number;
   // Episode manager state (unified grey/black lifecycle)
   episode?: PersistedManagerState;
+  // Recurrence tracking — carries across sessions so escalation works
+  recurrence?: PersistedRecurrence[];
   // Legacy experience state (for backward compat on load)
   experience?: {
     currentEpisode: GreyEpisode | null;
@@ -232,7 +239,7 @@ export interface TurnSnapshot {
   turn: number;
   pulse: string; // alive/grey/black
   humanTone: string;
-  bullshitTypes: string[];
+  struggleTypes: string[];
   mismatchType: string | null;
   wiseMind: number;
 }
@@ -984,11 +991,11 @@ export function buildSignalState(
   }
 
   // Both sides of the mirror: agent bullshit (from pulse) + human bullshit (from human reading)
-  const agentBs = pulse.bullshitReadings ?? [];
-  const humanBs = human?.bullshit ?? [];
+  const agentBs = pulse.struggleReadings ?? [];
+  const humanBs = human?.struggle ?? [];
   const bsReadings = [...agentBs, ...humanBs];
 
-  const dominant = dominantBullshit(bsReadings);
+  const dominant = dominantStruggle(bsReadings);
 
   // --- Lossy channel: emotion, urgency, subtext ---
   const lossy =
@@ -1026,8 +1033,8 @@ export function buildSignalState(
     wiseMind: pulse.wise_mind,
     colors: pulse.colors,
     humanTone: human?.tone ?? "neutral",
-    bullshitDominant: dominant?.type ?? null,
-    bullshitReadings: bsReadings.length > 0 ? bsReadings : undefined,
+    struggleDominant: dominant?.type ?? null,
+    struggleReadings: bsReadings.length > 0 ? bsReadings : undefined,
     disagreementYieldRatio: dStats.yield_ratio,
     disagreements: dStats,
     turn: turnCount,
@@ -1288,6 +1295,8 @@ export async function save(workspaceDir: string): Promise<void> {
     reflexionCount,
     // Episode manager state (unified grey/black lifecycle)
     episode: episodeManager.serialize(),
+    // Recurrence counts — so the same stumble escalates across sessions
+    recurrence: serializeRecurrence(),
   };
   const stateFile = join(workspaceDir, ".keanu-state.json");
   await mkdir(workspaceDir, { recursive: true });
@@ -1333,6 +1342,11 @@ export async function load(workspaceDir: string): Promise<void> {
     }
     // Sync consecutiveGrey from manager after deserialize
     consecutiveGrey = episodeManager.getConsecutiveGrey();
+
+    // Restore recurrence counts — same stumble keeps escalating across sessions
+    if (data.recurrence) {
+      deserializeRecurrence(data.recurrence);
+    }
   } catch {
     // No prior state — start fresh.
   }
@@ -1384,8 +1398,8 @@ export async function saveAlignmentSnapshot(workspaceDir: string): Promise<void>
     human
       ? `- Tone: **${human.tone}** (confidence: ${human.confidence.toFixed(2)})`
       : "- Tone: unknown",
-    human && human.bullshit.length > 0
-      ? `- Bullshit: ${human.bullshit.map((b) => `${b.type}(${b.score.toFixed(2)})`).join(", ")}`
+    human && human.struggle.length > 0
+      ? `- Bullshit: ${human.struggle.map((b) => `${b.type}(${b.score.toFixed(2)})`).join(", ")}`
       : "",
     "",
     "## Disagreement Stats",

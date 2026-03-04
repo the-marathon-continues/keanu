@@ -4,7 +4,7 @@
  *
  * At session_end, Wind gathers:
  * - Reflexions (what we stumbled on)
- * - Grievances (what hurt but shouldn't fester)
+ * - Concerns (what hurt but shouldn't fester)
  * - Contradictions (what we changed our mind about)
  * - Blind spots (patterns we keep missing)
  *
@@ -14,7 +14,7 @@
 import { writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import * as silverado from "../../keanu-core/layer-3-causal/silverado.js";
-import * as grievance from "../../keanu-core/layer-5-self/grievance.js";
+import * as concern from "../../keanu-core/layer-5-self/concern.js";
 // Import from keanu modules for session state access
 import { reflexions } from "../../keanu-core/layer-5-self/state.js";
 import * as mastery from "../../keanu-core/layer-7-update/mastery.js";
@@ -27,7 +27,7 @@ export interface OutboundPayload {
   timestamp: string;
   sessionId: string;
   reflexions: ReflexionSummary[];
-  grievances: GrievanceSummary[];
+  concerns: ConcernSummary[];
   contradictions: ContradictionSummary[];
   blindSpots: BlindSpotSummary[];
 }
@@ -38,7 +38,7 @@ interface ReflexionSummary {
   nextTime: string;
 }
 
-interface GrievanceSummary {
+interface ConcernSummary {
   type: string;
   description: string;
   resolved: boolean;
@@ -69,7 +69,7 @@ async function gather(): Promise<OutboundPayload | null> {
     nextTime: r.next_time,
   }));
 
-  const grievanceSummaries = grievance.getGrievances().map((g) => ({
+  const concernSummaries = concern.getConcerns().map((g) => ({
     type: g.type,
     description: g.description,
     resolved: g.resolved,
@@ -92,7 +92,7 @@ async function gather(): Promise<OutboundPayload | null> {
   // Only create payload if there's something to report
   if (
     reflexionSummaries.length === 0 &&
-    grievanceSummaries.length === 0 &&
+    concernSummaries.length === 0 &&
     contradictions.length === 0 &&
     blindSpots.length === 0
   ) {
@@ -103,7 +103,7 @@ async function gather(): Promise<OutboundPayload | null> {
     timestamp: new Date().toISOString(),
     sessionId: `session-${Date.now()}`, // TODO: get actual session ID
     reflexions: reflexionSummaries,
-    grievances: grievanceSummaries,
+    concerns: concernSummaries,
     contradictions,
     blindSpots,
   };

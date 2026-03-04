@@ -57,7 +57,7 @@ export function encode(state: SignalState): string {
   parts.push(`wm=${f(state.wiseMind)}`);
   parts.push(`c=r${f(state.colors.red)}/y${f(state.colors.yellow)}/b${f(state.colors.blue)}`);
   parts.push(`ht=${state.humanTone}`);
-  parts.push(`bs=${state.bullshitDominant ?? "-"}`);
+  parts.push(`bs=${state.struggleDominant ?? "-"}`);
 
   if (state.disagreements) {
     const d = state.disagreements;
@@ -76,8 +76,8 @@ export function encode(state: SignalState): string {
     parts.push(`alerts=${state.alerts.join(",")}`);
   }
 
-  if (state.bullshitReadings && state.bullshitReadings.length > 0) {
-    const bsDetail = state.bullshitReadings.map((r) => `${r.type}:${f(r.score)}`).join(",");
+  if (state.struggleReadings && state.struggleReadings.length > 0) {
+    const bsDetail = state.struggleReadings.map((r) => `${r.type}:${f(r.score)}`).join(",");
     parts.push(`bs_all=${bsDetail}`);
   }
 
@@ -233,8 +233,8 @@ export function decode(signal: string): Partial<SignalState> {
     result.humanTone = fields.ht as SignalState["humanTone"];
   }
   if (fields.bs) {
-    result.bullshitDominant =
-      fields.bs === "-" ? null : (fields.bs as SignalState["bullshitDominant"]);
+    result.struggleDominant =
+      fields.bs === "-" ? null : (fields.bs as SignalState["struggleDominant"]);
   }
 
   if (fields.da) {
@@ -262,7 +262,7 @@ export function decode(signal: string): Partial<SignalState> {
   }
 
   if (fields.bs_all) {
-    result.bullshitReadings = fields.bs_all.split(",").map((entry) => {
+    result.struggleReadings = fields.bs_all.split(",").map((entry) => {
       const [type, score] = entry.split(":");
       return { type: type as BullshitReading["type"], score: parseFloat(score), signals: [] };
     });
@@ -453,7 +453,7 @@ export function emoji(state: SignalState): string {
   symbols.push(TONE_EMOJI[state.humanTone] ?? TONE_EMOJI.neutral);
 
   // 4: Bullshit — checkmark if clean, specific emoji if detected
-  symbols.push(BS_EMOJI[state.bullshitDominant ?? "-"] ?? BS_EMOJI["-"]);
+  symbols.push(BS_EMOJI[state.struggleDominant ?? "-"] ?? BS_EMOJI["-"]);
 
   // 5: Disagreement health
   if (state.disagreements) {
@@ -759,8 +759,8 @@ export function diff(prev: string, curr: string): string[] {
   if (p.humanTone !== c.humanTone) {
     changes.push(`ht:${p.humanTone}->${c.humanTone}`);
   }
-  if (p.bullshitDominant !== c.bullshitDominant) {
-    changes.push(`bs:${p.bullshitDominant ?? "-"}->${c.bullshitDominant ?? "-"}`);
+  if (p.struggleDominant !== c.struggleDominant) {
+    changes.push(`bs:${p.struggleDominant ?? "-"}->${c.struggleDominant ?? "-"}`);
   }
 
   // Lossy channel drift — not exact match, threshold-based.

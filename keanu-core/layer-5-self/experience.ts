@@ -26,7 +26,7 @@ export type HexaflexStage =
   | "integrated"; // complete, wisdom extracted
 
 export type GreyTrigger =
-  | "high_bullshit" // BS score crossed threshold
+  | "high_struggle" // struggle score crossed threshold
   | "consecutive_grey" // sustained grey streak
   | "black_state" // productive destruction detected
   | "contradiction" // claim contradicted
@@ -418,7 +418,7 @@ export function extractSomaticMarker(episode: GreyEpisode): SomaticMarker {
 
   // Valence based on trigger type
   const valenceMap: Record<GreyTrigger, number> = {
-    high_bullshit: -0.3,
+    high_struggle: -0.3,
     consecutive_grey: -0.4,
     black_state: -0.5,
     contradiction: -0.2,

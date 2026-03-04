@@ -13,7 +13,7 @@ export interface PulseReading {
   wise_mind: number;
   colors: ColorReading;
   signals: string[];
-  bullshitReadings?: BullshitReading[];
+  struggleReadings?: StruggleReading[];
   timestamp: string;
 }
 
@@ -48,7 +48,7 @@ export interface HumanReading {
   tones: ToneReading[]; // ALL detected tones, sorted by score desc. even small ones.
   confidence: number;
   signals: string[];
-  bullshit: BullshitReading[];
+  struggle: StruggleReading[];
   validationDepth?: ValidationDepth; // Linehan depth — how deeply we can understand this person
   axiomProfile?: AxiomProfileSummary; // archetype profiling — which axioms resonate
 }
@@ -238,8 +238,8 @@ export interface SignalState {
   wiseMind: number;
   colors: ColorReading;
   humanTone: HumanTone;
-  bullshitDominant: BullshitType | null;
-  bullshitReadings?: BullshitReading[];
+  struggleDominant: StruggleType | null;
+  struggleReadings?: StruggleReading[];
   disagreementYieldRatio: number;
   disagreements?: DisagreementStats;
   turn: number;
@@ -308,11 +308,11 @@ export interface Reflexion {
   next_time: string;
   pulse_state: AliveState;
   wise_mind: number;
-  bullshit_types: BullshitType[];
+  struggle_types: StruggleType[];
 }
 
 export type ReflexionTrigger =
-  | "high_bullshit"
+  | "high_struggle"
   | "consecutive_grey"
   | "black_state"
   | "contradiction"

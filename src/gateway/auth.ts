@@ -12,6 +12,7 @@ import {
   type RateLimitCheckResult,
 } from "./auth-rate-limit.js";
 import { resolveGatewayCredentialsFromValues } from "./credentials.js";
+import { resolveGatewayAuthFromEnv } from "./env-auth.js";
 import {
   isLocalishHost,
   isLoopbackAddress,
@@ -220,8 +221,24 @@ export function resolveGatewayAuth(params: {
   tailscaleMode?: GatewayTailscaleMode;
 }): ResolvedGatewayAuth {
   const baseAuthConfig = params.authConfig ?? {};
-  const authOverride = params.authOverride ?? undefined;
+  const env = params.env ?? process.env;
+
+  // Precedence: CLI override > env vars > config file
+  const envAuth = resolveGatewayAuthFromEnv(env);
   const authConfig: GatewayAuthConfig = { ...baseAuthConfig };
+
+  // Layer 1: env vars override config file
+  if (envAuth) {
+    if (envAuth.mode !== undefined) {
+      authConfig.mode = envAuth.mode;
+    }
+    if (envAuth.trustedProxy !== undefined) {
+      authConfig.trustedProxy = envAuth.trustedProxy;
+    }
+  }
+
+  // Layer 2: CLI flags override everything
+  const authOverride = params.authOverride ?? undefined;
   if (authOverride) {
     if (authOverride.mode !== undefined) {
       authConfig.mode = authOverride.mode;
@@ -242,7 +259,6 @@ export function resolveGatewayAuth(params: {
       authConfig.trustedProxy = authOverride.trustedProxy;
     }
   }
-  const env = params.env ?? process.env;
   const resolvedCredentials = resolveGatewayCredentialsFromValues({
     configToken: authConfig.token,
     configPassword: authConfig.password,

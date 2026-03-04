@@ -361,4 +361,12 @@ export type PluginRuntime = {
   state: {
     resolveStateDir: ResolveStateDir;
   };
+  gateway: {
+    /**
+     * Broadcast an event to all connected gateway clients (Mac app, web UI, etc).
+     * Late-bound: no-op until the gateway WebSocket server starts.
+     * Use `opts.dropIfSlow` for high-frequency events like per-turn metrics.
+     */
+    broadcast: (event: string, payload: unknown, opts?: { dropIfSlow?: boolean }) => void;
+  };
 };

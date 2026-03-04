@@ -12,9 +12,9 @@ import { readHuman } from "../layer-1-perception/human.js";
 import { checkPulse } from "../layer-1-perception/pulse.js";
 import { encode, emoji } from "../layer-1-perception/signal.js";
 import {
-  detectBullshit,
-  dominantBullshit,
-  totalBullshitScore,
+  detectStruggle,
+  dominantStruggle,
+  totalStruggleScore,
 } from "../layer-2-pattern/struggle.js";
 import type { SignalState } from "./types.js";
 
@@ -52,9 +52,9 @@ if (mode === "human") {
       }
     }
   }
-  if (reading.bullshit.length > 0) {
+  if (reading.struggle.length > 0) {
     console.log(
-      `  bullshit: ${reading.bullshit.map((b) => `${b.type}(${b.score.toFixed(2)})`).join(", ")}`,
+      `  bullshit: ${reading.struggle.map((b) => `${b.type}(${b.score.toFixed(2)})`).join(", ")}`,
     );
   }
   if (reading.signals.length > 0) {
@@ -63,17 +63,17 @@ if (mode === "human") {
 } else {
   // Agent mode — full pulse check
   const pulse = checkPulse(text, 1, false);
-  const bs = detectBullshit(text);
-  const dom = dominantBullshit(bs);
-  const totalBs = totalBullshitScore(bs);
+  const bs = detectStruggle(text);
+  const dom = dominantStruggle(bs);
+  const totalBs = totalStruggleScore(bs);
 
   const signalState: SignalState = {
     pulse: pulse.state,
     wiseMind: pulse.wise_mind,
     colors: pulse.colors,
     humanTone: "neutral",
-    bullshitDominant: dom?.type ?? null,
-    bullshitReadings: pulse.bullshitReadings,
+    struggleDominant: dom?.type ?? null,
+    struggleReadings: pulse.struggleReadings,
     disagreementYieldRatio: 0,
     turn: 1,
   };

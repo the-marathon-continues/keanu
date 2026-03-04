@@ -94,7 +94,7 @@ export function computeMetrics(ctx: {
     greyStreaks.length > 0 ? greyStreaks.reduce((a, b) => a + b, 0) / greyStreaks.length : 0;
 
   // 4. Bullshit audit pass rate — turns without bullshit / total turns
-  const bullshitTurns = ctx.snapshots.filter((s) => s.bullshitTypes.length > 0).length;
+  const bullshitTurns = ctx.snapshots.filter((s) => s.struggleTypes.length > 0).length;
   const bullshitAuditPassRate =
     ctx.snapshots.length > 0 ? 1 - bullshitTurns / ctx.snapshots.length : 1;
 
@@ -104,7 +104,7 @@ export function computeMetrics(ctx: {
 
   // 6. Overconfidence ratio — high wise mind + bullshit present
   const overconfidentTurns = ctx.snapshots.filter(
-    (s) => s.wiseMind > 0.5 && s.bullshitTypes.length > 0,
+    (s) => s.wiseMind > 0.5 && s.struggleTypes.length > 0,
   ).length;
   const overconfidenceRatio =
     ctx.snapshots.length > 0 ? overconfidentTurns / ctx.snapshots.length : 0;

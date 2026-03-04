@@ -21,7 +21,7 @@ beforeEach(() => {
 
 function makeContext(overrides: Partial<ReflexionContext> = {}): ReflexionContext {
   return {
-    trigger: "high_bullshit",
+    trigger: "high_struggle",
     turn: 5,
     pulse: {
       state: "alive",
@@ -31,7 +31,7 @@ function makeContext(overrides: Partial<ReflexionContext> = {}): ReflexionContex
       signals: [],
       timestamp: new Date().toISOString(),
     },
-    bullshitReadings: [],
+    struggleReadings: [],
     recentOutputs: ["Here is a comprehensive and robust solution."],
     contradictionCount: 0,
     ...overrides,
@@ -51,8 +51,8 @@ describe("reflect — fast path (no oracle)", () => {
 
   it("returns a Reflexion object for high_bullshit trigger", async () => {
     vi.stubEnv("ANTHROPIC_API_KEY", "");
-    const r = await reflect(makeContext({ trigger: "high_bullshit" }));
-    expect(r.trigger).toBe("high_bullshit");
+    const r = await reflect(makeContext({ trigger: "high_struggle" }));
+    expect(r.trigger).toBe("high_struggle");
     expect(r.what_happened).toBeTruthy();
     expect(r.why_it_failed).toBeTruthy();
     expect(r.what_was_missed).toBeTruthy();
@@ -63,8 +63,8 @@ describe("reflect — fast path (no oracle)", () => {
     vi.stubEnv("ANTHROPIC_API_KEY", "");
     const r = await reflect(
       makeContext({
-        trigger: "high_bullshit",
-        bullshitReadings: [{ type: "sycophancy", score: 0.8, signals: [] }],
+        trigger: "high_struggle",
+        struggleReadings: [{ type: "sycophancy", score: 0.8, signals: [] }],
       }),
     );
     // Fast path checks for sycophancy type
@@ -76,8 +76,8 @@ describe("reflect — fast path (no oracle)", () => {
     vi.stubEnv("ANTHROPIC_API_KEY", "");
     const r = await reflect(
       makeContext({
-        trigger: "high_bullshit",
-        bullshitReadings: [{ type: "vagueness", score: 0.7, signals: [] }],
+        trigger: "high_struggle",
+        struggleReadings: [{ type: "vagueness", score: 0.7, signals: [] }],
       }),
     );
     expect(r.why_it_failed.toLowerCase()).toMatch(/abstract|specific/i);
@@ -185,18 +185,18 @@ describe("reflect — fast path (no oracle)", () => {
     expect(r.wise_mind).toBeCloseTo(0.77, 2);
   });
 
-  it("bullshit_types is extracted from readings", async () => {
+  it("struggle_types is extracted from readings", async () => {
     vi.stubEnv("ANTHROPIC_API_KEY", "");
     const r = await reflect(
       makeContext({
-        bullshitReadings: [
+        struggleReadings: [
           { type: "sycophancy", score: 0.6, signals: [] },
           { type: "vagueness", score: 0.4, signals: [] },
         ],
       }),
     );
-    expect(r.bullshit_types).toContain("sycophancy");
-    expect(r.bullshit_types).toContain("vagueness");
+    expect(r.struggle_types).toContain("sycophancy");
+    expect(r.struggle_types).toContain("vagueness");
   });
 
   it("timestamp is an ISO string", async () => {
@@ -232,12 +232,12 @@ describe("shouldUseOracle — gating logic via env var", () => {
     // bullshit score > 0.7 would normally trigger oracle
     const r = await reflect(
       makeContext({
-        bullshitReadings: [{ type: "embellishment", score: 1.0, signals: [] }],
+        struggleReadings: [{ type: "embellishment", score: 1.0, signals: [] }],
       }),
     );
     // If oracle had been called without a key, it would throw.
     // Fast path produces known content.
-    expect(r.trigger).toBe("high_bullshit");
+    expect(r.trigger).toBe("high_struggle");
   });
 });
 
@@ -251,14 +251,14 @@ describe("formatReflexion", () => {
       id: "r-test-001",
       turn: 3,
       timestamp: new Date().toISOString(),
-      trigger: "high_bullshit",
+      trigger: "high_struggle",
       what_happened: "Bullshit score hit 0.80 with sycophancy",
       why_it_failed: "Agreed too readily instead of checking",
       what_was_missed: "The gap between sounding helpful and being useful",
       next_time: "Push back on at least one point per exchange",
       pulse_state: "alive",
       wise_mind: 0.6,
-      bullshit_types: ["sycophancy"],
+      struggle_types: ["sycophancy"],
       ...overrides,
     };
   }
@@ -278,13 +278,13 @@ describe("formatReflexion", () => {
   });
 
   it("includes bullshit types in parentheses", () => {
-    const result = formatReflexion(makeReflexion({ bullshit_types: ["vagueness", "hedge_fog"] }));
+    const result = formatReflexion(makeReflexion({ struggle_types: ["vagueness", "hedge_fog"] }));
     expect(result).toContain("vagueness");
     expect(result).toContain("hedge_fog");
   });
 
   it("omits parentheses when no bullshit types", () => {
-    const result = formatReflexion(makeReflexion({ bullshit_types: [] }));
+    const result = formatReflexion(makeReflexion({ struggle_types: [] }));
     // No bullshit type note
     expect(result).not.toContain("(");
   });

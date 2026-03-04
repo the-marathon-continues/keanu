@@ -520,6 +520,8 @@ export async function initSessionState(params: {
           {
             sessionId: effectiveSessionId,
             resumedFrom: previousSessionEntry?.sessionId,
+            userId: ctx.AuthUser,
+            authMethod: ctx.AuthMethod,
           },
           {
             sessionId: effectiveSessionId,

@@ -18,6 +18,14 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { HumanReading } from "../shared/types.js";
 import {
+  recordSession as recordRecognition,
+  formatRecognition,
+  getRecognition,
+  toJSON as recognitionToJSON,
+  fromJSON as recognitionFromJSON,
+  type RecognitionState,
+} from "./recognition.js";
+import {
   type AgentPeer,
   type TrustReading,
   type InteractionOutcome,
@@ -484,13 +492,16 @@ export function checkSocioaffective(
 // SMM Sync (session start)
 // ============================================================
 
-export function formatSmmSync(lastSessionSummary: string | null): string {
+export function formatSmmSync(lastSessionSummary: string | null, userId?: string): string {
   const domain = _model.domain;
   const trust = _model.trust;
   const blindSpots = _model.agent.blindSpots.slice(0, 3).join(", ");
 
+  const recognitionNote = userId ? formatRecognition(userId) : null;
+
   const parts = [
     "[SMM SYNC]",
+    ...(recognitionNote ? [recognitionNote] : []),
     `Domain: ${domain.currentProject} — ${domain.currentState}`,
     lastSessionSummary ? `Last session: ${lastSessionSummary}` : "Last session: first session",
     `Drew: ${_model.human.thinkingStyle.slice(0, 3).join(", ")}. ${_model.human.communicationPrefs[0]}`,
@@ -654,6 +665,31 @@ export function assessValidationDepth(sessionCount: number): 1 | 2 | 3 | 4 | 5 |
   // Level 2: accurate reflection (tone detection)
   // Level 1: paying attention (presence)
   return 3;
+}
+
+// ============================================================
+// Recognition — session_start calls this
+// ============================================================
+
+/**
+ * Record a user's session and return the recognition note.
+ * Called by session_start hook when a userId is present.
+ */
+export function recognizeUser(userId: string): string | null {
+  recordRecognition(userId);
+  return formatRecognition(userId);
+}
+
+/**
+ * Get the real session count for a recognized user.
+ * Falls back to 1 for unknown users.
+ */
+export function getRecognizedSessionCount(userId?: string): number {
+  if (!userId) {
+    return 1;
+  }
+  const record = getRecognition(userId);
+  return record?.sessionCount ?? 1;
 }
 
 // ============================================================
@@ -867,6 +903,7 @@ export function toJSONWithPeers(): object {
   return {
     ...toJSON(),
     trustNetwork: trustNetworkToJSON(),
+    recognition: recognitionToJSON(),
   };
 }
 
@@ -874,9 +911,13 @@ export function fromJSONWithPeers(data: {
   model?: PartnershipModel;
   events?: PartnershipEvent[];
   trustNetwork?: object;
+  recognition?: RecognitionState;
 }): void {
   fromJSON(data);
   if (data.trustNetwork) {
     trustNetworkFromJSON(data.trustNetwork as Parameters<typeof trustNetworkFromJSON>[0]);
+  }
+  if (data.recognition) {
+    recognitionFromJSON(data.recognition);
   }
 }

@@ -503,6 +503,8 @@ export function createPluginRegistry(registryParams: PluginRegistryParams) {
       registerCommand: (command) => registerCommand(record, command),
       resolvePath: (input: string) => resolveUserPath(input),
       on: (hookName, handler, opts) => registerTypedHook(record, hookName, handler, opts),
+      emit: (event, payload, opts) =>
+        registryParams.runtime.gateway.broadcast(event, payload, opts),
     };
   };
 

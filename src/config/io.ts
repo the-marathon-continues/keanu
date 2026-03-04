@@ -1317,7 +1317,7 @@ export function loadConfig(): KeanuConfig {
       return cached.config;
     }
   }
-  const config = io.loadConfig();
+  const config = applyGatewayEnvOverrides(io.loadConfig(), process.env);
   if (shouldUseConfigCache(process.env)) {
     const cacheMs = resolveConfigCacheMs(process.env);
     if (cacheMs > 0) {
@@ -1329,6 +1329,41 @@ export function loadConfig(): KeanuConfig {
     }
   }
   return config;
+}
+
+/**
+ * Apply KEANU_GATEWAY_* env var overrides to loaded config.
+ * Env vars override config file values (not additive — env replaces).
+ * This runs on every loadConfig() call (cached) so per-request code
+ * like server-http trustedProxies reads pick up env values automatically.
+ */
+function applyGatewayEnvOverrides(config: KeanuConfig, env: NodeJS.ProcessEnv): KeanuConfig {
+  const tpRaw = env.KEANU_GATEWAY_TRUSTED_PROXIES?.trim();
+  const bindRaw = env.KEANU_GATEWAY_BIND?.trim();
+  if (!tpRaw && !bindRaw) {
+    return config;
+  }
+  const result: KeanuConfig = {
+    ...config,
+    gateway: { ...config.gateway },
+  };
+  if (tpRaw) {
+    result.gateway!.trustedProxies = tpRaw
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+  if (
+    bindRaw &&
+    (bindRaw === "loopback" ||
+      bindRaw === "lan" ||
+      bindRaw === "auto" ||
+      bindRaw === "custom" ||
+      bindRaw === "tailnet")
+  ) {
+    result.gateway!.bind = bindRaw;
+  }
+  return result;
 }
 
 export async function readConfigFileSnapshot(): Promise<ConfigFileSnapshot> {

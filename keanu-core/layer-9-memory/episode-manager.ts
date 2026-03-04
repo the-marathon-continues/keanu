@@ -188,12 +188,12 @@ function determineTrigger(pulse: PulseReading, consecutiveGrey: number): GreyTri
   }
 
   // Check bullshit
-  const bsScore = pulse.bullshitReadings?.reduce((sum, b) => sum + b.score, 0) ?? 0;
+  const bsScore = pulse.struggleReadings?.reduce((sum, b) => sum + b.score, 0) ?? 0;
   if (bsScore > 0.5) {
-    return "high_bullshit";
+    return "high_struggle";
   }
 
-  return "high_bullshit"; // default
+  return "high_struggle"; // default
 }
 
 /**
@@ -535,6 +535,52 @@ export function formatInjection(): string | null {
   }
 
   return lines.join("\n");
+}
+
+// ============================================================
+// Past wisdom — the diary the system actually reads
+// ============================================================
+
+/**
+ * Surface learned wisdom between episodes.
+ * When there's no active episode, the most salient markers
+ * still whisper what they know. This is the re-injection point.
+ */
+export function formatPastWisdom(): string | null {
+  if (currentEpisode) {
+    return null;
+  } // active episode has its own injection
+
+  const salient = somaticMarkers
+    .filter((m) => m.salience > 0.2)
+    .toSorted((a, b) => b.salience - a.salience)
+    .slice(0, 3);
+
+  if (salient.length === 0) {
+    return null;
+  }
+
+  const lines: string[] = [];
+  lines.push("## What you've learned");
+  lines.push("");
+  for (const m of salient) {
+    // Access reinforces salience — reading the diary keeps it alive
+    const idx = somaticMarkers.findIndex((s) => s.id === m.id);
+    if (idx >= 0 && somaticMarkers[idx]) {
+      somaticMarkers[idx] = accessMarker(somaticMarkers[idx]);
+    }
+    lines.push(`- "${m.lesson}"`);
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * Check if a specific trigger has relevant past wisdom.
+ * Used to surface targeted reminders when familiar patterns emerge.
+ */
+export function hasWisdomFor(trigger: GreyTrigger): boolean {
+  return querySomaticLedger(somaticMarkers, trigger).length > 0;
 }
 
 // ============================================================

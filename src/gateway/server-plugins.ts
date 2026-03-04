@@ -45,5 +45,5 @@ export function loadGatewayPlugins(params: {
       }
     }
   }
-  return { pluginRegistry, gatewayMethods };
+  return { pluginRegistry, pluginRuntime: pluginRegistry.runtime, gatewayMethods };
 }

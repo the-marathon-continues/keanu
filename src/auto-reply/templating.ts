@@ -148,6 +148,10 @@ export type MsgContext = {
    * Used for hook confirmation messages like "Session context saved to memory".
    */
   HookMessages?: string[];
+  /** Authenticated user identity from gateway auth (e.g. Cognito email via trusted-proxy). */
+  AuthUser?: string;
+  /** Auth method that resolved the identity (e.g. "trusted-proxy", "tailscale"). */
+  AuthMethod?: string;
 };
 
 export type FinalizedMsgContext = Omit<MsgContext, "CommandAuthorized"> & {

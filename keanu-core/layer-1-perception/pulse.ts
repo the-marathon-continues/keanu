@@ -99,12 +99,12 @@ export function checkPulse(
   const now = new Date().toISOString();
 
   // --- Bullshit detection (all 8 types) ---
-  const bullshitReadings = detectBullshit(agentOutput);
-  const greyScore = totalBullshitScore(bullshitReadings);
+  const struggleReadings = detectBullshit(agentOutput);
+  const greyScore = totalBullshitScore(struggleReadings);
 
   // Collect signals from bullshit detections
   const signals: string[] = [];
-  for (const bs of bullshitReadings) {
+  for (const bs of struggleReadings) {
     signals.push(`${bs.type}:${bs.score.toFixed(2)}`);
   }
 
@@ -178,7 +178,7 @@ export function checkPulse(
     wise_mind,
     colors,
     signals,
-    bullshitReadings,
+    struggleReadings,
     timestamp: now,
   };
 }

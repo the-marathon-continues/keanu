@@ -62,7 +62,7 @@ function getDefaultSignalState(): SignalState {
     wiseMind: 0.5,
     colors: { red: 0.3, yellow: 0.3, blue: 0.3 },
     humanTone: "neutral",
-    bullshitDominant: null,
+    struggleDominant: null,
     disagreementYieldRatio: 0.5,
     turn: 0,
   };
