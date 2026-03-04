@@ -441,9 +441,9 @@ actor MacNodeRuntime {
         guard !command.isEmpty else {
             return Self.errorResponse(req, code: .invalidRequest, message: "INVALID_REQUEST: command required")
         }
-        let sessionKey = (params.sessionKey?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false)
-            ? params.sessionKey!.trimmingCharacters(in: .whitespacesAndNewlines)
-            : self.mainSessionKey
+        let sessionKey = params.sessionKey?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .nonEmpty ?? self.mainSessionKey
         let runId = UUID().uuidString
         let evaluation = await ExecApprovalEvaluator.evaluate(
             command: command,
@@ -700,13 +700,12 @@ actor MacNodeRuntime {
         var normalized = ExecApprovalsStore.normalizeIncoming(params.file)
         let socketPath = normalized.socket?.path?.trimmingCharacters(in: .whitespacesAndNewlines)
         let token = normalized.socket?.token?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let resolvedPath = (socketPath?.isEmpty == false)
-            ? socketPath!
-            : current.socket?.path?.trimmingCharacters(in: .whitespacesAndNewlines) ??
-            ExecApprovalsStore.socketPath()
-        let resolvedToken = (token?.isEmpty == false)
-            ? token!
-            : current.socket?.token?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let resolvedPath = socketPath?.nonEmpty
+            ?? current.socket?.path?.trimmingCharacters(in: .whitespacesAndNewlines)
+            ?? ExecApprovalsStore.socketPath()
+        let resolvedToken = token?.nonEmpty
+            ?? current.socket?.token?.trimmingCharacters(in: .whitespacesAndNewlines)
+            ?? ""
         normalized.socket = ExecApprovalsSocketConfig(path: resolvedPath, token: resolvedToken)
 
         ExecApprovalsStore.saveFile(normalized)

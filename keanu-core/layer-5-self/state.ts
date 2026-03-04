@@ -6,6 +6,7 @@
 
 import { appendFile, readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
+import { Flow, type FlowResult, type Moment } from "../layer-0-physics/throughline/flow.js";
 import { encode, emoji } from "../layer-1-perception/signal.js";
 import { dominantStruggle } from "../layer-2-pattern/struggle.js";
 import { DisagreementTracker } from "../layer-4-agency/disagreement.js";
@@ -216,6 +217,62 @@ export function getCurrentSigma(): number {
 export function clearSubstrateHistory(): void {
   _sigmaHistory.length = 0;
   _signalHistory.length = 0;
+}
+
+// Flow — temporal feel of the session. Is time rushing, stuck, heavy?
+const _flowMoments: Moment[] = [];
+const MAX_FLOW_MOMENTS = 30;
+let _flowReading: FlowResult | null = null;
+
+/**
+ * Record a flow moment from the current turn.
+ * Called at message_sent in keanu.ts.
+ */
+export function recordFlowMoment(
+  content: string,
+  weight: number,
+  position: "past" | "present" | "future",
+  distance: number = 0,
+): void {
+  _flowMoments.push({
+    id: `moment-${turnCount}-${Date.now()}`,
+    content,
+    weight,
+    position,
+    distance,
+  });
+  if (_flowMoments.length > MAX_FLOW_MOMENTS) {
+    _flowMoments.shift();
+  }
+}
+
+/**
+ * Compute flow reading from accumulated moments.
+ * Call every few turns (not every turn — flow needs history).
+ */
+export function computeFlow(): FlowResult | null {
+  if (_flowMoments.length < 3) {
+    return null; // Not enough data yet
+  }
+  _flowReading = Flow.analyze(_flowMoments);
+  return _flowReading;
+}
+
+export function getFlowReading(): FlowResult | null {
+  return _flowReading;
+}
+
+export function getFlowHealth(): { healthy: boolean; diagnosis: string } | null {
+  if (!_flowReading) {
+    return null;
+  }
+  return Flow.health(_flowReading);
+}
+
+/** Reset flow state — used in tests and session boundaries. */
+export function resetFlowState(): void {
+  _flowMoments.length = 0;
+  _flowReading = null;
 }
 
 // Tool tracking

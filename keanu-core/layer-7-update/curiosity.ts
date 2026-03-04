@@ -11,6 +11,7 @@
 
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
+import { Spiral, type SpiralResult } from "../layer-0-physics/loop/spiral.js";
 import type { Reflexion } from "../shared/types.js";
 import type { BlindSpot } from "./mastery.js";
 import type { SessionSummary } from "./session-learning.js";
@@ -26,6 +27,14 @@ const REFLEXION_THRESHOLD = 2; // was 3 — fewer recurrences needed
 const GREY_RATE_THRESHOLD = 0.25; // was 0.3 — surface drift sooner
 const CORRECTION_THRESHOLD = 3; // was 5 — ask about scattered mistakes earlier
 const FRICTION_TURN_THRESHOLD = 12; // was 20 — check for false harmony sooner
+
+// ============================================================
+// Spiral state — one spiral per recurring trigger
+// ============================================================
+
+// Tracks how deep each recurring pattern is going.
+// Circles repeat. Spirals show you're actually descending.
+const _spirals: Map<string, SpiralResult> = new Map();
 
 // ============================================================
 // Types
@@ -56,9 +65,18 @@ export function generateCuriosity(ctx: {
   // Blind spots that keep growing — what's underneath?
   for (const spot of ctx.blindSpots) {
     if (spot.count >= BLIND_SPOT_THRESHOLD) {
+      const key = `blind_spot:${spot.category}`;
+      const existing = _spirals.get(key);
+      const spiral = existing ? Spiral.advance(existing) : Spiral.create(key, "outward");
+      _spirals.set(key, spiral);
+      const health = Spiral.health(spiral);
+      const depthNote =
+        spiral.level > 0
+          ? `level ${spiral.level + 1}. ${health.healthy ? "going deeper each time" : health.diagnosis}.`
+          : `first pass. ${health.diagnosis}.`;
       items.push({
-        question: `I keep ${describeBlindSpot(spot.category)} (${spot.count} times now). Is there a common trigger I'm not seeing? What's the context when this happens?`,
-        source: `blind_spot:${spot.category}`,
+        question: `I keep ${describeBlindSpot(spot.category)} — ${depthNote} ${spot.count} times now. what's the context when this happens?`,
+        source: key,
         generated: now,
         sessionId: ctx.sessionId,
       });
@@ -72,9 +90,18 @@ export function generateCuriosity(ctx: {
   }
   for (const [trigger, count] of Object.entries(triggerCounts)) {
     if (count >= REFLEXION_THRESHOLD) {
+      const key = `reflexion_pattern:${trigger}`;
+      const existing = _spirals.get(key);
+      const spiral = existing ? Spiral.advance(existing) : Spiral.create(key, "outward");
+      _spirals.set(key, spiral);
+      const health = Spiral.health(spiral);
+      const depthNote =
+        spiral.level > 0
+          ? `level ${spiral.level + 1}. ${health.healthy ? "going deeper each time" : health.diagnosis}.`
+          : `first pass. ${health.diagnosis}.`;
       items.push({
-        question: `"${trigger}" has triggered ${count} reflexions. Am I learning from these or just logging them? What changed after the last one?`,
-        source: `reflexion_pattern:${trigger}`,
+        question: `"${trigger}" — ${depthNote} ${count} reflexions. what's different this time?`,
+        source: key,
         generated: now,
         sessionId: ctx.sessionId,
       });
@@ -160,6 +187,18 @@ export function formatCuriosityInjection(items: CuriosityItem[]): string | null 
   // Pick one. The first is highest priority (blind spots > reflexions > drift).
   const item = items[0];
   return `[curiosity from last session: ${item.question} (source: ${item.source}). this is a question you asked yourself. you don't have to answer it now. but it's here.]`;
+}
+
+// ============================================================
+// Spiral readings — how deep is each recurring pattern going?
+// ============================================================
+
+export function getSpiralReadings(): Map<string, SpiralResult> {
+  return new Map(_spirals);
+}
+
+export function resetSpirals(): void {
+  _spirals.clear();
 }
 
 // ============================================================

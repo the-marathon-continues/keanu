@@ -105,6 +105,7 @@ apps/ios/LocalSigning.xcconfig
 
 # Xcode build directories (xcodebuild output)
 apps/ios/build/
+apps/macos/build/
 apps/shared/OpenClawKit/build/
 Swabble/build/
 

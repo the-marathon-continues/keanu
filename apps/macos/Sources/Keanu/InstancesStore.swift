@@ -300,7 +300,7 @@ final class InstancesStore {
             self.lastLoginNotifiedAtMs[inst.id] = inst.ts
 
             let name = inst.host?.trimmingCharacters(in: .whitespacesAndNewlines)
-            let device = name?.isEmpty == false ? name! : inst.id
+            let device = name?.nonEmpty ?? inst.id
             Task { @MainActor in
                 _ = await NotificationManager().send(
                     title: "Node connected",

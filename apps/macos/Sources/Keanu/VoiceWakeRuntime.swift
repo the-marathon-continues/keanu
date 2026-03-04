@@ -217,7 +217,7 @@ actor VoiceWakeRuntime {
                 Task { await self.handleRecognition(update, config: config) }
             }
 
-            let preferred = config.micID?.isEmpty == false ? config.micID! : "system-default"
+            let preferred = config.micID?.nonEmpty ?? "system-default"
             self.logger.info(
                 "voicewake runtime input preferred=\(preferred, privacy: .public) " +
                     "\(AudioInputDeviceObserver.defaultInputDeviceSummary(), privacy: .public)")

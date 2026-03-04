@@ -116,7 +116,7 @@ final class WorkActivityStore {
         // Main session preempts immediately.
         if activity.role == .main {
             self.currentSessionKey = activity.sessionKey
-        } else if self.currentSessionKey == nil || !self.isActive(sessionKey: self.currentSessionKey!) {
+        } else if self.currentSessionKey.map({ !self.isActive(sessionKey: $0) }) ?? true {
             self.currentSessionKey = activity.sessionKey
         }
         self.refreshDerivedState()
@@ -127,7 +127,7 @@ final class WorkActivityStore {
         // Main session preempts immediately.
         if activity.role == .main {
             self.currentSessionKey = activity.sessionKey
-        } else if self.currentSessionKey == nil || !self.isActive(sessionKey: self.currentSessionKey!) {
+        } else if self.currentSessionKey.map({ !self.isActive(sessionKey: $0) }) ?? true {
             self.currentSessionKey = activity.sessionKey
         }
         self.refreshDerivedState()

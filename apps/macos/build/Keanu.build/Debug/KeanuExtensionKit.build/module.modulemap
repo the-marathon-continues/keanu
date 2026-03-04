@@ -1,4 +1,0 @@
-framework module KeanuExtensionKit {
-  header "KeanuExtensionKit-Swift.h"
-  requires objc
-}

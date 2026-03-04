@@ -1,6 +1,7 @@
 // relay-types.ts
 // Payload shapes for keanu → Mac app metrics relay.
 // Broadcast via api.emit() over the gateway WebSocket.
+// Every detection keanu runs should surface here.
 
 import type {
   AliveState,
@@ -8,6 +9,7 @@ import type {
   HumanTone,
   StruggleType,
   SubstrateChannel,
+  ValidationDepth,
 } from "./types.js";
 
 // ============================================================
@@ -23,7 +25,8 @@ export interface KeanuTurnPayload {
   coef: string;
   emoji: string;
 
-  // Pulse — the vital sign
+  // ── Core Vitals ──────────────────────────────────────────
+
   pulse: {
     state: AliveState;
     wiseMind: number;
@@ -31,35 +34,147 @@ export interface KeanuTurnPayload {
     colors: ColorReading;
   };
 
-  // Human side
   humanTone: HumanTone;
 
-  // Struggle — what the mirror sees
   struggle: {
     dominant: StruggleType | null;
     score: number;
     types: StruggleType[];
   };
 
-  // Health composite
-  health: string;
+  health: {
+    status: string;
+    factors?: {
+      contextAge?: number;
+      bullshitTrend?: number;
+      promptSize?: number;
+      toolErrorRate?: number;
+      resonanceStrain?: number;
+    };
+    guidance?: string;
+  };
+
   greyStreak: number;
 
-  // Substrate (Layer 0) — compact physics reading
-  substrate?: Pick<SubstrateChannel, "regime" | "theta" | "firing" | "urgency">;
+  // ── The 5 Easy Detections ────────────────────────────────
 
-  // Helix (convergence layer)
+  /** Carnegie presupposition trap detection */
+  carnegie?: {
+    triggered: boolean;
+    highestType: string | null;
+    presuppositionText?: string;
+    /** Post-mortem: did we catch it in our response? */
+    caught?: boolean;
+    agreedWithoutCheck?: boolean;
+  };
+
+  /** Mismatch: did we give what they needed? */
+  mismatch?: {
+    detected: boolean;
+    type: string | null;
+    humanNeed?: string;
+    agentGave?: string;
+  };
+
+  /** Calibration: unverified claims in our output */
+  calibration?: {
+    triggered: boolean;
+    reason: string | null;
+    claims: string[];
+  };
+
+  /** Velocity: are we going too fast or too slow? */
+  velocity?: {
+    mode: string; // fast | moderate | slow | paused
+    appropriate: boolean;
+    suggestion?: string;
+  };
+
+  /** SELF-DISCOVER: what reasoning modules did we select? */
+  discover?: {
+    complexity: string; // low | mid | high
+    selectedModules: string[];
+  };
+
+  // ── Physics Layer ────────────────────────────────────────
+
+  substrate?: Pick<SubstrateChannel, "regime" | "theta" | "firing" | "urgency"> & {
+    noiseClarity?: number;
+    resonanceDistance?: number;
+  };
+
   helix?: {
     aliveState: string;
     factualStrand: number;
     feltStrand: number;
+    diagnosis?: string;
   };
 
-  // Episode state — grey/black chain tracking
+  sigma?: {
+    sigma: number;
+    agency: number;
+    predictionCorrect: boolean;
+  };
+
+  // ── State Tracking ───────────────────────────────────────
+
   episode?: {
     id: string;
+    trigger?: string;
     chainBreakPoint?: string;
     lesson?: string;
+    hexaflexStage?: string;
+  };
+
+  recovery?: {
+    active: boolean;
+    phase?: string; // cool | reengage | active
+    turnsRemaining?: number;
+    escalated?: boolean;
+  };
+
+  depth?: {
+    currentLayer: number;
+    recursionDepth: number;
+    degradationRisk: number;
+  };
+
+  limbo?: {
+    inLimbo: boolean;
+    degradationLevel: number;
+    warning?: string;
+  };
+
+  // ── Full Human Reading ───────────────────────────────────
+
+  humanReading?: {
+    tone: HumanTone;
+    tones: Array<{ tone: HumanTone; score: number; meaning: string; skill?: string }>;
+    confidence: number;
+    validationDepth?: ValidationDepth;
+  };
+
+  // ── Session Accumulators ─────────────────────────────────
+
+  contradictions: number;
+  blindSpots: Array<{ category: string; count: number }>;
+
+  disagreements: {
+    total: number;
+    humanYielded: number;
+    agentYielded: number;
+    yieldRatio: number;
+  };
+
+  partnership?: {
+    trustLevel: string;
+    coEvolutionStaleness?: string; // "fresh" | "settling" | "stale"
+  };
+
+  spring?: {
+    intent: string;
+    taskType: string;
+    complexity: string;
   };
 }
 
@@ -72,7 +187,6 @@ export interface KeanuSessionPayload {
   sessionKey: string;
   sessionId: string;
 
-  // Aggregate metrics
   metrics: {
     turnCount: number;
     aliveRate: number;
@@ -86,21 +200,15 @@ export interface KeanuSessionPayload {
     topBullshitTypes: string[];
   };
 
-  // Trend
   trend: {
     greyRate: number;
     avgWiseMind: number;
     driftDirection: "improving" | "degrading" | "stable";
   };
 
-  // Final COEF
   coef: string;
   emoji: string;
-
-  // Health summary
   health: string;
-
-  // Memory depth
   claims: { total: number; active: number; stale: number; contradicted: number };
   knowledge: { entities: number; relations: number };
 }

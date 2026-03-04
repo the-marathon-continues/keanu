@@ -1,4 +1,0 @@
-Target dependency graph (2 targets)
-Target 'KeanuDNSProxy' in project 'Keanu'
-➜ Explicit dependency on target 'KeanuExtensionKit' in project 'Keanu'
-Target 'KeanuExtensionKit' in project 'Keanu' (no dependencies)

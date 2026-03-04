@@ -57,7 +57,15 @@ extension CritterStatusLabel {
                     }
                 }
 
-            if self.gatewayNeedsAttention {
+            if let dotColor = self.pulseDotColor {
+                Circle()
+                    .fill(dotColor)
+                    .frame(width: 5, height: 5)
+                    .scaleEffect(self.pulseDotScale)
+                    .padding(1)
+                    .onAppear { self.startPulseAnimation() }
+                    .onChange(of: self.pulseState) { _, _ in self.startPulseAnimation() }
+            } else if self.gatewayNeedsAttention {
                 Circle()
                     .fill(self.gatewayBadgeColor)
                     .frame(width: 6, height: 6)
@@ -222,6 +230,35 @@ extension CritterStatusLabel {
         case .failed: .red
         case .stopped: .orange
         default: .clear
+        }
+    }
+
+    // MARK: - Pulse Dot (keanu awareness)
+
+    private var pulseDotColor: Color? {
+        guard let state = self.pulseState, !self.isPaused, !self.isSleeping else { return nil }
+        return switch state {
+        case .alive: Color(red: 0.13, green: 0.55, blue: 0.13)    // #228B22
+        case .dark: Color(red: 0.55, green: 0, blue: 0)           // #8B0000
+        case .luminous: Color(red: 1.0, green: 0.84, blue: 0)     // #FFD700
+        case .grey: Color.gray.opacity(0.5)
+        case .black: nil
+        }
+    }
+
+    private func startPulseAnimation() {
+        guard let state = self.pulseState else { return }
+        let duration: Double = switch state {
+        case .alive, .dark, .luminous: 1.2
+        case .grey: 2.5
+        case .black: 0
+        }
+        guard duration > 0 else {
+            self.pulseDotScale = 1.0
+            return
+        }
+        withAnimation(.easeInOut(duration: duration).repeatForever(autoreverses: true)) {
+            self.pulseDotScale = 0.6
         }
     }
 }

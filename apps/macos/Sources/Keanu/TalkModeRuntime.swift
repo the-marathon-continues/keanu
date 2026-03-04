@@ -780,8 +780,8 @@ extension TalkModeRuntime {
         self.interruptOnSpeech = cfg.interruptOnSpeech
         self.apiKey = cfg.apiKey
         let hasApiKey = (cfg.apiKey?.isEmpty == false)
-        let voiceLabel = (cfg.voiceId?.isEmpty == false) ? cfg.voiceId! : "none"
-        let modelLabel = (cfg.modelId?.isEmpty == false) ? cfg.modelId! : "none"
+        let voiceLabel = cfg.voiceId?.nonEmpty ?? "none"
+        let modelLabel = cfg.modelId?.nonEmpty ?? "none"
         self.logger
             .info(
                 "talk config voiceId=\(voiceLabel, privacy: .public) " +
@@ -905,7 +905,7 @@ extension TalkModeRuntime {
                     acc[key] = value
                 } ?? [:]
             let model = activeConfig?["modelId"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines)
-            let resolvedModel = (model?.isEmpty == false) ? model! : Self.defaultModelIdFallback
+            let resolvedModel = model?.nonEmpty ?? Self.defaultModelIdFallback
             let outputFormat = activeConfig?["outputFormat"]?.stringValue
             let interrupt = talk?["interruptOnSpeech"]?.boolValue
             let apiKey = activeConfig?["apiKey"]?.stringValue

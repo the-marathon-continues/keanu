@@ -10,6 +10,7 @@
 import { randomUUID } from "node:crypto";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
+import { Continuity, type ContinuityResult } from "../layer-0-physics/throughline/continuity.js";
 import { getAllClaims, staleClaims, decayAll } from "../layer-3-causal/silverado.js";
 import type { TrackedClaim } from "../shared/types.js";
 
@@ -52,6 +53,7 @@ export interface BeliefReviewRequest {
 
 const _revisions: BeliefRevision[] = [];
 const _reviewQueue: BeliefReviewRequest[] = [];
+const _continuityIssues: Map<string, ContinuityResult> = new Map();
 const MAX_REVISIONS = 100;
 let _currentSession = "";
 let _lastDecaySnapshot: Map<string, number> = new Map(); // claimId -> confidence before decay
@@ -90,6 +92,12 @@ export function recordRevision(
     _revisions.splice(0, _revisions.length - MAX_REVISIONS);
   }
 
+  // Check continuity when claim has enough history
+  const claimHistory = _revisions.filter((r) => r.claimId === claimId);
+  if (claimHistory.length >= 3) {
+    checkBeliefContinuity(claimId);
+  }
+
   return revision;
 }
 
@@ -115,6 +123,48 @@ export function getRevisionsInSession(sessionId: string): BeliefRevision[] {
  */
 export function getRecentRevisions(limit = 5): BeliefRevision[] {
   return _revisions.slice(-limit);
+}
+
+// ============================================================
+// Thread Integrity
+// ============================================================
+
+/**
+ * Check thread integrity for a claim's revision history.
+ * Called after recordRevision when claim has 3+ revisions.
+ * A sequence that flips (true → false → true) shows breaks.
+ * A sequence that drifts steadily (0.9 → 0.85 → 0.8) holds intact.
+ */
+export function checkBeliefContinuity(claimId: string): ContinuityResult | null {
+  const history = getRevisionHistory(claimId);
+  if (history.length < 3) {
+    return null;
+  }
+
+  // Build sequence from revision texts + confidence so word-overlap picks up
+  // both claim identity and directional movement
+  const sequence = history.map(
+    (r) => `${r.claimText} (${r.newConfidence.toFixed(1)}, ${r.reason})`,
+  );
+
+  const result = Continuity.check(sequence);
+
+  if (!result.intact) {
+    _continuityIssues.set(claimId, result);
+  } else {
+    // Healed — remove from issues
+    _continuityIssues.delete(claimId);
+  }
+
+  return result;
+}
+
+/**
+ * All claims currently showing thread breaks.
+ * Keyed by claimId. Cleared when a claim heals.
+ */
+export function getContinuityIssues(): Map<string, ContinuityResult> {
+  return new Map(_continuityIssues);
 }
 
 // ============================================================
@@ -303,6 +353,7 @@ export async function load(workspaceDir: string): Promise<void> {
 export function reset(): void {
   _revisions.length = 0;
   _reviewQueue.length = 0;
+  _continuityIssues.clear();
   _lastDecaySnapshot.clear();
   _currentSession = "";
 }

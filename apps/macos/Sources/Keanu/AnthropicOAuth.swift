@@ -84,7 +84,9 @@ enum AnthropicOAuth {
     }
 
     static func buildAuthorizeURL(pkce: PKCE) -> URL {
-        var components = URLComponents(url: self.authorizeURL, resolvingAgainstBaseURL: false)!
+        guard var components = URLComponents(url: self.authorizeURL, resolvingAgainstBaseURL: false) else {
+            return self.authorizeURL
+        }
         components.queryItems = [
             URLQueryItem(name: "code", value: "true"),
             URLQueryItem(name: "client_id", value: self.clientId),
@@ -96,7 +98,7 @@ enum AnthropicOAuth {
             // Match legacy flow: state is the verifier.
             URLQueryItem(name: "state", value: pkce.verifier),
         ]
-        return components.url!
+        return components.url ?? self.authorizeURL
     }
 
     static func exchangeCode(

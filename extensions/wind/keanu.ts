@@ -44,10 +44,12 @@ import {
   type HelixResult,
   type SigmaReading,
 } from "../../keanu-core/layer-0-physics/convergence/index.js";
+import { Spiral } from "../../keanu-core/layer-0-physics/loop/spiral.js";
 import {
   measureSubstrate,
   type SubstrateReading,
 } from "../../keanu-core/layer-0-physics/substrate/index.js";
+import { Flow } from "../../keanu-core/layer-0-physics/throughline/flow.js";
 import { readHuman, formatHumanReading } from "../../keanu-core/layer-1-perception/human.js";
 import {
   triageInjection,
@@ -108,6 +110,7 @@ import {
   getEscalationSignal,
 } from "../../keanu-core/layer-4-agency/nudge.js";
 import * as nudgeModule from "../../keanu-core/layer-4-agency/nudge.js";
+import * as partnershipMomentum from "../../keanu-core/layer-4-agency/partnership-momentum.js";
 import {
   getPartnership,
   updatePartnership,
@@ -150,6 +153,8 @@ import {
 import * as limboModule from "../../keanu-core/layer-5-self/limbo.js";
 import * as observeModule from "../../keanu-core/layer-5-self/observe.js";
 import { reflect, formatReflexion } from "../../keanu-core/layer-5-self/reflexion.js";
+// Physics layer wiring — orphaned primitives now have nerves
+import * as sessionRhythm from "../../keanu-core/layer-5-self/session-rhythm.js";
 import * as stateReportModule from "../../keanu-core/layer-5-self/state-report.js";
 import * as state from "../../keanu-core/layer-5-self/state.js";
 import * as struggleVoiceModule from "../../keanu-core/layer-5-self/struggle-voice.js";
@@ -171,6 +176,7 @@ import type {
   SeasonReading,
 } from "../../keanu-core/layer-6-narrative/seasons.js";
 import { formatSoul, surfaceValue, formatValue } from "../../keanu-core/layer-6-narrative/soul.js";
+import * as beliefUpdaterModule from "../../keanu-core/layer-7-update/belief-updater.js";
 import { detectCascadeStage, formatCascade } from "../../keanu-core/layer-7-update/cascade.js";
 import * as contradictionModule from "../../keanu-core/layer-7-update/contradiction-detector.js";
 import {
@@ -182,6 +188,7 @@ import {
   saveCuriosity,
   loadCuriosity,
 } from "../../keanu-core/layer-7-update/curiosity.js";
+import { getSpiralReadings } from "../../keanu-core/layer-7-update/curiosity.js";
 import {
   shouldDeliberate,
   shouldDeliberateCombined,
@@ -656,6 +663,66 @@ export default {
           });
         }
 
+        // ---------------------------------------------------------------
+        // Physics layer: flow, rhythm, momentum — the temporal nervous system
+        // ---------------------------------------------------------------
+
+        // Flow: record a moment from this turn's pulse
+        if (pulse) {
+          const flowPosition: "past" | "present" | "future" =
+            pulse.state === "alive" || pulse.state === "luminous"
+              ? "present"
+              : pulse.state === "grey"
+                ? "past"
+                : "present"; // dark is present-but-hurting
+          const flowWeight =
+            pulse.state === "alive"
+              ? 0.8
+              : pulse.state === "luminous"
+                ? 0.9
+                : pulse.state === "grey"
+                  ? 0.5
+                  : pulse.state === "dark"
+                    ? 0.7
+                    : 0.3; // black
+          state.recordFlowMoment(
+            aiOutput.slice(0, 100),
+            flowWeight,
+            flowPosition,
+            flowPosition === "past" ? 0.3 : 0,
+          );
+
+          // Rhythm: record a beat from this pulse
+          sessionRhythm.recordBeat(
+            pulse.state as "alive" | "grey" | "black" | "luminous" | "dark",
+            state.turnCount,
+            Math.max(state.turnCount, 1),
+          );
+
+          // Momentum: update partnership momentum
+          const recentAliveCount =
+            state.recentAgentOutputs.length > 0
+              ? state.turnSnapshots.filter((s) => s.pulse === "alive").length
+              : 0;
+          const aliveRate = state.turnCount > 0 ? recentAliveCount / state.turnCount : 0;
+          const trustLvl = getPartnership().trust.level;
+          const trustLevel =
+            trustLvl === "high"
+              ? 0.9
+              : trustLvl === "calibrating"
+                ? 0.6
+                : trustLvl === "strained"
+                  ? 0.3
+                  : 0.5;
+          partnershipMomentum.update(Math.max(1, state.turnCount), aliveRate, trustLevel);
+        }
+
+        // Compute flow + rhythm every 3 turns (they need history)
+        if (state.turnCount > 0 && state.turnCount % 3 === 0) {
+          state.computeFlow();
+          sessionRhythm.computeRhythm();
+        }
+
         // Contradiction check against recent agent outputs
         const contradictions = memoryContradictionCheck(
           aiOutput,
@@ -983,32 +1050,171 @@ export default {
         }
 
         // RELAY: broadcast turn awareness to connected clients (Mac app, web UI)
+        const daStats = state.disagreementTracker.stats();
+        const vReading = velocityModule.readVelocity();
+        const dReading = depthModule.getDepthReading();
+        const pship = getPartnership();
+        const hr = state.lastHumanReading;
         const turnPayload: KeanuTurnPayload = {
           ts: Date.now(),
           sessionKey: "current",
           turn: state.turnCount,
           coef: coefText,
           emoji: coefEmoji,
+
+          // Core vitals
           pulse: {
             state: pulse.state,
             wiseMind: pulse.wise_mind,
             confidence: pulse.confidence,
             colors: pulse.colors,
           },
-          humanTone: state.lastHumanReading?.tone ?? "neutral",
+          humanTone: hr?.tone ?? "neutral",
           struggle: {
             dominant: coefState.struggleDominant,
             score: (pulse.struggleReadings ?? []).reduce((s, r) => s + r.score, 0),
             types: (pulse.struggleReadings ?? []).filter((r) => r.score > 0.3).map((r) => r.type),
           },
-          health: lastHealthReading?.status ?? "unknown",
+          health: {
+            status: lastHealthReading?.status ?? "unknown",
+            factors: lastHealthReading?.factors
+              ? {
+                  contextAge: lastHealthReading.factors.contextAge,
+                  bullshitTrend: lastHealthReading.factors.bullshitTrend,
+                  promptSize: lastHealthReading.factors.promptSize,
+                  toolErrorRate: lastHealthReading.factors.toolFailureRate,
+                  resonanceStrain: lastHealthReading.factors.resonanceDistance,
+                }
+              : undefined,
+            guidance: lastHealthReading?.pacing ?? undefined,
+          },
           greyStreak: state.consecutiveGrey,
+
+          // The 5 easy detections
+          carnegie: lastCarnegieReading
+            ? {
+                triggered: lastCarnegieReading.triggered,
+                highestType: lastCarnegieReading.highestType,
+                presuppositionText: lastCarnegieReading.presuppositions[0]?.text,
+                caught: lastCarnegieDelta?.caught,
+                agreedWithoutCheck: lastCarnegieDelta?.agreed_without_check,
+              }
+            : undefined,
+          mismatch: lastMismatchReading
+            ? {
+                detected: lastMismatchReading.detected,
+                type: lastMismatchReading.type ?? null,
+                humanNeed: lastMismatchReading.humanNeed,
+                agentGave: lastMismatchReading.agentGave,
+              }
+            : undefined,
+          calibration: lastCalibration
+            ? {
+                triggered: lastCalibration.triggered,
+                reason: lastCalibration.reason,
+                claims: lastCalibration.claims.slice(0, 5),
+              }
+            : undefined,
+          velocity: vReading
+            ? {
+                mode: vReading.mode,
+                appropriate: vReading.appropriate,
+                suggestion: vReading.suggestion,
+              }
+            : undefined,
+          discover: lastDiscoverReading
+            ? {
+                complexity: lastDiscoverReading.complexity,
+                selectedModules: lastDiscoverReading.selectedModules,
+              }
+            : undefined,
+
+          // Physics layer
           substrate: substrateChannel
             ? {
                 regime: substrateChannel.regime,
                 theta: substrateChannel.theta,
                 firing: substrateChannel.firing,
                 urgency: substrateChannel.urgency,
+                noiseClarity: substrateChannel.noiseClarity,
+                resonanceDistance: substrateChannel.resonanceDistance,
+              }
+            : undefined,
+          helix: lastHelixReading
+            ? {
+                aliveState: lastHelixReading.aliveState,
+                factualStrand: lastHelixReading.strands.factual,
+                feltStrand: lastHelixReading.strands.felt,
+                diagnosis: lastHelixReading.diagnosis,
+              }
+            : undefined,
+          sigma: lastSigmaReading
+            ? {
+                sigma: lastSigmaReading.sigma,
+                agency: lastSigmaReading.agency,
+                predictionCorrect: lastSigmaReading.predictionCorrect,
+              }
+            : undefined,
+
+          // State tracking
+          recovery: recovery.active
+            ? {
+                active: true,
+                phase: recovery.phase,
+                turnsRemaining: recovery.turnsRemaining,
+                escalated: recovery.escalated,
+              }
+            : { active: false },
+          depth: dReading
+            ? {
+                currentLayer: dReading.currentLayer,
+                recursionDepth: dReading.recursionDepth,
+                degradationRisk:
+                  dReading.degradationRisk === "low"
+                    ? 0.1
+                    : dReading.degradationRisk === "medium"
+                      ? 0.4
+                      : dReading.degradationRisk === "high"
+                        ? 0.7
+                        : 1.0,
+              }
+            : undefined,
+
+          // Full human reading
+          humanReading: hr
+            ? {
+                tone: hr.tone,
+                tones: hr.tones.map((t) => ({
+                  tone: t.tone,
+                  score: t.score,
+                  meaning: t.meaning,
+                  skill: t.skill,
+                })),
+                confidence: hr.confidence,
+                validationDepth: hr.validationDepth,
+              }
+            : undefined,
+
+          // Session accumulators
+          contradictions: state.recentContradictions?.length ?? 0,
+          blindSpots: [...getBlindSpots()].map((b) => ({ category: b.category, count: b.count })),
+          disagreements: {
+            total: daStats.total,
+            humanYielded: daStats.human_yielded,
+            agentYielded: daStats.agent_yielded,
+            yieldRatio: daStats.yield_ratio,
+          },
+          partnership: pship
+            ? {
+                trustLevel: pship.trust?.level ?? "unknown",
+                coEvolutionStaleness: pship.coEvolution?.staleness,
+              }
+            : undefined,
+          spring: lastSpring
+            ? {
+                intent: lastSpring.intent.slice(0, 100),
+                taskType: lastSpring.taskType,
+                complexity: lastSpring.complexity,
               }
             : undefined,
         };
@@ -2158,6 +2364,92 @@ export default {
             "meta",
           );
         }
+      }
+
+      // ---------------------------------------------------------------
+      // PHYSICS LAYER: temporal nervous system diagnostics
+      // flow, rhythm, momentum, spiral, release, continuity
+      // These surface only when unhealthy or noteworthy — not every turn.
+      // ---------------------------------------------------------------
+
+      // Flow: temporal feel of the session
+      const flowHealth = state.getFlowHealth();
+      if (flowHealth && !flowHealth.healthy) {
+        add("flow", `[flow: ${flowHealth.diagnosis.toLowerCase()}]`, "medium", "awareness");
+      }
+
+      // Rhythm: the beat underneath aliveness
+      const rhythmHealth = sessionRhythm.getRhythmHealth();
+      if (rhythmHealth && !rhythmHealth.healthy) {
+        add("rhythm", `[rhythm: ${rhythmHealth.diagnosis.toLowerCase()}]`, "low", "awareness");
+      }
+      // Fragile warning: alive pulse but falling rhythm
+      if (pulse?.state === "alive" && sessionRhythm.isFragile(true)) {
+        add(
+          "rhythm-fragile",
+          "[rhythm: present but fragile. phase=falling. the beat is fading even though the last reading was alive.]",
+          "medium",
+          "awareness",
+        );
+      }
+
+      // Momentum: partnership dynamics
+      const momentumHealth = partnershipMomentum.getHealth();
+      if (momentumHealth && !momentumHealth.healthy) {
+        add(
+          "momentum",
+          `[momentum: ${momentumHealth.diagnosis.toLowerCase()}]`,
+          "medium",
+          "awareness",
+        );
+      }
+      const momentumTrend = partnershipMomentum.getTrend();
+      if (momentumTrend === "fading") {
+        add(
+          "momentum-trend",
+          "[momentum: fading. energy dropping. what changed?]",
+          "low",
+          "awareness",
+        );
+      }
+
+      // Spiral: curiosity depth tracking — only surface stuck spirals
+      const spiralReadings = getSpiralReadings();
+      for (const [theme, spiral] of spiralReadings) {
+        const sHealth = Spiral.health(spiral);
+        if (!sHealth.healthy) {
+          add(
+            `spiral-${theme.slice(0, 20)}`,
+            `[spiral: ${sHealth.diagnosis.toLowerCase()} on "${theme}". level ${spiral.level}.]`,
+            "medium",
+            "awareness",
+          );
+        }
+      }
+
+      // Release: grief from collapsed futures
+      const lastRelease = futuresModule.getLastRelease();
+      if (lastRelease && lastRelease.grief > 0.3) {
+        add(
+          "release",
+          `[release: letting go of "${lastRelease.released.slice(0, 60)}". grief=${lastRelease.grief.toFixed(2)} relief=${lastRelease.relief.toFixed(2)}. ${lastRelease.gratitude ?? "still raw."}]`,
+          "high",
+          "awareness",
+        );
+      }
+
+      // Continuity: belief thread integrity
+      const continuityIssues = beliefUpdaterModule.getContinuityIssues();
+      if (continuityIssues.size > 0) {
+        const worstEntry = [...continuityIssues.values()].sort(
+          (a, b) => a.strength - b.strength,
+        )[0];
+        add(
+          "continuity",
+          `[continuity: belief thread fraying. strength=${worstEntry.strength.toFixed(2)}. ${worstEntry.breaks.length} break(s). what persists through these revisions?]`,
+          "medium",
+          "awareness",
+        );
       }
 
       if (items.length === 0) return;

@@ -74,7 +74,7 @@ struct ExecCommandResolution: Sendable {
                     return expanded
                 }
                 let base = cwd?.trimmingCharacters(in: .whitespacesAndNewlines)
-                let root = (base?.isEmpty == false) ? base! : FileManager().currentDirectoryPath
+                let root = base?.nonEmpty ?? FileManager().currentDirectoryPath
                 return URL(fileURLWithPath: root).appendingPathComponent(expanded).path
             }
             let searchPaths = self.searchPaths(from: env)

@@ -16,6 +16,11 @@
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  Release,
+  type ReleaseResult,
+  type Holding,
+} from "../layer-0-physics/divergence/release.js";
 
 // ============================================================
 // What is a future?
@@ -78,6 +83,9 @@ let _futures: AnticipatedFuture[] = [];
 
 // Counter for unique IDs
 let _idCounter = 0;
+
+// Most recent release result — grief given a shape
+let _lastRelease: ReleaseResult | null = null;
 
 // ============================================================
 // Future detection — extract from conversation
@@ -200,6 +208,55 @@ function findSimilarFuture(description: string): AnticipatedFuture | null {
 }
 
 // ============================================================
+// Release integration — futures as holdings, grief as data
+// ============================================================
+
+function futureToHolding(future: AnticipatedFuture): Holding {
+  const importanceGrip: Record<FutureImportance, number> = {
+    foundational: 0.95,
+    significant: 0.7,
+    ordinary: 0.4,
+    fleeting: 0.15,
+  };
+
+  const daysSinceFirst = Math.max(
+    1,
+    (Date.now() - new Date(future.firstMentioned).getTime()) / (1000 * 60 * 60 * 24),
+  );
+
+  return {
+    id: future.id,
+    what: future.description,
+    grip: importanceGrip[future.importance],
+    serves: future.status === "active",
+    cost: Math.min(0.9, future.mentions * 0.1),
+    age: daysSinceFirst,
+  };
+}
+
+export function getLastRelease(): ReleaseResult | null {
+  return _lastRelease;
+}
+
+/**
+ * Check active futures for death grips — holding too tight to things that don't serve.
+ */
+export function detectDeathGrips(): Holding[] {
+  const holdings = getActiveFutures().map(futureToHolding);
+  return Release.deathGrip(holdings);
+}
+
+/**
+ * Check active futures for loose grips — letting go too easily of things that serve.
+ */
+export function detectLooseGrips(): Holding[] {
+  const holdings = getActiveFutures().map(futureToHolding);
+  return Release.looseGrip(holdings);
+}
+
+export { futureToHolding };
+
+// ============================================================
 // Future lifecycle
 // ============================================================
 
@@ -214,16 +271,25 @@ export function completeFuture(id: string): AnticipatedFuture | null {
   return future;
 }
 
-export function collapseFuture(id: string, reason: string): AnticipatedFuture | null {
+export function collapseFuture(
+  id: string,
+  reason: string,
+): { future: AnticipatedFuture | null; release: ReleaseResult | null } {
   const future = _futures.find((f) => f.id === id);
   if (!future) {
-    return null;
+    return { future: null, release: null };
   }
 
   future.status = "collapsed";
   future.collapsedReason = reason;
   future.collapsedAt = new Date().toISOString();
-  return future;
+
+  // Compute the release — give grief a shape
+  const holding = futureToHolding(future);
+  const release = Release.let(holding, reason);
+  _lastRelease = release;
+
+  return { future, release };
 }
 
 export function transformFuture(id: string, into: string): AnticipatedFuture | null {
@@ -537,4 +603,5 @@ export function fromJSON(data: FuturesState | null): void {
 export function reset(): void {
   _futures = [];
   _idCounter = 0;
+  _lastRelease = null;
 }

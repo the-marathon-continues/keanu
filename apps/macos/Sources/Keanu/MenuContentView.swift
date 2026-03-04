@@ -153,6 +153,10 @@ struct MenuContent: View {
             if let updater, updater.isAvailable, self.updateStatus.isUpdateReady {
                 Button("Update ready, restart now?") { updater.checkForUpdates(nil) }
             }
+            Divider()
+            AwarenessInlineView()
+            Button("Awareness Dashboard") { DashboardWindowController.shared.show() }
+                .keyboardShortcut("d", modifiers: [.command])
             Button("Quit") { NSApplication.shared.terminate(nil) }
         }
         .task(id: self.state.swabbleEnabled) {

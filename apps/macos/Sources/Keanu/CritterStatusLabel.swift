@@ -10,6 +10,7 @@ struct CritterStatusLabel: View {
     var gatewayStatus: GatewayProcessManager.Status
     var animationsEnabled: Bool
     var iconState: IconState
+    var pulseState: AliveState? = nil
 
     @State var blinkAmount: CGFloat = 0
     @State var nextBlink = Date().addingTimeInterval(Double.random(in: 3.5...8.5))
@@ -20,4 +21,5 @@ struct CritterStatusLabel: View {
     @State var nextLegWiggle = Date().addingTimeInterval(Double.random(in: 5.0...11.0))
     @State var earWiggle: CGFloat = 0
     @State var nextEarWiggle = Date().addingTimeInterval(Double.random(in: 7.0...14.0))
+    @State var pulseDotScale: CGFloat = 1.0
 }

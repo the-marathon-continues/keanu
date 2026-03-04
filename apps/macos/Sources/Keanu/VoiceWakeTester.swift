@@ -436,7 +436,7 @@ final class VoiceWakeTester {
     }
 
     private func logInputSelection(preferredMicID: String?) {
-        let preferred = (preferredMicID?.isEmpty == false) ? preferredMicID! : "system-default"
+        let preferred = preferredMicID?.nonEmpty ?? "system-default"
         self.logger.info(
             "voicewake test input preferred=\(preferred, privacy: .public) " +
                 "\(AudioInputDeviceObserver.defaultInputDeviceSummary(), privacy: .public)")

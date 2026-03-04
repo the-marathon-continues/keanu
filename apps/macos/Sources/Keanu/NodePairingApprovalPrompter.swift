@@ -401,7 +401,7 @@ final class NodePairingApprovalPrompter {
         let ip = self.prettyIP(req.remoteIp)
 
         var lines: [String] = []
-        lines.append("Name: \(name?.isEmpty == false ? name! : "Unknown")")
+        lines.append("Name: \(name?.nonEmpty ?? "Unknown")")
         lines.append("Node ID: \(req.nodeId)")
         if let platform, !platform.isEmpty { lines.append("Platform: \(platform)") }
         if let version, !version.isEmpty { lines.append("App: \(version)") }
@@ -435,7 +435,7 @@ final class NodePairingApprovalPrompter {
 
         let title = resolution == .approved ? "Node pairing approved" : "Node pairing rejected"
         let name = request.displayName?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let device = name?.isEmpty == false ? name! : request.nodeId
+        let device = name?.nonEmpty ?? request.nodeId
         let body = "\(device)\n(via \(via))"
 
         _ = await NotificationManager().send(
