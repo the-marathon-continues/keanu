@@ -1,0 +1,16 @@
+{
+  "name": "keanu-portal",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --experimental-strip-types --watch server.ts",
+    "start": "node --experimental-strip-types server.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1004.0",
+    "@aws-sdk/lib-dynamodb": "^3.1004.0",
+    "@hono/node-server": "^1.14.0",
+    "hono": "^4.7.0"
+  }
+}

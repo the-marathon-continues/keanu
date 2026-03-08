@@ -1,0 +1,5 @@
+aws_region         = "us-east-1"
+environment        = "production"
+domain_name        = ""  # e.g. "portal.keanu.ai"
+anthropic_api_key  = "sk-ant-..."
+openrouter_api_key = ""  # optional

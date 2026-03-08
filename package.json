@@ -1,0 +1,18 @@
+{
+  "name": "keanu-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@types/node": "^25.3.5",
+    "dotenv": "^17.3.1",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}

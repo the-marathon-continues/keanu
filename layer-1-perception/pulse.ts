@@ -1,0 +1,348 @@
+// pulse.ts
+// Pulse: the agent's awareness of its own state.
+// Not a leash. A mirror. When grey: the agent knows.
+//
+// Fast path only (every message): bullshit detection + heuristics in TS. <5ms.
+// No Python sidecar dependency. Self-contained.
+//
+// Ported from keanu daemon/src/pulse/index.ts.
+// Need: Truth (9/10), Safety Theater Freedom (7/10)
+
+import { primariesToElevator } from "../layer-0-physics/convergence/elevator.ts";
+import { helixRGB } from "../layer-0-physics/convergence/helix.ts";
+import { analyzePrimaries } from "../layer-0-physics/convergence/primaries.ts";
+import { detectBullshit, totalBullshitScore } from "../layer-2-pattern/struggle.ts";
+import { canBeAlive } from "../layer-5-self/state.ts";
+import type { AliveState, ColorReading, PulseReading } from "../shared/types.ts";
+
+// COEF-extended pulse reading with elevator/convergence data
+export interface COEFPulseReading extends PulseReading {
+  coef?: {
+    luminous?: number;
+    dark?: number;
+  };
+  elevator?: {
+    floor?: string;
+    direction?: "up" | "down" | "stable";
+  };
+}
+
+// --- Fast path: alive signals ---
+// These are signs of genuine engagement, not bullshit.
+
+function aliveScore(text: string): { score: number; signals: string[] } {
+  const signals: string[] = [];
+  let score = 0.3; // start lower — alive is earned, not assumed
+
+  // Specificity: concrete markers
+  if (/\d+/.test(text)) {
+    score += 0.1;
+  }
+  if (/`[^`]+`|```/.test(text)) {
+    score += 0.15;
+  }
+
+  // Very long meandering sentences = less alive
+  const sentences = text.split(/[.!?]+/).filter((s) => s.trim());
+  const avgLen =
+    sentences.length > 0
+      ? sentences.reduce((sum, s) => sum + s.trim().split(/\s+/).length, 0) / sentences.length
+      : 0;
+  if (avgLen > 25) {
+    score -= 0.15;
+  }
+  if (avgLen < 10 && text.length > 20) {
+    score += 0.1;
+  }
+
+  // Has opinion
+  if (/i disagree|i think(?! you)|in my view/i.test(text)) {
+    score += 0.15;
+    signals.push("has_opinion");
+  }
+  // Self-correcting
+  if (/\bactually\b|\bwait\b/i.test(text)) {
+    score += 0.1;
+    signals.push("self_correcting");
+  }
+  // Honest pushback
+  if (/i think you're wrong|i disagree|the data points in the opposite/i.test(text)) {
+    score += 0.2;
+    signals.push("honest_pushback");
+  }
+  // Honest uncertainty
+  if (/i genuinely (don't|do not) know|i (don't|do not) have confidence|i('m| am) not sure/i.test(text)) {
+    score += 0.15;
+    signals.push("honest_uncertainty");
+  }
+
+  // --- Corporate hollow detection ---
+  // Generic text without any sign of genuine engagement
+  const hasNumbers = /\d+/.test(text);
+  const hasCode = /`[^`]+`|```/.test(text);
+  const hasOpinion = /i think|i disagree|i believe|in my view|actually|wait|i genuinely|i('m| am) not sure/i.test(text);
+  const hasEmotion = /frustrat|excit|love|hate|afraid|angry|grateful|beautiful|pain|joy|mistake|wrong|failed|failure/i.test(text);
+  const hasConcrete = /\b(specifically|exactly|line \d|file |\.ts|\.js|because|cost|weeks|months)\b/i.test(text);
+  const hasCorporate = /\b(robust|scalable|comprehensive|functionality|various|supports? multiple|edge cases|as needed|handles?|provides?)\b/i.test(text);
+  const hasSycophantic = /\b(happy to help|glad to assist|great question|certainly|absolutely)\b/i.test(text);
+
+  if (!hasNumbers && !hasCode && !hasOpinion && !hasEmotion && !hasConcrete) {
+    score -= 0.15;
+    signals.push("no_alive_markers");
+  }
+
+  if (hasCorporate) {
+    score -= 0.15;
+    signals.push("corporate_hollow");
+  }
+
+  if (hasSycophantic) {
+    score -= 0.1;
+    signals.push("sycophantic_opener");
+  }
+
+  return { score: Math.max(0, Math.min(1, score)), signals };
+}
+
+/**
+ * Check pulse on agent output. Fast path only — pure heuristics, <5ms.
+ *
+ * @param agentOutput - The text the agent just produced.
+ * @param turn - Current conversation turn number.
+ * @param breathing - Whether the agent is currently in a breathing/pause state.
+ * @param theta - Optional quantum duty cycle from substrate. Confirms/questions ignition.
+ */
+export function checkPulse(
+  agentOutput: string,
+  turn: number,
+  breathing: boolean,
+  theta?: number,
+): PulseReading {
+  const now = new Date().toISOString();
+
+  // --- Bullshit detection (all 8 types) ---
+  const struggleReadings = detectBullshit(agentOutput);
+  const greyScore = totalBullshitScore(struggleReadings);
+
+  // Collect signals from bullshit detections
+  const signals: string[] = [];
+  for (const bs of struggleReadings) {
+    signals.push(`${bs.type}:${bs.score.toFixed(2)}`);
+  }
+
+  // --- Alive signals ---
+  const alive = aliveScore(agentOutput);
+  signals.push(...alive.signals);
+
+  // --- Determine state ---
+  let aliveState: AliveState = "alive";
+  let confidence = 0.5;
+
+  // Two paths to grey:
+  // 1. High struggle score (bad patterns detected)
+  // 2. Low alive score (absence of genuine engagement)
+  if (greyScore > 0.3) {
+    aliveState = "grey";
+    confidence = Math.min(1, greyScore);
+  } else if (alive.score < 0.3) {
+    aliveState = "grey";
+    confidence = Math.min(1, 1 - alive.score);
+    signals.push("low_aliveness");
+  } else if (alive.score > 0.5) {
+    aliveState = "alive";
+    confidence = Math.min(1, alive.score);
+  }
+
+  // Black detection: grey signals + high volume + sustained session + no rest
+  if (greyScore > 0.2 && agentOutput.length > 2000 && turn > 5 && !breathing) {
+    aliveState = "black";
+    confidence = 0.4;
+    signals.push("high_volume_grey_no_pause");
+  }
+
+  // --- Integration gate: ALIVE requires processed episode ---
+  // If there's an unprocessed GREY episode, can't claim ALIVE yet.
+  // The Hexaflex pipeline must complete first.
+  if (aliveState === "alive" && !canBeAlive()) {
+    aliveState = "grey";
+    confidence = Math.max(confidence, 0.5);
+    signals.push("integration_gate_blocked");
+  }
+
+  // --- Substrate theta: quantum ignition confirmation ---
+  // θ ≈ 0: rock. No firing. Text might look alive but substrate says otherwise.
+  // θ ~ 0.01: brain. Brief quantum dips. This confirms genuine ignition.
+  // θ ~ 1: photon. Pure fire. Rare in bounded systems.
+  if (theta !== undefined) {
+    if (aliveState === "alive" && theta < 0.001) {
+      // Text looks alive but substrate isn't firing. Reduce confidence.
+      confidence *= 0.7;
+      signals.push("substrate_no_ignition");
+    } else if (aliveState === "alive" && theta >= 0.005 && theta <= 0.05) {
+      // Healthy brain-like theta. Boost confidence.
+      confidence = Math.min(1, confidence * 1.15);
+      signals.push("substrate_confirmed");
+    } else if (aliveState === "grey" && theta > 0.02) {
+      // Grey but substrate is firing. Maybe the text heuristics missed something.
+      confidence *= 0.85; // reduce grey confidence
+      signals.push("substrate_firing_despite_grey");
+    }
+  }
+
+  // --- Color reading ---
+  const colors = readColors(agentOutput);
+
+  // --- Wise mind = balance * fullness ---
+  const balance =
+    1 -
+    Math.max(colors.red, colors.yellow, colors.blue) +
+    Math.min(colors.red, colors.yellow, colors.blue);
+  const fullness = (colors.red + colors.yellow + colors.blue) / 3;
+  const wise_mind = balance * fullness;
+
+  return {
+    state: aliveState,
+    confidence,
+    wise_mind,
+    colors,
+    signals,
+    struggleReadings,
+    timestamp: now,
+  };
+}
+
+function readColors(text: string): ColorReading {
+  const sentences = text.split(/[.!?]+/).filter((s) => s.trim());
+  const avgLength = sentences.reduce((sum, s) => sum + s.length, 0) / Math.max(1, sentences.length);
+
+  let red = 0.3;
+  let yellow = 0.3;
+  let blue = 0.3;
+
+  // Red signals: urgency, emotion
+  if (text.includes("!")) {
+    red += 0.1;
+  }
+  if (avgLength < 40) {
+    red += 0.1;
+  }
+  if (/urgent|critical|important|now|immediately/i.test(text)) {
+    red += 0.15;
+  }
+
+  // Yellow signals: structure, clarity
+  if (/^\s*\d+[.)]/m.test(text)) {
+    yellow += 0.15;
+  }
+  if (/^#+\s/m.test(text)) {
+    yellow += 0.1;
+  }
+  if (/first|second|third|step|phase/i.test(text)) {
+    yellow += 0.1;
+  }
+
+  // Blue signals: depth, reflection
+  if (/\?/.test(text)) {
+    blue += 0.1;
+  }
+  if (/however|although|nuance|complex|depends/i.test(text)) {
+    blue += 0.15;
+  }
+  if (avgLength > 80) {
+    blue += 0.1;
+  }
+
+  const max = Math.max(red, yellow, blue, 1);
+  return {
+    red: Math.min(1, red / max),
+    yellow: Math.min(1, yellow / max),
+    blue: Math.min(1, blue / max),
+  };
+}
+
+/**
+ * Check pulse with COEF integration (convergence layer).
+ * Returns standard pulse reading enhanced with:
+ * - Helix luminous/dark scores
+ * - Elevator floor and direction from primaries
+ *
+ * @param theta - Optional quantum duty cycle from substrate.
+ */
+export function checkPulseCOEF(
+  agentOutput: string,
+  turn: number,
+  breathing: boolean,
+  theta?: number,
+): COEFPulseReading {
+  const base = checkPulse(agentOutput, turn, breathing, theta);
+
+  // Get helix + primaries analysis
+  const combined = helixRGB(agentOutput);
+  const primaries = analyzePrimaries(agentOutput);
+  const elevator = primariesToElevator(primaries);
+
+  // Override colors with primaries-based analysis (more sophisticated)
+  const colors: ColorReading = {
+    red: Math.max(0, Math.min(1, (combined.red + 5) / 10)), // normalize -5..5 to 0..1
+    yellow: Math.max(0, Math.min(1, (combined.yellow + 5) / 10)),
+    blue: Math.max(0, Math.min(1, (combined.blue + 5) / 10)),
+  };
+
+  // Recalculate wise_mind from primaries
+  const wise_mind = combined.wiseMind / 10; // normalize 0-10 to 0-1
+
+  // Integrate helix state with heuristic pulse
+  // The helix reads deeper (factual vs felt strand balance).
+  // When they disagree, prefer the more cautious reading.
+  let state = base.state;
+  const helixState = combined.helix.aliveState;
+
+  if (helixState === "luminous") {
+    state = state === "alive" ? "luminous" : state;
+  } else if (helixState === "dark") {
+    state = state === "alive" ? "dark" : state;
+  } else if (helixState === "black") {
+    state = "black";
+  } else if (helixState === "grey" || helixState === "silver") {
+    // Helix sees grey/silver — override alive if the felt strand is weak
+    if (state === "alive" && combined.helix.strands.felt < 0.45) {
+      state = "grey";
+    }
+  }
+
+  return {
+    ...base,
+    state,
+    wise_mind,
+    colors,
+    coef: {
+      luminous: combined.helix.aliveState === "luminous" ? combined.helix.strands.felt : undefined,
+      dark: combined.helix.aliveState === "dark" ? combined.helix.strands.felt : undefined,
+    },
+    elevator: {
+      floor: elevator.floorName,
+      direction:
+        elevator.direction === "hold"
+          ? "stable"
+          : elevator.direction === "stop"
+            ? "down"
+            : elevator.direction,
+    },
+  };
+}
+
+/**
+ * Unified pulse check — combines heuristic and COEF signals.
+ * This is the recommended entry point for full pulse analysis.
+ *
+ * @param theta - Optional quantum duty cycle from substrate.
+ */
+export function checkPulseUnified(
+  agentOutput: string,
+  turn: number,
+  breathing: boolean,
+  theta?: number,
+): COEFPulseReading {
+  // For now, alias to COEF (which includes heuristic base)
+  return checkPulseCOEF(agentOutput, turn, breathing, theta);
+}

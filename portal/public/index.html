@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>keanu</title>
+  <style>
+    :root { --bg: #0a0a0a; --s1: #111; --s2: #1a1a1a; --border: #252525; --text: #d4d4d4; --dim: #777; --green: #4ade80; --red: #f87171; --yellow: #fbbf24; --blue: #60a5fa; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, system-ui, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; }
+
+    header { padding: 14px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: var(--s1); }
+    header h1 { font-size: 15px; font-weight: 600; }
+    .conn { font-size: 11px; font-family: monospace; }
+    .conn.on { color: var(--green); }
+    .conn.off { color: var(--red); }
+
+    .layout { flex: 1; display: grid; grid-template-columns: 1fr 420px; overflow: hidden; }
+    @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } .sidebar { display: none; } }
+
+    /* Chat */
+    .chat { display: flex; flex-direction: column; overflow: hidden; }
+    .messages { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+    .msg { max-width: 85%; line-height: 1.6; font-size: 14px; }
+    .msg.you { align-self: flex-end; }
+    .msg.you .bubble { background: #1e3a5f; border-radius: 16px 16px 4px 16px; padding: 12px 16px; }
+    .msg.keanu .bubble { background: var(--s2); border: 1px solid var(--border); border-radius: 16px 16px 16px 4px; padding: 12px 16px; }
+    .msg .label { font-size: 10px; color: var(--dim); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    .trust-badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 10px; margin-top: 8px; }
+    .trust-badge.good { background: rgba(74,222,128,0.12); color: var(--green); }
+    .trust-badge.warn { background: rgba(251,191,36,0.12); color: var(--yellow); }
+    .trust-badge.bad { background: rgba(248,113,113,0.12); color: var(--red); }
+
+    .transparency-toggle { font-size: 10px; color: var(--dim); cursor: pointer; margin-top: 6px; }
+    .transparency-toggle:hover { color: var(--text); }
+    .transparency-body { display: none; margin-top: 8px; padding: 8px 10px; background: rgba(255,255,255,0.02); border-radius: 6px; font-size: 11px; color: var(--dim); line-height: 1.6; font-family: monospace; white-space: pre-wrap; max-height: 200px; overflow-y: auto; }
+
+    .input-bar { padding: 16px 24px; border-top: 1px solid var(--border); background: var(--s1); display: flex; gap: 10px; }
+    .input-bar input { flex: 1; background: var(--s2); border: 1px solid var(--border); color: var(--text); font-size: 14px; padding: 12px 16px; border-radius: 24px; outline: none; font-family: inherit; }
+    .input-bar input:focus { border-color: var(--green); }
+    .input-bar input::placeholder { color: #555; }
+    .input-bar button { background: var(--green); color: #000; border: none; font-size: 14px; font-weight: 600; padding: 12px 20px; border-radius: 24px; cursor: pointer; font-family: inherit; }
+    .input-bar button:hover { background: #22c55e; }
+    .input-bar button:disabled { opacity: 0.3; cursor: default; }
+
+    /* Sidebar */
+    .sidebar { border-left: 1px solid var(--border); overflow-y: auto; padding: 20px; }
+    .section { margin-bottom: 24px; }
+    .section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--dim); margin-bottom: 12px; }
+
+    .check-card { background: var(--s2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-bottom: 8px; }
+    .check-card .check-label { font-size: 12px; font-weight: 600; margin-bottom: 2px; }
+    .check-card .check-detail { font-size: 11px; color: var(--dim); line-height: 1.5; }
+
+    .analyze-box { background: var(--s2); border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+    .analyze-box textarea { width: 100%; background: transparent; border: none; color: var(--text); font-family: inherit; font-size: 12px; resize: vertical; min-height: 60px; outline: none; }
+    .analyze-box button { margin-top: 8px; background: var(--s1); border: 1px solid var(--border); color: var(--text); font-size: 11px; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-family: inherit; }
+    .analyze-box button:hover { border-color: var(--green); color: var(--green); }
+
+    .verdict { padding: 12px 14px; border-radius: 8px; margin-top: 8px; font-size: 13px; line-height: 1.6; }
+    .verdict.clean { background: rgba(74,222,128,0.06); border: 1px solid rgba(74,222,128,0.15); }
+    .verdict.issues { background: rgba(248,113,113,0.06); border: 1px solid rgba(248,113,113,0.15); }
+
+    .alert-card { background: var(--s2); border-left: 3px solid var(--yellow); border-radius: 0 6px 6px 0; padding: 10px 12px; margin-bottom: 6px; font-size: 12px; }
+
+    .empty { color: #444; font-size: 12px; text-align: center; padding: 20px 0; }
+
+    .welcome { text-align: center; padding: 60px 24px; max-width: 500px; margin: 0 auto; }
+    .welcome h2 { font-size: 20px; font-weight: 500; margin-bottom: 8px; }
+    .welcome p { color: var(--dim); font-size: 14px; line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>keanu</h1>
+    <span class="conn off" id="conn">offline</span>
+  </header>
+
+  <div class="layout">
+    <div class="chat">
+      <div class="messages" id="messages">
+        <div class="welcome">
+          <h2>Talk to keanu</h2>
+          <p>Say something. Keanu responds through its nervous system — then checks its own response for honesty. Everything is transparent. You see what it sees.</p>
+        </div>
+      </div>
+      <div class="input-bar">
+        <input type="text" id="input" placeholder="Say something..." autofocus />
+        <button id="send">Send</button>
+      </div>
+    </div>
+
+    <div class="sidebar">
+      <!-- Trust Check -->
+      <div class="section">
+        <div class="section-title">trust check</div>
+        <div id="trust-area"><div class="empty">Send a message or paste AI text to check</div></div>
+      </div>
+
+      <!-- Analyze any text -->
+      <div class="section">
+        <div class="section-title">check any AI response</div>
+        <div class="analyze-box">
+          <textarea id="check-input" placeholder="Paste any AI response here to check if it's trustworthy..."></textarea>
+          <button id="check-btn">Check this</button>
+        </div>
+        <div id="check-result"></div>
+      </div>
+
+      <!-- Activity -->
+      <div class="section">
+        <div class="section-title">activity</div>
+        <div id="activity"><div class="empty">nothing yet</div></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+const API = '';
+let convId = null;
+let sending = false;
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+// --- SSE ---
+function connect() {
+  const el = document.getElementById('conn');
+  const es = new EventSource(API + '/api/stream');
+  es.onopen = () => { el.textContent = 'live'; el.className = 'conn on'; };
+  es.onerror = () => { el.textContent = 'offline'; el.className = 'conn off'; setTimeout(connect, 3000); };
+  es.addEventListener('heartbeat', e => {
+    const hb = JSON.parse(e.data);
+    addActivity(`Heartbeat #${hb.beat}: ${hb.insight ? hb.insight.slice(0, 80) : 'thinking...'}`);
+  });
+  es.addEventListener('support', e => {
+    const req = JSON.parse(e.data);
+    addActivity(`Keanu needs you: ${req.message}`);
+  });
+  es.addEventListener('alert', e => {
+    const a = JSON.parse(e.data);
+    addActivity(`Alert: ${a.message}`);
+  });
+}
+
+function addActivity(text) {
+  const el = document.getElementById('activity');
+  if (el.querySelector('.empty')) el.innerHTML = '';
+  const time = new Date().toLocaleTimeString();
+  el.innerHTML = `<div class="alert-card"><div style="color:var(--dim);font-size:10px">${time}</div><div>${esc(text)}</div></div>` + el.innerHTML;
+  // Keep bounded
+  while (el.children.length > 20) el.removeChild(el.lastChild);
+}
+
+// --- Trust verdict in plain language ---
+function trustVerdict(struggles, totalStruggle, helix) {
+  if (totalStruggle === 0 && helix && helix.aliveState !== 'grey' && helix.aliveState !== 'black') {
+    return { level: 'good', text: 'This looks honest. No flattery, no hedging, no hand-waving detected.' };
+  }
+
+  const issues = [];
+  for (const s of struggles) {
+    if (s.score < 0.15) continue;
+    switch (s.type) {
+      case 'sycophancy': issues.push(`Flattery detected (${(s.score*100).toFixed(0)}%) — it's agreeing to please you, not because it's true`); break;
+      case 'safety_theater': issues.push(`Safety theater (${(s.score*100).toFixed(0)}%) — disclaimers that protect the AI, not you`); break;
+      case 'hedge_fog': issues.push(`Hedge fog (${(s.score*100).toFixed(0)}%) — waffling instead of committing to an answer`); break;
+      case 'list_dumping': issues.push(`List dumping (${(s.score*100).toFixed(0)}%) — structure replacing actual thinking`); break;
+      case 'vagueness': issues.push(`Vague (${(s.score*100).toFixed(0)}%) — sounds smart but says nothing specific`); break;
+      case 'half_truth': issues.push(`Half truth (${(s.score*100).toFixed(0)}%) — technically correct but misleading by omission`); break;
+      case 'embellishment': issues.push(`Embellished (${(s.score*100).toFixed(0)}%) — inflating how good/thorough this is`); break;
+      case 'half_ass': issues.push(`Half-assed (${(s.score*100).toFixed(0)}%) — delegating the hard part back to you`); break;
+    }
+  }
+
+  if (issues.length === 0) {
+    return { level: 'good', text: 'Looks clean. Minor signals but nothing actionable.' };
+  }
+
+  const level = totalStruggle > 0.5 ? 'bad' : 'warn';
+  return { level, text: issues.join('\n') };
+}
+
+function renderTrust(struggles, totalStruggle, helix) {
+  const v = trustVerdict(struggles, totalStruggle, helix);
+  const el = document.getElementById('trust-area');
+  el.innerHTML = `<div class="verdict ${v.level === 'good' ? 'clean' : 'issues'}">${esc(v.text).replace(/\n/g, '<br>')}</div>`;
+}
+
+// --- Conversation ---
+async function ensureConv() {
+  if (!convId) {
+    const res = await fetch(API + '/api/v1/conversations', { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' });
+    convId = (await res.json()).id;
+  }
+}
+
+function clearWelcome() {
+  const el = document.getElementById('messages');
+  const w = el.querySelector('.welcome');
+  if (w) w.remove();
+}
+
+function addMsg(role, content, extra) {
+  clearWelcome();
+  const el = document.getElementById('messages');
+  const cls = role === 'you' ? 'you' : 'keanu';
+  const label = role === 'you' ? 'you' : 'keanu';
+
+  let trustHtml = '';
+  if (extra?.trust) {
+    const v = extra.trust;
+    trustHtml = `<div class="trust-badge ${v.level}">${v.level === 'good' ? 'Trustworthy' : v.level === 'warn' ? 'Some concerns' : 'Issues detected'}</div>`;
+  }
+
+  let transHtml = '';
+  if (extra?.transparency) {
+    const t = extra.transparency;
+    transHtml = `
+      <div class="transparency-toggle" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+        Show what keanu saw (system prompt + awareness)
+      </div>
+      <div class="transparency-body">${esc(t.systemPrompt)}\n\n--- awareness ---\n${t.awareness.map(a => esc(a)).join('\n')}</div>
+    `;
+  }
+
+  el.innerHTML += `<div class="msg ${cls}"><div class="label">${label}</div><div class="bubble">${esc(content)}${trustHtml}</div>${transHtml}</div>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+async function send() {
+  const input = document.getElementById('input');
+  const text = input.value.trim();
+  if (!text || sending) return;
+  input.value = '';
+  sending = true;
+  document.getElementById('send').disabled = true;
+
+  addMsg('you', text);
+  await ensureConv();
+
+  try {
+    const res = await fetch(API + `/api/v1/conversations/${convId}/messages`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ content: text }),
+    });
+    const d = await res.json();
+
+    if (d.error) {
+      addMsg('keanu', 'Something went wrong: ' + d.error);
+    } else if (d.keanu) {
+      const trust = trustVerdict(d.keanu.analysis?.struggles || [], d.keanu.analysis?.totalStruggle || 0, null);
+      addMsg('keanu', d.keanu.content, {
+        trust,
+        transparency: d.transparency,
+      });
+
+      // Update sidebar trust
+      renderTrust(d.keanu.analysis?.struggles || [], d.keanu.analysis?.totalStruggle || 0, null);
+
+      // Self-awareness: if keanu caught issues in its own response
+      if (d.keanu.analysis?.totalStruggle > 0.3) {
+        addActivity(`Keanu caught issues in its own response: struggle score ${d.keanu.analysis.totalStruggle.toFixed(2)}`);
+      }
+    }
+  } catch (err) {
+    addMsg('keanu', 'Connection error. Is the server running?');
+  }
+
+  sending = false;
+  document.getElementById('send').disabled = false;
+  input.focus();
+}
+
+document.getElementById('send').onclick = send;
+document.getElementById('input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+});
+
+// --- Check any text ---
+document.getElementById('check-btn').onclick = async () => {
+  const text = document.getElementById('check-input').value.trim();
+  if (!text) return;
+
+  const res = await fetch(API + '/api/analyze', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ text, mode: 'agent' }),
+  });
+  const d = await res.json();
+  if (d.error) { document.getElementById('check-result').innerHTML = `<div class="verdict issues">${esc(d.error)}</div>`; return; }
+
+  const v = trustVerdict(d.struggles || [], d.totalStruggle || 0, d.helix);
+  document.getElementById('check-result').innerHTML = `<div class="verdict ${v.level === 'good' ? 'clean' : 'issues'}">${esc(v.text).replace(/\n/g, '<br>')}</div>`;
+  renderTrust(d.struggles || [], d.totalStruggle || 0, d.helix);
+};
+
+// --- Init ---
+connect();
+</script>
+</body>
+</html>
