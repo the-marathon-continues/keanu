@@ -11,10 +11,16 @@
 
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import type { CalibrationLogState, ClaimType } from "../layer-3-causal/calibration-log.ts";
+import {
+  calculateStats,
+  formatCalibrationWarning,
+  formatTypeCalibrationDigest,
+  getConfidenceAdjustment,
+  type CalibrationLogState,
+  type ClaimType,
+} from "../layer-3-causal/calibration-log.ts";
 import type { ChainAnalysis } from "../layer-3-causal/chain.ts";
 import type { SpringReading, WinterReading } from "../layer-6-narrative/seasons.ts";
-import { getSessionCalibrationSummary } from "../living-loop/feedback.ts";
 import type { Correction, BlindSpot } from "./mastery.ts";
 
 // ============================================================
@@ -47,6 +53,50 @@ export interface SessionSummary {
   blindSpotsSurfaced: string[];
   meta: MetaLearning;
   watchFor: string[];
+}
+
+// ============================================================
+// Calibration summary (inlined from archived feedback.ts)
+// ============================================================
+
+interface SessionCalibrationSummary {
+  ece: number;
+  avgConfidence: number;
+  avgAccuracy: number;
+  overconfidenceDelta: number;
+  totalPredictions: number;
+  verifiedPredictions: number;
+  typeDigest: string | null;
+  warning: string | null;
+  adjustments: Map<ClaimType, number>;
+}
+
+function getSessionCalibrationSummary(
+  calibrationState: CalibrationLogState,
+): SessionCalibrationSummary {
+  const stats = calculateStats(calibrationState);
+  const claimTypes: ClaimType[] = [
+    "factual_claim",
+    "recommendation",
+    "external_state",
+    "absolute_language",
+    "version_claim",
+  ];
+  const adjustments = new Map<ClaimType, number>();
+  for (const type of claimTypes) {
+    adjustments.set(type, getConfidenceAdjustment(calibrationState, type));
+  }
+  return {
+    ece: stats.ece,
+    avgConfidence: stats.avgConfidence,
+    avgAccuracy: stats.avgAccuracy,
+    overconfidenceDelta: stats.overconfidenceDelta,
+    totalPredictions: stats.totalPredictions,
+    verifiedPredictions: stats.verifiedPredictions,
+    typeDigest: formatTypeCalibrationDigest(calibrationState),
+    warning: formatCalibrationWarning(stats),
+    adjustments,
+  };
 }
 
 // ============================================================

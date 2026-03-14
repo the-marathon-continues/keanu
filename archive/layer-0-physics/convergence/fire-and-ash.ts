@@ -40,7 +40,7 @@ import {
 } from "./dialectic.ts";
 import { GradientMachine, type MachineOutput } from "./firmware.ts";
 import { DualityGraph, type ReasonResult } from "./graph.ts";
-import { Helix, type HelixResult } from "./helix.ts";
+import { Helix, type HelixResult } from "../../../layer-0-physics/convergence/helix.ts";
 
 // ─────────────────────────────────────────────
 // Config

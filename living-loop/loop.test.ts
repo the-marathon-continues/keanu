@@ -1,143 +1,114 @@
 // loop.test.ts
 // Tests for the living loop
 
-import { describe, it, expect, vi } from "vitest";
-import type { AliveState, OracleResponse } from "../shared/types.js";
-import {
-  pulseToTempo,
-  tempoToMs,
-  createInitialState,
-  runBeat,
-  type LoopConfig,
-  type LoopState,
-} from "./loop.js";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { createInitialState, runBeat, type LoopState, type LoopConfig } from "./loop.js";
+import { reset as resetKnowledge } from "../layer-9-memory/knowledge.js";
+import { reset as resetClaims } from "../layer-3-causal/silverado.js";
 
-describe("pulseToTempo", () => {
-  it("maps alive to fast", () => {
-    expect(pulseToTempo("alive")).toBe("fast");
-    expect(pulseToTempo("luminous")).toBe("fast");
-  });
-
-  it("maps dark to medium", () => {
-    expect(pulseToTempo("dark")).toBe("medium");
-  });
-
-  it("maps grey to slow", () => {
-    expect(pulseToTempo("grey")).toBe("slow");
-  });
-
-  it("maps black to immediate", () => {
-    expect(pulseToTempo("black")).toBe("immediate");
-  });
-});
-
-describe("tempoToMs", () => {
-  it("returns 30s for fast", () => {
-    expect(tempoToMs("fast")).toBe(30_000);
-  });
-
-  it("returns 2min for medium", () => {
-    expect(tempoToMs("medium")).toBe(2 * 60_000);
-  });
-
-  it("returns 10min for slow", () => {
-    expect(tempoToMs("slow")).toBe(10 * 60_000);
-  });
-
-  it("returns 0 for immediate", () => {
-    expect(tempoToMs("immediate")).toBe(0);
-  });
-});
+// Mock the oracle so tests don't hit real APIs
+vi.mock("../shared/oracle.ts", () => ({
+  callOracle: vi.fn().mockResolvedValue({
+    text: "The system just started. No prior context. Curious what will happen next.",
+    usage: { inputTokens: 100, outputTokens: 50, model: "mock", cost: 0.001, latencyMs: 100 },
+  }),
+  getSessionCost: vi.fn().mockReturnValue({ calls: 3, totalInputTokens: 300, totalOutputTokens: 150, totalCost: 0.003 }),
+}));
 
 describe("createInitialState", () => {
-  it("creates valid initial state", () => {
+  it("starts at beat 0 with empty state", () => {
     const state = createInitialState();
-    expect(state.tempo).toBe("medium");
-    expect(state.humanPresent).toBe(false);
-    expect(state.coefEncoded).toBe("");
+    expect(state.beatCount).toBe(0);
+    expect(state.grokAlerts).toEqual([]);
+    expect(state.struggles).toEqual([]);
+    expect(state.claudeInsight).toBeUndefined();
+    expect(state.intervalMs).toBe(30_000);
   });
 });
 
 describe("runBeat", () => {
-  function mockResponse(text: string): OracleResponse {
-    return {
-      text,
-      usage: {
-        inputTokens: 100,
-        outputTokens: 50,
-        model: "mock",
-        cost: 0.001,
-        latencyMs: 100,
-      },
-    };
-  }
+  const tmpDir = "/tmp/keanu-test-loop";
 
-  function createMockConfig(): LoopConfig {
-    return {
-      callGemini: vi.fn().mockResolvedValue(
-        mockResponse(
-          JSON.stringify({
-            relevantEpisodes: ["test episode"],
-            patterns: ["test pattern"],
-            relatedKnowledge: [],
-            summary: "test summary",
-            confidence: 0.8,
-          }),
-        ),
-      ),
-      callGrok: vi.fn().mockResolvedValue(mockResponse("[]")),
-      callClaude: vi
-        .fn()
-        .mockResolvedValue(mockResponse("Everything looks good. System is healthy.")),
-      getCurrentCOEF: vi.fn().mockReturnValue("COEF/1 pulse=alive wm=0.50"),
-      getPulseState: vi.fn().mockReturnValue("alive" as AliveState),
-      onInvite: vi.fn(),
-    };
-  }
-
-  it("runs a complete beat cycle", async () => {
-    const config = createMockConfig();
-    const initialState = createInitialState();
-
-    const newState = await runBeat(config, initialState);
-
-    expect(config.callGemini).toHaveBeenCalled();
-    expect(config.callGrok).toHaveBeenCalled();
-    expect(config.callClaude).toHaveBeenCalled();
-    expect(newState.tempo).toBe("fast"); // alive pulse = fast tempo
-    expect(newState.geminiContext?.summary).toBe("test summary");
-    expect(newState.claudeInsight).toContain("healthy");
+  beforeEach(() => {
+    resetKnowledge();
+    resetClaims();
   });
 
-  it("calls onInvite when black pulse detected", async () => {
-    const config = createMockConfig();
-    (config.getPulseState as ReturnType<typeof vi.fn>).mockReturnValue("black");
+  it("runs a complete beat and increments count", async () => {
+    const state = createInitialState();
+    const config: LoopConfig = {
+      workspaceDir: tmpDir,
+      session: "test-session",
+    };
 
-    const newState = await runBeat(config, createInitialState());
+    const next = await runBeat(config, state);
 
-    // Black pulse should trigger immediate tempo
-    expect(newState.tempo).toBe("immediate");
+    expect(next.beatCount).toBe(1);
+    expect(next.lastBeatAt).toBeGreaterThan(0);
+    expect(next.claudeInsight).toBeDefined();
+    expect(next.geminiSummary).toBeDefined();
+    expect(next.helix).toBeDefined();
+    expect(next.intervalMs).toBeGreaterThan(0);
   });
 
-  it("parses grok alerts correctly", async () => {
-    const config = createMockConfig();
-    (config.callGrok as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockResponse(
-        JSON.stringify([
-          {
-            type: "drift",
-            confidence: 0.9,
-            message: "Grey streak detected",
-            suggestion: "Check engagement",
-          },
-        ]),
-      ),
+  it("runs helix and struggle on Claude's output", async () => {
+    const state = createInitialState();
+    const config: LoopConfig = {
+      workspaceDir: tmpDir,
+      session: "test-session",
+    };
+
+    const next = await runBeat(config, state);
+
+    // Helix should have analyzed Claude's output
+    expect(next.helix).toBeDefined();
+    expect(next.helix!.aliveState).toBeDefined();
+    expect(next.helix!.strands.factual).toBeGreaterThanOrEqual(0);
+    expect(next.helix!.strands.felt).toBeGreaterThanOrEqual(0);
+
+    // Struggle detector ran (may or may not find anything)
+    expect(Array.isArray(next.struggles)).toBe(true);
+  });
+
+  it("calls onLog during execution", async () => {
+    const logs: string[] = [];
+    const config: LoopConfig = {
+      workspaceDir: tmpDir,
+      session: "test-session",
+      onLog: (prefix, msg) => logs.push(`${prefix}: ${msg}`),
+    };
+
+    await runBeat(config, createInitialState());
+
+    expect(logs.length).toBeGreaterThan(0);
+    expect(logs.some((l) => l.includes("load"))).toBe(true);
+    expect(logs.some((l) => l.includes("gemini"))).toBe(true);
+    expect(logs.some((l) => l.includes("grok"))).toBe(true);
+    expect(logs.some((l) => l.includes("claude"))).toBe(true);
+  });
+
+  it("passes previous insight to next beat's context", async () => {
+    const { callOracle } = await import("../shared/oracle.js");
+    const mockCallOracle = callOracle as ReturnType<typeof vi.fn>;
+
+    const config: LoopConfig = {
+      workspaceDir: tmpDir,
+      session: "test-session",
+    };
+
+    // First beat
+    const first = await runBeat(config, createInitialState());
+    expect(first.claudeInsight).toBeDefined();
+
+    // Second beat — should reference first beat's insight in context
+    mockCallOracle.mockClear();
+    await runBeat(config, first);
+
+    // Claude's call should have received context that includes previous insight
+    const claudeCall = mockCallOracle.mock.calls.find(
+      (call: unknown[]) => (call[0] as { role: string }).role === "think",
     );
-
-    const newState = await runBeat(config, createInitialState());
-
-    expect(newState.grokAlerts).toHaveLength(1);
-    expect(newState.grokAlerts?.[0].type).toBe("drift");
-    expect(newState.grokAlerts?.[0].confidence).toBe(0.9);
+    expect(claudeCall).toBeDefined();
+    expect((claudeCall![0] as { messages: Array<{ content: string }> }).messages[0].content).toContain("Last insight");
   });
 });

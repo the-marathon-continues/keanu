@@ -19,7 +19,9 @@
  * Tension tells you where to look next.
  */
 
-import { clamp } from "./gradient.ts";
+function clamp(v: number, min = 0, max = 1): number {
+  return Math.min(max, Math.max(min, v));
+}
 import { analyzePrimaries, type PrimaryReading, type Synthesis } from "./primaries.ts";
 
 // ─────────────────────────────────────────────

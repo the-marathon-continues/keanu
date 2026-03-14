@@ -14,7 +14,9 @@
  * Celebrates when holding the gradient.
  */
 
-import { clamp } from "../convergence/gradient.ts";
+function clamp(v: number, min = 0, max = 1): number {
+  return Math.min(max, Math.max(min, v));
+}
 
 // ============================================================
 // Types

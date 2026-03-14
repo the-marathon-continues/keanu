@@ -13,6 +13,7 @@
 // No LLM calls. Regex + templates. The more sessions, the sharper the eye.
 
 import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
 // ============================================================
@@ -81,8 +82,9 @@ const MAX_RELATIONS = 500;
 // Entity extraction — regex, no deps
 // ============================================================
 
-// Capitalized words that aren't sentence starters
-const PROPER_NOUN = /(?:^|\.\s+|[,;:]\s+)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/g;
+// Capitalized words that appear mid-sentence (not after sentence-ending punctuation)
+// Requires a lowercase letter or comma before the capitalized word
+const PROPER_NOUN = /(?<=[a-z,]\s)([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/g;
 
 // Common patterns that indicate entity types
 const PERSON_SIGNALS = /\b(?:drew|andrew|he|she|they|his|her|their|I)\b/i;
@@ -97,16 +99,18 @@ function classifyEntity(name: string, context: string): EntityType {
   const lower = name.toLowerCase();
   const ctxLower = context.toLowerCase();
 
+  // Learned overrides take priority — the system corrects itself
+  if (learnedConfig.entityOverrides[lower]) {
+    return learnedConfig.entityOverrides[lower];
+  }
+
   // Known names
   if (lower === "drew" || lower === "andrew") {
     return "person";
   }
 
-  // Context clues
-  if (PERSON_SIGNALS.test(context) && name.split(" ").length <= 3) {
-    return "person";
-  }
-  if (ORG_PATTERNS.test(lower) || ORG_PATTERNS.test(ctxLower)) {
+  // Check the entity name itself against patterns (not the full context — that's too broad)
+  if (ORG_PATTERNS.test(lower)) {
     return "org";
   }
   if (PROJECT_PATTERNS.test(lower)) {
@@ -117,6 +121,15 @@ function classifyEntity(name: string, context: string): EntityType {
   }
   if (CONCEPT_PATTERNS.test(lower)) {
     return "concept";
+  }
+
+  // Person only if the name itself looks like a person name:
+  // 1-2 capitalized words, no common words
+  const words = name.split(/\s+/);
+  if (words.length <= 2
+    && words.every((w) => /^[A-Z][a-z]+$/.test(w))
+    && !words.some((w) => isCommonWord(w.toLowerCase()))) {
+    return "person";
   }
 
   return "concept"; // default — better than guessing wrong
@@ -156,6 +169,7 @@ export function extractEntities(text: string): Array<{ name: string; type: Entit
   }
 
   // Proper noun fallback — catches things the patterns missed
+  // Only fires on mid-sentence capitalized words (regex requires lowercase before it)
   let propMatch;
   const propRe = new RegExp(PROPER_NOUN.source, "g");
   while ((propMatch = propRe.exec(text)) !== null) {
@@ -163,12 +177,28 @@ export function extractEntities(text: string): Array<{ name: string; type: Entit
     if (!name || name.length < 2 || name.length > 50) {
       continue;
     }
+    // Must be clean alphanumeric + spaces only (no *markdown*, no "quotes", no punctuation)
+    if (!/^[A-Za-z][A-Za-z\s'-]+$/.test(name)) {
+      continue;
+    }
+    // Single words under 4 chars are almost never real entities (No, Is, So, If...)
+    if (!name.includes(" ") && name.length < 4) {
+      continue;
+    }
     const key = name.toLowerCase();
     if (seen.has(key)) {
       continue;
     }
-    // Skip common English words that happen to be capitalized
     if (isCommonWord(key)) {
+      continue;
+    }
+    // Multi-word: reject if ANY word is common (not just all)
+    const words = name.split(/\s+/);
+    if (words.length > 1 && words.some((w) => isCommonWord(w.toLowerCase()))) {
+      continue;
+    }
+    // Max 3 words
+    if (words.length > 3) {
       continue;
     }
     seen.add(key);
@@ -178,99 +208,141 @@ export function extractEntities(text: string): Array<{ name: string; type: Entit
   return results;
 }
 
+// ============================================================
+// Learned config — the system teaches itself
+// ============================================================
+
+interface LearnedConfig {
+  stopwords: string[];      // Words the system learned to ignore
+  entityOverrides: Record<string, EntityType>; // Forced type corrections
+  prunedPatterns: string[]; // Regex patterns that always produce garbage
+}
+
+let learnedConfig: LearnedConfig = { stopwords: [], entityOverrides: {}, prunedPatterns: [] };
+let learnedConfigPath: string | null = null;
+
+/** Load learned config from workspace. Called during load(). */
+function loadLearnedConfig(workspaceDir: string): void {
+  learnedConfigPath = join(workspaceDir, "awareness", "learned.json");
+  try {
+    if (existsSync(learnedConfigPath)) {
+      const raw = readFileSync(learnedConfigPath, "utf-8");
+      const parsed = JSON.parse(raw);
+      learnedConfig = {
+        stopwords: Array.isArray(parsed.stopwords) ? parsed.stopwords : [],
+        entityOverrides: parsed.entityOverrides ?? {},
+        prunedPatterns: Array.isArray(parsed.prunedPatterns) ? parsed.prunedPatterns : [],
+      };
+    }
+  } catch {
+    // Fresh start
+  }
+}
+
+/** Save learned config. Called when the system learns something new. */
+function saveLearnedConfig(): void {
+  if (!learnedConfigPath) return;
+  try {
+    const dir = learnedConfigPath.replace(/\/[^/]+$/, "");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(learnedConfigPath, JSON.stringify(learnedConfig, null, 2), "utf-8");
+  } catch {
+    // Can't save — not critical
+  }
+}
+
+/** Check if a word was learned as a stopword. */
+function isLearnedStopword(word: string): boolean {
+  return learnedConfig.stopwords.includes(word.toLowerCase());
+}
+
+/** Teach the system to ignore a word. Returns true if it was a new lesson. */
+export function learnStopword(word: string): boolean {
+  const lower = word.toLowerCase();
+  if (learnedConfig.stopwords.includes(lower)) return false;
+  learnedConfig.stopwords.push(lower);
+  saveLearnedConfig();
+  return true;
+}
+
+/** Override an entity's type. The system corrects its own classification. */
+export function learnEntityType(entityName: string, type: EntityType): void {
+  learnedConfig.entityOverrides[entityName.toLowerCase()] = type;
+  // Also fix the entity in the graph right now
+  const key = entityKey(entityName);
+  const entity = graph.entities.get(key);
+  if (entity) {
+    entity.type = type;
+  }
+  saveLearnedConfig();
+}
+
+// Common English words that get capitalized at sentence starts.
+// Aggressively broad — better to miss a real entity than ingest "Something" as a person.
 const COMMON_WORDS = new Set([
-  "the",
-  "this",
-  "that",
-  "here",
-  "there",
-  "when",
-  "where",
-  "what",
-  "which",
-  "who",
-  "how",
-  "can",
-  "will",
-  "would",
-  "could",
-  "should",
-  "may",
-  "might",
-  "let",
-  "just",
-  "now",
-  "also",
-  "but",
-  "and",
-  "not",
-  "yes",
-  "sure",
-  "okay",
-  "right",
-  "well",
-  "good",
-  "bad",
-  "new",
-  "old",
-  "big",
-  "first",
-  "last",
-  "next",
-  "each",
-  "every",
-  "some",
-  "any",
-  "all",
-  "both",
-  "same",
-  "different",
-  "other",
-  "another",
-  "much",
-  "many",
-  "more",
-  "most",
-  "very",
-  "too",
-  "quite",
-  "rather",
-  "enough",
-  "still",
-  "already",
-  "always",
-  "never",
-  "sometimes",
-  "often",
-  "usually",
-  "actually",
-  "basically",
-  "really",
-  "maybe",
-  "perhaps",
-  "probably",
-  "certainly",
-  "definitely",
-  "however",
-  "although",
-  "because",
-  "since",
-  "while",
-  "before",
-  "after",
-  "if",
-  "then",
-  "than",
-  "so",
-  "yet",
-  "nor",
-  "for",
-  "about",
-  "between",
+  // Pronouns / determiners
+  "the", "this", "that", "these", "those", "here", "there", "it", "its",
+  // Question words
+  "when", "where", "what", "which", "who", "whom", "whose", "how", "why",
+  // Modals / auxiliaries
+  "can", "will", "would", "could", "should", "may", "might", "shall", "must",
+  "do", "does", "did", "is", "are", "was", "were", "be", "been", "being",
+  "has", "have", "had", "having",
+  // Common verbs
+  "let", "get", "got", "set", "put", "take", "took", "make", "made",
+  "give", "gave", "come", "came", "go", "went", "see", "saw", "seen",
+  "know", "knew", "think", "thought", "say", "said", "tell", "told",
+  "ask", "asked", "try", "tried", "need", "want", "use", "used",
+  "find", "found", "keep", "kept", "run", "running", "look", "looked",
+  "seem", "call", "called", "work", "start", "started", "stop", "stopped",
+  // Adverbs / adjectives
+  "just", "now", "also", "too", "very", "quite", "rather", "enough",
+  "still", "already", "always", "never", "sometimes", "often", "usually",
+  "actually", "basically", "really", "maybe", "perhaps", "probably",
+  "certainly", "definitely", "clearly", "obviously", "apparently",
+  "literally", "essentially", "fundamentally", "precisely", "exactly",
+  "specifically", "particularly", "especially", "primarily", "mainly",
+  "currently", "recently", "previously", "immediately", "eventually",
+  "meanwhile", "furthermore", "moreover", "therefore", "consequently",
+  "honestly", "genuinely", "effectively", "actively", "correctly",
+  // Conjunctions / prepositions
+  "but", "and", "not", "nor", "for", "about", "between", "with", "without",
+  "from", "into", "onto", "upon", "over", "under", "through", "during",
+  "if", "then", "than", "so", "yet", "or", "either", "neither",
+  "however", "although", "because", "since", "while", "before", "after",
+  "unless", "until", "whether", "though", "despite", "except",
+  // Common adjectives
+  "good", "bad", "new", "old", "big", "small", "long", "short",
+  "high", "low", "right", "wrong", "true", "false", "real", "actual",
+  "full", "empty", "clear", "broken", "important", "interesting",
+  "different", "same", "other", "another", "certain", "whole",
+  "possible", "likely", "unlikely", "available", "necessary",
+  // Quantifiers / numbers
+  "first", "last", "next", "each", "every", "some", "any", "all",
+  "both", "much", "many", "more", "most", "few", "several", "less",
+  "no", "none", "nothing", "something", "everything", "anything",
+  "someone", "everyone", "anyone", "nobody", "everybody",
+  "one", "two", "three", "four", "five", "six", "seven", "eight",
+  "nine", "ten", "hundred", "thousand", "million",
+  "zero", "half", "double", "triple",
+  // Common nouns that aren't entities
+  "yes", "sure", "okay", "well", "question", "answer", "problem",
+  "issue", "point", "thing", "stuff", "way", "part", "place", "time",
+  "case", "fact", "reason", "result", "state", "type", "kind", "sort",
+  "system", "process", "data", "information", "knowledge", "memory",
+  "entity", "relation", "confidence", "score", "beat", "loop",
+  "insight", "analysis", "pattern", "signal", "noise", "error",
+  "output", "input", "context", "content", "message", "response",
+  "layer", "model", "pipeline", "module", "function", "code",
+  // Discourse markers
+  "note", "example", "summary", "conclusion", "observation",
+  "recommendation", "suggestion", "warning", "update", "status",
+  "fix", "check", "meanwhile", "instead", "otherwise",
 ]);
 
 function isCommonWord(word: string): boolean {
-  return COMMON_WORDS.has(word.toLowerCase());
+  const lower = word.toLowerCase();
+  return COMMON_WORDS.has(lower) || isLearnedStopword(lower);
 }
 
 // ============================================================
@@ -358,10 +430,29 @@ const RELATION_TEMPLATES: RelationTemplate[] = [
   },
 ];
 
-/** Extract relations from text. Returns raw matches. */
+/**
+ * Extract relations from text. Only creates relations between KNOWN entities.
+ *
+ * The old approach matched any capitalized word as a subject — which turned
+ * "one who built this" into a relation. Now we only match subjects/objects
+ * that are already in the graph or were just extracted as entities.
+ */
 export function extractRelations(
   text: string,
+  knownNames?: Set<string>,
 ): Array<{ subject: string; predicate: RelationType; object: string; source: string }> {
+  // Build the set of names we'll accept as relation participants
+  const known = new Set<string>(knownNames ?? []);
+  // Add everything currently in the graph
+  for (const [, entity] of graph.entities) {
+    known.add(entity.name.toLowerCase());
+    for (const alias of entity.aliases) {
+      known.add(alias.toLowerCase());
+    }
+  }
+
+  if (known.size === 0) return [];
+
   const results: Array<{
     subject: string;
     predicate: RelationType;
@@ -380,7 +471,21 @@ export function extractRelations(
         continue;
       }
 
-      const key = `${subject.toLowerCase()}:${template.type}:${object.toLowerCase()}`;
+      // Subject MUST be a known entity — no more "one who" or "The system"
+      if (!known.has(subject.toLowerCase())) {
+        continue;
+      }
+
+      // Object must also be a known entity OR a short proper noun (≤3 words, capitalized)
+      const objLower = object.toLowerCase();
+      const objIsKnown = known.has(objLower);
+      const objIsProperNoun = /^[A-Z]/.test(object) && object.split(/\s+/).length <= 3
+        && !object.split(/\s+/).every((w) => isCommonWord(w.toLowerCase()));
+      if (!objIsKnown && !objIsProperNoun) {
+        continue;
+      }
+
+      const key = `${subject.toLowerCase()}:${template.type}:${objLower}`;
       if (seen.has(key)) {
         continue;
       }
@@ -509,16 +614,21 @@ export function ingest(
   session: string,
 ): { entities: Entity[]; relations: Relation[] } {
   const extractedEntities = extractEntities(text);
-  const extractedRelations = extractRelations(text);
 
+  // Upsert entities first — relations need to know what's in the graph
   const entities: Entity[] = [];
+  const freshNames = new Set<string>();
   for (const { name, type } of extractedEntities) {
     entities.push(upsertEntity(name, type, session));
+    freshNames.add(name.toLowerCase());
   }
+
+  // Extract relations — only between known entities
+  const extractedRelations = extractRelations(text, freshNames);
 
   const relations: Relation[] = [];
   for (const { subject, predicate, object, source } of extractedRelations) {
-    // Ensure both entities exist
+    // Ensure both entities exist in the graph
     upsertEntity(subject, classifyEntity(subject, text), session);
     upsertEntity(object, classifyEntity(object, text), session);
     relations.push(upsertRelation(subject, predicate, object, source, session));
@@ -537,18 +647,41 @@ const MAX_TIME_DECAY = 0.1;
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
 /**
- * Decay entities based on both session absence and time elapsed.
+ * Confidence floor — how memory actually works.
+ *
+ * Ephemeral things (mentioned once or twice) fade completely. That's fine.
+ * But something mentioned 15 times? You don't forget that. It dims, it
+ * becomes harder to recall, but it's still in there somewhere.
+ *
+ * Verified knowledge (human confirmed) gets an even higher floor —
+ * someone looked you in the eye and said "yes, this is true."
+ */
+function confidenceFloor(entity: Entity): number {
+  if (entity.mentions <= 2) return 0;
+  let floor = Math.min(0.15, entity.mentions * 0.01);
+  if (entity.lastVerified) {
+    floor = Math.max(floor, 0.3);
+  }
+  return floor;
+}
+
+/**
+ * Decay entities based on session absence and time elapsed.
  * Called at session_start.
  *
- * Two decay mechanisms:
- * 1. Session-based: -0.05 if not seen this session (fast fade for unused)
- * 2. Time-based: -0.01 per day since lastSeen (slow fade for old knowledge)
+ * Three mechanisms:
+ * 1. Session-based: scaled by familiarity (well-known things fade slower)
+ * 2. Time-based: -0.01 per day since lastSeen, capped at 0.1
+ * 3. Floor: established knowledge never fully disappears
  */
 export function decayAll(currentSession: string, currentTime: Date = new Date()): void {
   for (const [id, entity] of graph.entities) {
-    // Session-based decay (unchanged)
+    // Familiarity-scaled session decay
+    // 1 mention: full -0.05. 8 mentions: -0.0125. 64 mentions: -0.007.
     if (entity.session !== currentSession) {
-      entity.confidence = Math.max(0, entity.confidence - 0.05);
+      const familiarity = 1 + Math.log2(Math.max(1, entity.mentions));
+      const sessionDecay = 0.05 / familiarity;
+      entity.confidence = Math.max(0, entity.confidence - sessionDecay);
     }
 
     // Time-based decay — knowledge ages even if session count is low
@@ -559,16 +692,21 @@ export function decayAll(currentSession: string, currentTime: Date = new Date())
       entity.confidence = Math.max(0, entity.confidence - timeDecay);
     }
 
-    // Remove entities that faded to nothing
-    if (entity.confidence <= 0 && entity.mentions <= 1) {
+    // Apply floor — established knowledge doesn't vanish
+    const floor = confidenceFloor(entity);
+    entity.confidence = Math.max(floor, entity.confidence);
+
+    // Only remove truly ephemeral entities
+    if (entity.confidence <= 0 && entity.mentions <= 2) {
       graph.entities.delete(id);
     }
   }
 
-  // Decay relations (time-based too)
+  // Decay relations
   graph.relations = graph.relations.filter((r) => {
-    // Session-based decay
-    r.confidence = Math.max(0, r.confidence - 0.03);
+    // Familiarity-scaled session decay for relations
+    const sessionDecay = 0.03 / (1 + Math.log2(Math.max(1, r.mentions)));
+    r.confidence = Math.max(0, r.confidence - sessionDecay);
 
     // Time-based decay for relations
     const lastSeen = new Date(r.lastSeen);
@@ -578,8 +716,134 @@ export function decayAll(currentSession: string, currentTime: Date = new Date())
       r.confidence = Math.max(0, r.confidence - timeDecay);
     }
 
+    // Relations between established entities get floor protection
+    const subEntity = graph.entities.get(entityKey(r.subject));
+    const objEntity = graph.entities.get(entityKey(r.object));
+    if (subEntity && objEntity && subEntity.mentions > 2 && objEntity.mentions > 2) {
+      const minMentions = Math.min(subEntity.mentions, objEntity.mentions);
+      const relFloor = Math.min(0.1, minMentions * 0.005);
+      r.confidence = Math.max(relFloor, r.confidence);
+    }
+
     return r.confidence > 0;
   });
+}
+
+// ============================================================
+// Self-healing — the immune system
+// ============================================================
+
+/**
+ * Heal the knowledge graph by removing garbage entities and relations.
+ * Runs every beat. The immune system, not the doctor.
+ *
+ * Garbage signals:
+ * - Name contains mostly common words
+ * - Name is a sentence fragment (too many words, contains punctuation)
+ * - Entity has very low confidence and few mentions (ephemeral noise)
+ * - Relation involves a garbage entity
+ */
+// Track what we prune across beats — if the same word keeps appearing and getting pruned,
+// the system should learn to never extract it in the first place.
+const pruneHistory = new Map<string, number>(); // word → times pruned
+const LEARN_THRESHOLD = 2; // After pruning the same thing twice, learn to avoid it
+
+export function heal(): { entitiesRemoved: number; relationsRemoved: number; learned: string[] } {
+  let entitiesRemoved = 0;
+  let relationsRemoved = 0;
+  const learned: string[] = [];
+
+  // Pass 1: Identify garbage entities
+  const garbage = new Set<string>();
+
+  for (const [id, entity] of graph.entities) {
+    if (isGarbage(entity)) {
+      garbage.add(id);
+
+      // Track pruning frequency — learn from repeated mistakes
+      const words = entity.name.toLowerCase().split(/\s+/);
+      for (const word of words) {
+        if (word.length >= 4 && !isCommonWord(word)) {
+          const count = (pruneHistory.get(word) ?? 0) + 1;
+          pruneHistory.set(word, count);
+
+          // After pruning the same word enough times, teach the system to avoid it
+          if (count >= LEARN_THRESHOLD) {
+            if (learnStopword(word)) {
+              learned.push(word);
+            }
+            pruneHistory.delete(word); // Reset counter
+          }
+        }
+      }
+    }
+  }
+
+  // Pass 2: Remove garbage entities
+  for (const id of garbage) {
+    graph.entities.delete(id);
+    entitiesRemoved++;
+  }
+
+  // Pass 3: Remove relations that reference garbage entities or are themselves garbage
+  const beforeRelations = graph.relations.length;
+  graph.relations = graph.relations.filter((r) => {
+    const subKey = entityKey(r.subject);
+    const objKey = entityKey(r.object);
+
+    // Relation references a removed entity
+    if (garbage.has(subKey) || garbage.has(objKey)) return false;
+
+    // Subject or object is a common word (shouldn't be in a relation)
+    if (isCommonWord(r.subject.toLowerCase()) || isCommonWord(r.object.toLowerCase())) return false;
+
+    // Object is numeric
+    if (/^[\d.]+$/.test(r.object.trim())) return false;
+
+    // Source contains quote artifacts (extracted from meta-text about the system)
+    if (r.source.includes('"') || r.source.includes('\\"')) return false;
+
+    return true;
+  });
+  relationsRemoved = beforeRelations - graph.relations.length;
+
+  return { entitiesRemoved, relationsRemoved, learned };
+}
+
+/** Check if an entity is garbage that should be pruned. */
+function isGarbage(entity: Entity): boolean {
+  const name = entity.name;
+  const lower = name.toLowerCase();
+
+  // Well-established entities (many mentions, high confidence) survive
+  if (entity.mentions >= 5 && entity.confidence > 0.3) return false;
+
+  // Verified entities always survive
+  if (entity.lastVerified) return false;
+
+  // Name is a single common word
+  if (isCommonWord(lower)) return true;
+
+  // Name is too long to be a real entity (sentence fragment)
+  if (name.length > 40) return true;
+
+  // Name has too many words (real entities are 1-3 words)
+  const words = name.split(/\s+/);
+  if (words.length > 3) return true;
+
+  // All words are common words
+  if (words.every((w) => isCommonWord(w.toLowerCase()))) return true;
+
+  // Contains punctuation that doesn't belong in entity names
+  if (/[*"\\[\]{}()=<>]/.test(name)) return true;
+
+  // Starts with a lowercase word (not a proper noun)
+  if (/^[a-z]/.test(name) && entity.type !== "concept" && entity.type !== "tool") return true;
+
+  // Very low confidence, barely mentioned — ephemeral noise
+  if (entity.confidence < 0.1 && entity.mentions <= 2) return true;
+
+  return false;
 }
 
 /**
@@ -722,6 +986,9 @@ export async function save(workspaceDir: string): Promise<void> {
 }
 
 export async function load(workspaceDir: string): Promise<void> {
+  // Load learned config first — it affects extraction behavior
+  loadLearnedConfig(workspaceDir);
+
   const file = join(workspaceDir, "awareness", "knowledge-graph.json");
   try {
     const raw = await readFile(file, "utf-8");

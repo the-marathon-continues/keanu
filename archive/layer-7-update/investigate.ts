@@ -10,7 +10,7 @@
 
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import type { CuriosityItem } from "./curiosity.ts";
+import type { CuriosityItem } from "../../layer-7-update/curiosity.ts";
 
 // ============================================================
 // Types

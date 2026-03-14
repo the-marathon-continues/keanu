@@ -60,7 +60,7 @@ const ROLE_DEFAULTS: Record<OracleRole, RoleConfig> = {
   },
   explore: {
     role: "explore",
-    model: "google/gemini-2.5-flash-preview",
+    model: "google/gemini-2.5-flash",
     description: "Research, web grounding, context gathering",
     maxTokens: 4096,
   },
@@ -107,7 +107,7 @@ const ANTHROPIC_PRICING: Record<string, [number, number]> = {
 const OPENROUTER_PRICING: Record<string, [number, number]> = {
   "x-ai/grok-3-mini-beta": [0.3, 0.5],
   "openai/gpt-4.1-mini": [0.4, 1.6],
-  "google/gemini-2.5-flash-preview": [0.15, 0.6],
+  "google/gemini-2.5-flash": [0.15, 0.6],
   "anthropic/claude-opus-4-6": [15.0, 75.0],
   "deepseek/deepseek-r1": [0.55, 2.19],
   "perplexity/sonar-pro": [3.0, 15.0],

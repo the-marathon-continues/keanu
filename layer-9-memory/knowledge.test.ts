@@ -9,6 +9,9 @@ import {
   upsertRelation,
   ingest,
   decayAll,
+  heal,
+  learnStopword,
+  learnEntityType,
   findRelevant,
   relationsFor,
   formatInjection,
@@ -66,7 +69,9 @@ describe("extractEntities", () => {
 describe("extractRelations", () => {
   beforeEach(() => reset());
 
-  it("extracts 'works at' relations", () => {
+  it("extracts 'works at' relations between known entities", () => {
+    // Relations only form between known entities
+    upsertEntity("Drew", "person", "s-1");
     const rels = extractRelations("Drew works at Children's Mercy.");
     expect(rels.length).toBeGreaterThanOrEqual(1);
     const worksAt = rels.find((r) => r.predicate === "works_at");
@@ -74,22 +79,40 @@ describe("extractRelations", () => {
     expect(worksAt!.subject.toLowerCase()).toBe("drew");
   });
 
-  it("extracts 'built' relations", () => {
-    const rels = extractRelations("Drew built the alignment layer.");
+  it("extracts 'built' relations between known entities", () => {
+    upsertEntity("Drew", "person", "s-1");
+    upsertEntity("Keanu", "project", "s-1");
+    const rels = extractRelations("Drew built Keanu from scratch.");
     const built = rels.find((r) => r.predicate === "built");
     expect(built).toBeTruthy();
+    expect(built!.subject).toBe("Drew");
   });
 
-  it("extracts 'uses' relations", () => {
+  it("extracts 'uses' relations between known entities", () => {
+    upsertEntity("Drew", "person", "s-1");
     const rels = extractRelations("Drew uses TypeScript for everything.");
     const uses = rels.find((r) => r.predicate === "uses");
     expect(uses).toBeTruthy();
   });
 
   it("deduplicates within a single extraction", () => {
+    upsertEntity("Drew", "person", "s-1");
     const rels = extractRelations("Drew works at Mercy. Drew works at Mercy.");
     const worksAt = rels.filter((r) => r.predicate === "works_at");
     expect(worksAt.length).toBe(1);
+  });
+
+  it("rejects relations with unknown subjects", () => {
+    // "one who" is not a known entity
+    const rels = extractRelations("one who built this whole thing.");
+    expect(rels.length).toBe(0);
+  });
+
+  it("rejects relations with common-word objects", () => {
+    upsertEntity("Drew", "person", "s-1");
+    const rels = extractRelations("Drew knows nothing concrete.");
+    // "nothing concrete" is not a known entity or proper noun
+    expect(rels.length).toBe(0);
   });
 });
 
@@ -206,6 +229,89 @@ describe("decayAll", () => {
     decayAll("s-new");
 
     expect(getGraph().entities.has("ephemeral")).toBe(false);
+  });
+
+  it("familiarity reduces session decay rate", () => {
+    // One-mention entity: full session decay
+    const rare = upsertEntity("Rare", "concept", "s-1");
+    rare.mentions = 1;
+    rare.confidence = 0.5;
+
+    // Well-mentioned entity: reduced session decay
+    const familiar = upsertEntity("Familiar", "concept", "s-1");
+    familiar.mentions = 8;
+    familiar.confidence = 0.5;
+
+    decayAll("s-2");
+
+    const rareAfter = getGraph().entities.get("rare")!.confidence;
+    const familiarAfter = getGraph().entities.get("familiar")!.confidence;
+
+    // Both decayed, but familiar entity lost less
+    expect(rareAfter).toBeLessThan(0.5);
+    expect(familiarAfter).toBeLessThan(0.5);
+    expect(familiarAfter).toBeGreaterThan(rareAfter);
+  });
+
+  it("established entities have a confidence floor", () => {
+    const entity = upsertEntity("WellKnown", "concept", "s-1");
+    entity.mentions = 20;
+    entity.confidence = 0.2;
+
+    // Hammer it with many sessions of decay
+    for (let i = 0; i < 50; i++) {
+      decayAll(`s-${i + 100}`);
+    }
+
+    const after = getGraph().entities.get("wellknown")!;
+    // Should still exist and have confidence >= floor
+    expect(after).toBeDefined();
+    expect(after.confidence).toBeGreaterThanOrEqual(0.15);
+  });
+
+  it("verified entities have a higher confidence floor", () => {
+    const entity = upsertEntity("VerifiedThing", "person", "s-1");
+    entity.mentions = 3;
+    verifyEntity("VerifiedThing");
+
+    // Decay heavily
+    for (let i = 0; i < 50; i++) {
+      decayAll(`s-${i + 100}`);
+    }
+
+    const after = getGraph().entities.get("verifiedthing")!;
+    expect(after).toBeDefined();
+    expect(after.confidence).toBeGreaterThanOrEqual(0.3);
+  });
+
+  it("established entities are never deleted", () => {
+    const entity = upsertEntity("Permanent", "person", "s-1");
+    entity.mentions = 10;
+    entity.confidence = 0.01;
+
+    // Even aggressive decay shouldn't delete it
+    for (let i = 0; i < 100; i++) {
+      decayAll(`s-${i + 100}`);
+    }
+
+    expect(getGraph().entities.has("permanent")).toBe(true);
+  });
+
+  it("relations between established entities survive decay", () => {
+    const e1 = upsertEntity("Drew", "person", "s-1");
+    e1.mentions = 10;
+    const e2 = upsertEntity("Keanu", "project", "s-1");
+    e2.mentions = 10;
+    upsertRelation("Drew", "built", "Keanu", "Drew built Keanu", "s-1");
+
+    // Decay many sessions
+    for (let i = 0; i < 50; i++) {
+      decayAll(`s-${i + 100}`);
+    }
+
+    const rels = relationsFor("Drew");
+    expect(rels.length).toBe(1);
+    expect(rels[0].confidence).toBeGreaterThan(0);
   });
 });
 
@@ -335,9 +441,8 @@ describe("time-based decay", () => {
     const entity = upsertEntity("OldEntity", "concept", "s-1");
     const initialConfidence = entity.confidence;
 
-    // Simulate 10 days passing
-    const tenDaysAgo = new Date();
-    tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
+    // Simulate 10 days passing (use ms arithmetic to avoid DST skew)
+    const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
     entity.lastSeen = tenDaysAgo.toISOString();
 
     decayAll("s-2", new Date());
@@ -430,5 +535,127 @@ describe("verifyEntity", () => {
   it("returns null for unknown entities", () => {
     const result = verifyEntity("NonExistent");
     expect(result).toBeNull();
+  });
+});
+
+// ============================================================
+// Self-healing
+// ============================================================
+
+describe("heal", () => {
+  beforeEach(() => reset());
+
+  it("prunes sentence fragment entities", () => {
+    upsertEntity("mode we built this to catch", "concept", "s-1");
+    upsertEntity("Drew", "person", "s-1");
+
+    const result = heal();
+    expect(result.entitiesRemoved).toBe(1);
+
+    const graph = getGraph();
+    expect(graph.entities.has("drew")).toBe(true);
+    expect(graph.entities.has("mode-we-built-this-to-catch")).toBe(false);
+  });
+
+  it("prunes entities with all common words", () => {
+    upsertEntity("every relation", "person", "s-1");
+    upsertEntity("means it", "person", "s-1");
+    upsertEntity("Drew", "person", "s-1");
+
+    const result = heal();
+    expect(result.entitiesRemoved).toBe(2);
+
+    const graph = getGraph();
+    expect(graph.entities.has("drew")).toBe(true);
+  });
+
+  it("prunes entities with special characters", () => {
+    upsertEntity('what it knows" actually means', "concept", "s-1");
+    upsertEntity("Drew", "person", "s-1");
+
+    const result = heal();
+    expect(result.entitiesRemoved).toBe(1);
+  });
+
+  it("prunes low-confidence ephemeral entities", () => {
+    const e = upsertEntity("Flicker", "concept", "s-1");
+    e.confidence = 0.05;
+    e.mentions = 1;
+    upsertEntity("Drew", "person", "s-1");
+
+    const result = heal();
+    expect(result.entitiesRemoved).toBe(1);
+  });
+
+  it("preserves well-established entities", () => {
+    const e = upsertEntity("Keanu", "project", "s-1");
+    e.mentions = 10;
+    e.confidence = 0.8;
+
+    const result = heal();
+    expect(result.entitiesRemoved).toBe(0);
+  });
+
+  it("preserves verified entities even if low confidence", () => {
+    const e = upsertEntity("ImportantThing", "concept", "s-1");
+    e.confidence = 0.05;
+    e.mentions = 1;
+    e.lastVerified = new Date().toISOString();
+
+    const result = heal();
+    expect(result.entitiesRemoved).toBe(0);
+  });
+
+  it("removes relations referencing garbage entities", () => {
+    upsertEntity("garbage phrase here", "person", "s-1");
+    upsertEntity("Drew", "person", "s-1");
+    upsertRelation("garbage phrase here", "built", "Drew", "garbage phrase here built Drew", "s-1");
+
+    const result = heal();
+    expect(result.relationsRemoved).toBe(1);
+  });
+
+  it("removes relations with numeric objects", () => {
+    upsertEntity("Confidence", "concept", "s-1");
+    upsertEntity("Drew", "person", "s-1");
+    upsertRelation("Confidence", "located_in", "0.32", "confidence is at 0.32", "s-1");
+
+    const result = heal();
+    expect(result.relationsRemoved).toBe(1);
+  });
+});
+
+// ============================================================
+// Learning
+// ============================================================
+
+describe("learnStopword", () => {
+  beforeEach(() => reset());
+
+  it("makes learned words filter from entity extraction", () => {
+    // Before learning, "Wobbling" might pass extraction
+    learnStopword("wobbling");
+
+    // Now it should be filtered as common
+    const entities = extractEntities("he said Wobbling is important");
+    const names = entities.map((e) => e.name.toLowerCase());
+    expect(names).not.toContain("wobbling");
+  });
+
+  it("returns false for duplicate learns", () => {
+    expect(learnStopword("newword")).toBe(true);
+    expect(learnStopword("newword")).toBe(false);
+  });
+});
+
+describe("learnEntityType", () => {
+  beforeEach(() => reset());
+
+  it("overrides entity classification", () => {
+    upsertEntity("Grok", "person", "s-1");
+    learnEntityType("Grok", "tool");
+
+    const graph = getGraph();
+    expect(graph.entities.get("grok")?.type).toBe("tool");
   });
 });

@@ -26,7 +26,7 @@ import {
   investigate,
   findRelevant,
   reset as resetInvestigate,
-} from "./layer-7-update/investigate.js";
+} from "./archive/layer-7-update/investigate.js";
 import { detectCorrection } from "./layer-7-update/mastery.js";
 
 // ============================================================
@@ -481,9 +481,9 @@ describe("REQ 11.2: Consistency Across Contexts", () => {
 // Fire and Ash: duality graph, dialectical synthesis, helix
 // ============================================================
 
-import { FireAndAsh } from "./layer-0-physics/convergence/fire-and-ash.js";
+import { FireAndAsh } from "./archive/layer-0-physics/convergence/fire-and-ash.js";
 import { Helix } from "./layer-0-physics/convergence/helix.js";
-import { DualityGraph, ConvergenceOps, Signal } from "./layer-0-physics/convergence/index.js";
+import { DualityGraph, ConvergenceOps, Signal } from "./archive/layer-0-physics/convergence/index.js";
 
 describe("CONVERGENCE: Helix — double strand analysis", () => {
   const helix = new Helix();

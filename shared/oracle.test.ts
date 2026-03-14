@@ -150,7 +150,7 @@ describe("callOracle — role with OPENROUTER_API_KEY", () => {
     const roleModels: Record<string, string> = {
       bullshit: "x-ai/grok-3-mini-beta",
       communicate: "openai/gpt-4.1-mini",
-      explore: "google/gemini-2.5-flash-preview",
+      explore: "google/gemini-2.5-flash",
       think: "anthropic/claude-opus-4-6",
       adversary: "deepseek/deepseek-r1",
       research: "perplexity/sonar-pro",
@@ -427,7 +427,7 @@ describe("getRoleConfigs", () => {
     expect(configs.struggle.model).toBe("x-ai/grok-3-mini-beta");
     expect(configs.bullshit.model).toBe("x-ai/grok-3-mini-beta"); // deprecated alias
     expect(configs.communicate.model).toBe("openai/gpt-4.1-mini");
-    expect(configs.explore.model).toBe("google/gemini-2.5-flash-preview");
+    expect(configs.explore.model).toBe("google/gemini-2.5-flash");
     expect(configs.think.model).toBe("anthropic/claude-opus-4-6");
     expect(configs.adversary.model).toBe("deepseek/deepseek-r1");
     expect(configs.research.model).toBe("perplexity/sonar-pro");

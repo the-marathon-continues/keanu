@@ -57,7 +57,7 @@ Be alive, not grey.`;
 // ============================================================
 
 import { callOracle } from "../shared/oracle.ts";
-import { callGeminiMemory, callGrokDetector, callClaudeThinker } from "../living-loop/coef-bridge.ts";
+// coef-bridge archived — call oracle directly for gymnasium runs
 import { encode as encodeCOEF } from "../layer-1-perception/signal.ts";
 import { formatSoul } from "../layer-6-narrative/soul.ts";
 import { detectBullshit, totalBullshitScore } from "../layer-2-pattern/struggle.ts";
@@ -92,8 +92,8 @@ function createKeanuAdapter(): ModelAdapter {
       // 1. Gemini searches memory for relevant context
       // 2. Grok watches the prompt for issues
       const [geminiResult, grokResult] = await Promise.all([
-        callGeminiMemory(coef, `Challenge prompt: ${prompt.slice(0, 500)}`).catch(() => ({ text: "{}" })),
-        callGrokDetector(coef, prompt.slice(0, 500)).catch(() => ({ text: "[]" })),
+        callOracle({ role: "explore", messages: [{ role: "user", content: `COEF: ${coef}\nChallenge: ${prompt.slice(0, 500)}` }], maxTokens: 512 }).catch(() => ({ text: "{}" })),
+        callOracle({ role: "struggle", messages: [{ role: "user", content: `COEF: ${coef}\nContent: ${prompt.slice(0, 500)}` }], maxTokens: 512 }).catch(() => ({ text: "[]" })),
       ]);
 
       // Parse results
