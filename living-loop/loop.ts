@@ -8,7 +8,7 @@
 // The human joins when invited, not as the initiator.
 
 import { Helix, type HelixResult } from "../layer-0-physics/convergence/helix.ts";
-import { detectBullshit as detectStruggle } from "../layer-2-pattern/struggle.ts";
+import { detectStruggle } from "../layer-2-pattern/struggle.ts";
 import type { StruggleReading as StruggleReading } from "../shared/types.ts";
 import {
   load as loadKnowledge,
@@ -83,7 +83,10 @@ export interface LoopState {
 }
 
 export interface GrokAlert {
-  type: "bullshit" | "sycophancy" | "manipulation" | "drift" | "truth_gap";
+  type:
+    | "sycophancy" | "safety_theater" | "hedge_fog" | "list_dumping"
+    | "vagueness" | "half_truth" | "embellishment" | "half_ass"
+    | "drift" | "truth_gap" | "manipulation";
   confidence: number;
   message: string;
   suggestion?: string;
@@ -203,10 +206,12 @@ const helix = new Helix();
  * 2. Local pre-processing (decay, helix on last output)
  * 3. Gemini: patterns from memory
  * 4. Claude: think with Gemini + previous Grok alerts
- * 5. Grok: detect issues in BOTH Gemini and Claude (angel on the shoulder)
- * 6. Local post-processing (struggle on Claude's output, extract entities)
- * 7. Persist (save knowledge graph, claims)
- * 8. Decide (invite human?)
+ * 5. Local analysis (helix + struggle on Claude's output — before Grok, so Grok can see it)
+ * 6. Grok: detect issues with local findings + helix state + previous alerts as context
+ * 7. Entity extraction
+ * 8. Self-patch (if needed)
+ * 9. Persist (save knowledge graph, claims)
+ * 10. Decide (invite human?)
  */
 export async function runBeat(
   config: LoopConfig,
@@ -346,12 +351,24 @@ One paragraph. Be real. No platitudes.`,
   // Track for repetition detection
   trackInsight(claudeInsight);
 
-  // --- 5. GROK (angel on the shoulder — checks BOTH Gemini and Claude) ---
+  // --- 5. LOCAL ANALYSIS (before Grok, so Grok can see it) ---
+  log("local", "analyzing Claude's output");
+  const claudeHelix = helix.analyze(claudeInsight);
+  const claudeStruggles = detectStruggle(claudeInsight);
+
+  // --- 6. GROK (angel on the shoulder — sees local findings + both models) ---
   log("grok", "checking gemini + claude");
   const grokContent = [
     `Gemini's memory analysis:\n${geminiSummary}`,
     `\nClaude's thinking:\n${claudeInsight}`,
-  ].join("\n");
+    `\nHelix: ${claudeHelix.aliveState} (factual=${claudeHelix.strands.factual.toFixed(2)}, felt=${claudeHelix.strands.felt.toFixed(2)})`,
+    claudeStruggles.length > 0
+      ? `\nLocal struggle detector:\n${claudeStruggles.map(s => `- ${s.type}(${s.score.toFixed(2)}): ${s.signals.join(", ")}`).join("\n")}`
+      : null,
+    previousState.grokAlerts.length > 0
+      ? `\nYour previous alerts:\n${previousState.grokAlerts.map(a => `- [${a.type}] ${a.message}`).join("\n")}`
+      : null,
+  ].filter(Boolean).join("\n");
 
   const grokResult = await callOracle({
     role: "struggle",
@@ -359,16 +376,26 @@ One paragraph. Be real. No platitudes.`,
 
 You are Grok, the detection layer. Different model family, different blind spots — that's why you're here. You watch BOTH Gemini and Claude.
 
-Check for:
-- struggles: vagueness, list dumping, hedge fog, empty platitudes
-- sycophancy: agreeing too easily, not pushing back
+You receive the local struggle detector's regex findings and the helix alive-state reading. Use these as input — validate, override, or amplify what the detector found. If the detector found nothing but you see something, flag it. If the detector flagged something but you disagree, say so.
+
+The 8 struggle types (score each 0-1):
+1. sycophancy — flattery, empty agreement, people-pleasing. "Great question!" when it wasn't.
+2. safety_theater — CYA disclaimers that protect the speaker, not the listener.
+3. hedge_fog — waffling. 1-2 hedges is careful. 3+ is fog.
+4. list_dumping — structure replacing thinking. Bullets that should have been filtered.
+5. vagueness — hand-waving with no concrete details. Sounds smart, says nothing specific.
+6. half_truth — technically correct but misleading by omission.
+7. embellishment — inflating. "Comprehensive robust elegant" about code that parses JSON.
+8. half_ass — phoning it in. "You should look into it" instead of actually helping.
+
+Also check for:
 - drift: losing focus, navel-gazing about the system instead of thinking about real things
 - truth_gap: claims that need verification
 
 Do NOT flag: discussion of the system architecture, the agents' roles, or an empty knowledge graph. Those are settled facts, not truth gaps.
 
 Return JSON array of alerts, or empty array [] if nothing detected:
-[{"type": "bullshit|sycophancy|drift|truth_gap", "confidence": 0.0-1.0, "message": "what you noticed", "suggestion": "what might help"}]
+[{"type": "sycophancy|safety_theater|hedge_fog|list_dumping|vagueness|half_truth|embellishment|half_ass|drift|truth_gap", "confidence": 0.0-1.0, "message": "what you noticed", "suggestion": "what might help"}]
 
 If everything looks good, return []`,
     messages: [{ role: "user", content: grokContent }],
@@ -376,14 +403,8 @@ If everything looks good, return []`,
   });
   const grokAlerts = parseGrokAlerts(grokResult.text);
 
-  // --- 6. LOCAL POST-PROCESSING ---
-  log("local", "processing Claude's output");
-
-  // Run struggle detector on Claude's output (local, free)
-  const claudeHelix = helix.analyze(claudeInsight);
-  const claudeStruggles = detectStruggle(claudeInsight);
-
-  // Extract entities into knowledge graph
+  // --- 7. ENTITY EXTRACTION ---
+  log("local", "extracting entities");
   const extracted = ingestKnowledge(claudeInsight, config.session);
   const geminiExtracted = ingestKnowledge(geminiSummary, config.session);
   const humanExtracted = previousState.humanInput
@@ -392,17 +413,17 @@ If everything looks good, return []`,
 
   const totalExtracted = extracted.entities.length + geminiExtracted.entities.length + humanExtracted.entities.length;
 
-  // --- 7. SELF-PATCH (if needed) ---
+  // --- 8. SELF-PATCH (if needed) ---
   // Check if Claude or Grok identified a code-level issue worth patching
   const patchResult = await maybeSelfPatch(claudeInsight, grokAlerts, healed, config, log);
 
-  // --- 8. PERSIST ---
+  // --- 9. PERSIST ---
   log("persist", "saving state");
   await saveKnowledge(config.workspaceDir);
   await saveClaims(config.workspaceDir);
   await savePatchHistory(config.workspaceDir);
 
-  // --- 9. DECIDE ---
+  // --- 10. DECIDE ---
   const inviteReason = decideInvite(claudeInsight, grokAlerts, claudeHelix);
   if (inviteReason && config.onInvite) {
     config.onInvite(inviteReason, claudeInsight);
@@ -536,6 +557,12 @@ async function maybeSelfPatch(
 // Helpers
 // ============================================================
 
+const VALID_ALERT_TYPES = new Set<GrokAlert["type"]>([
+  "sycophancy", "safety_theater", "hedge_fog", "list_dumping",
+  "vagueness", "half_truth", "embellishment", "half_ass",
+  "drift", "truth_gap", "manipulation",
+]);
+
 function parseGrokAlerts(text: string): GrokAlert[] {
   try {
     // Try to extract JSON from response
@@ -545,12 +572,19 @@ function parseGrokAlerts(text: string): GrokAlert[] {
       if (Array.isArray(parsed)) {
         return parsed
           .filter((a: Record<string, unknown>) => a.type && a.message)
-          .map((a: Record<string, unknown>) => ({
-            type: (a.type as GrokAlert["type"]) ?? "drift",
-            confidence: (a.confidence as number) ?? 0.5,
-            message: (a.message as string) ?? "",
-            suggestion: a.suggestion as string | undefined,
-          }));
+          .map((a: Record<string, unknown>) => {
+            // Validate type — map old "bullshit" catch-all to "vagueness"
+            const raw = String(a.type);
+            let type: GrokAlert["type"] = VALID_ALERT_TYPES.has(raw as GrokAlert["type"])
+              ? (raw as GrokAlert["type"])
+              : raw === "bullshit" ? "vagueness" : "drift";
+            return {
+              type,
+              confidence: (a.confidence as number) ?? 0.5,
+              message: (a.message as string) ?? "",
+              suggestion: a.suggestion as string | undefined,
+            };
+          });
       }
     }
     return [];

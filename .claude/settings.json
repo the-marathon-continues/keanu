@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "keanu": {
+      "command": "bun",
+      "args": ["run", "mcp/server.ts"],
+      "cwd": "/Users/andrew/keanu-core"
+    }
+  }
+}

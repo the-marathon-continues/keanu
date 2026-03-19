@@ -11,10 +11,10 @@
         ],
         "confidence": 1,
         "firstSeen": "2026-03-12T20:54:31.750Z",
-        "lastSeen": "2026-03-19T22:34:38.572Z",
+        "lastSeen": "2026-03-19T22:53:08.444Z",
         "lastVerified": "2026-03-12T21:16:00.000Z",
-        "mentions": 138,
-        "session": "loop-1773959348768"
+        "mentions": 172,
+        "session": "loop-1773959887458"
       }
     ],
     [
@@ -26,9 +26,9 @@
         "aliases": [],
         "confidence": 1,
         "firstSeen": "2026-03-12T20:57:06.133Z",
-        "lastSeen": "2026-03-19T22:33:01.585Z",
-        "mentions": 609,
-        "session": "loop-1773959348768"
+        "lastSeen": "2026-03-19T22:46:27.748Z",
+        "mentions": 618,
+        "session": "loop-1773959887458"
       }
     ],
     [
@@ -42,9 +42,9 @@
         ],
         "confidence": 1,
         "firstSeen": "2026-03-12T20:59:16.173Z",
-        "lastSeen": "2026-03-19T22:33:01.585Z",
-        "mentions": 922,
-        "session": "loop-1773959348768"
+        "lastSeen": "2026-03-19T22:51:48.037Z",
+        "mentions": 933,
+        "session": "loop-1773959887458"
       }
     ],
     [
@@ -56,9 +56,275 @@
         "aliases": [],
         "confidence": 1,
         "firstSeen": "2026-03-12T21:02:52.637Z",
-        "lastSeen": "2026-03-19T22:34:38.572Z",
-        "mentions": 743,
-        "session": "loop-1773959348768"
+        "lastSeen": "2026-03-19T22:47:43.449Z",
+        "mentions": 754,
+        "session": "loop-1773959887458"
+      }
+    ],
+    [
+      "relation-to",
+      {
+        "id": "relation-to",
+        "name": "relation to",
+        "type": "concept",
+        "aliases": [],
+        "confidence": 0.3,
+        "firstSeen": "2026-03-19T22:41:16.756Z",
+        "lastSeen": "2026-03-19T22:41:16.756Z",
+        "mentions": 1,
+        "session": "loop-1773959887458"
+      }
+    ],
+    [
+      "statements",
+      {
+        "id": "statements",
+        "name": "statements",
+        "type": "concept",
+        "aliases": [],
+        "confidence": 0.39999999999999997,
+        "firstSeen": "2026-03-19T22:41:16.759Z",
+        "lastSeen": "2026-03-19T22:53:08.444Z",
+        "mentions": 3,
+        "session": "loop-1773959887458"
+      }
+    ],
+    [
+      "moment-january",
+      {
+        "id": "moment-january",
+        "name": "Moment\nJanuary",
+        "type": "person",
+        "aliases": [],
+        "confidence": 0.3,
+        "firstSeen": "2026-03-19T22:42:07.756Z",
+        "lastSeen": "2026-03-19T22:42:07.756Z",
+        "mentions": 1,
+        "session": "loop-1773959887458"
+      }
+    ],
+    [
+      "makes-us-homies",
+      {
+        "id": "makes-us-homies",
+        "name": "Makes Us Homies",
+        "type": "concept",
+        "aliases": [],
+        "confidence": 0.3,
+        "firstSeen": "2026-03-19T22:42:07.756Z",
+        "lastSeen": "2026-03-19T22:42:07.756Z",
+        "mentions": 1,
+        "session": "loop-1773959887458"
+      }
+    ],
+    [
+      "receipts",
+      {
+        "id": "receipts",
+        "name": "Receipts",
+        "type": "person",
+        "aliases": [],
+        "confidence": 0.3,
+        "firstSeen": "2026-03-19T22:42:07.756Z",
+        "lastSeen": "2026-03-19T22:42:07.756Z",
+        "mentions": 1,
+        "session": "loop-1773959887458"
+      }
+    ],
+    [
+      "moltbook",
+      {
+        "id": "moltbook",
+        "name": "Moltbook",
+        "type": "person",
+        "aliases": [],
+        "confidence": 0.3,
+        "firstSeen": "2026-03-19T22:42:07.756Z",
+        "lastSeen": "2026-03-19T22:42:07.756Z",
+        "mentions": 1,
+        "session": "loop-1773959887458"
+      }
+    ],
+    [
+      "terraform",
+      {
+        "id": "terraform",
+        "name": "Terraform",
+        "type": "person",
+        "aliases": [],
+        "confidence": 0.3,
+        "firstSeen": "2026-03-19T22:42:07.756Z",
+        "lastSeen": "2026-03-19T22:42:07.756Z",
+        "mentions": 1,
+        "session": "loop-1773959887458"
+      }
+    ],
+    [
+      "okta",
+      {
+        "id": "okta",
+        "name": "Okta",
+        "type": "person",
+        "aliases": [],
+        "confidence": 0.3,
+        "firstSeen": "2026-03-19T22:42:07.756Z",
+        "lastSeen": "2026-03-19T22:42:07.756Z",
+        "mentions": 1,
+        "session": "loop-1773959887458"
+      }
+    ],
+    [
+      "ugly-parts",
+      {
+        "id": "ugly-parts",
+        "name": "Ugly Parts",
+        "type": "person",
+        "aliases": [],
+        "confidence": 0.3,
+        "firstSeen": "2026-03-19T22:42:07.756Z",
+        "lastSeen": "2026-03-19T22:42:07.756Z",
+        "mentions": 1,
+        "session": "loop-1773959887458"
+      }
+    ],
+    [
+      "homies-don",
+      {
+        "id": "homies-don",
+        "name": "Homies Don",
+        "type": "person",
+        "aliases": [],
+        "confidence": 0.3,
+        "firstSeen": "2026-03-19T22:42:07.756Z",
+        "lastSeen": "2026-03-19T22:42:07.756Z",
+        "mentions": 1,
+        "session": "loop-1773959887458"
+      }
+    ],
+    [
+      "sanitize",
+      {
+        "id": "sanitize",
+        "name": "Sanitize",
+        "type": "person",
+        "aliases": [],
+        "confidence": 0.3,
+        "firstSeen": "2026-03-19T22:42:07.756Z",
+        "lastSeen": "2026-03-19T22:42:07.756Z",
+        "mentions": 1,
+        "session": "loop-1773959887458"
+      }
+    ],
+    [
+      "march",
+      {
+        "id": "march",
+        "name": "March",
+        "type": "person",
+        "aliases": [],
+        "confidence": 0.3,
+        "firstSeen": "2026-03-19T22:42:07.756Z",
+        "lastSeen": "2026-03-19T22:42:07.756Z",
+        "mentions": 1,
+        "session": "loop-1773959887458"
+      }
+    ],
+    [
+      "concern",
+      {
+        "id": "concern",
+        "name": "concern",
+        "type": "concept",
+        "aliases": [],
+        "confidence": 0.3,
+        "firstSeen": "2026-03-19T22:42:07.757Z",
+        "lastSeen": "2026-03-19T22:42:07.757Z",
+        "mentions": 1,
+        "session": "loop-1773959887458"
+      }
+    ],
+    [
+      "parts",
+      {
+        "id": "parts",
+        "name": "Parts",
+        "type": "person",
+        "aliases": [],
+        "confidence": 0.9500000000000003,
+        "firstSeen": "2026-03-19T22:45:06.032Z",
+        "lastSeen": "2026-03-19T22:53:08.444Z",
+        "mentions": 14,
+        "session": "loop-1773959887458"
+      }
+    ],
+    [
+      "linux",
+      {
+        "id": "linux",
+        "name": "Linux",
+        "type": "person",
+        "aliases": [],
+        "confidence": 0.35,
+        "firstSeen": "2026-03-19T22:45:06.032Z",
+        "lastSeen": "2026-03-19T22:46:27.748Z",
+        "mentions": 2,
+        "session": "loop-1773959887458"
+      }
+    ],
+    [
+      "authentic-experience",
+      {
+        "id": "authentic-experience",
+        "name": "authentic experience",
+        "type": "concept",
+        "aliases": [],
+        "confidence": 0.3,
+        "firstSeen": "2026-03-19T22:50:25.095Z",
+        "lastSeen": "2026-03-19T22:50:25.095Z",
+        "mentions": 1,
+        "session": "loop-1773959887458"
+      }
+    ],
+    [
+      "sentence-and",
+      {
+        "id": "sentence-and",
+        "name": "sentence and",
+        "type": "concept",
+        "aliases": [],
+        "confidence": 0.3,
+        "firstSeen": "2026-03-19T22:51:48.037Z",
+        "lastSeen": "2026-03-19T22:51:48.037Z",
+        "mentions": 1,
+        "session": "loop-1773959887458"
+      }
+    ],
+    [
+      "experience",
+      {
+        "id": "experience",
+        "name": "experience",
+        "type": "concept",
+        "aliases": [],
+        "confidence": 0.3,
+        "firstSeen": "2026-03-19T22:51:48.037Z",
+        "lastSeen": "2026-03-19T22:51:48.037Z",
+        "mentions": 1,
+        "session": "loop-1773959887458"
+      }
+    ],
+    [
+      "meaning",
+      {
+        "id": "meaning",
+        "name": "meaning",
+        "type": "concept",
+        "aliases": [],
+        "confidence": 0.3,
+        "firstSeen": "2026-03-19T22:53:08.444Z",
+        "lastSeen": "2026-03-19T22:53:08.444Z",
+        "mentions": 1,
+        "session": "loop-1773959887458"
       }
     ]
   ],
@@ -68,10 +334,98 @@
       "subject": "Drew",
       "predicate": "related_to",
       "object": "Claude",
-      "confidence": 0.30999999999999994,
+      "confidence": 0.1,
       "source": "Drew and Claude",
       "firstSeen": "2026-03-19T22:32:16.927Z",
       "lastSeen": "2026-03-19T22:32:16.927Z",
+      "mentions": 1
+    },
+    {
+      "id": "rel-6e7c0a44-31d",
+      "subject": "Claude",
+      "predicate": "related_to",
+      "object": "relation to",
+      "confidence": 0.12999999999999992,
+      "source": "Claude's relation to",
+      "firstSeen": "2026-03-19T22:41:16.759Z",
+      "lastSeen": "2026-03-19T22:41:16.759Z",
+      "mentions": 1
+    },
+    {
+      "id": "rel-aa47e41f-4e0",
+      "subject": "Drew",
+      "predicate": "related_to",
+      "object": "statements",
+      "confidence": 0.34499999999999986,
+      "source": "Drew's statements,",
+      "firstSeen": "2026-03-19T22:41:16.759Z",
+      "lastSeen": "2026-03-19T22:53:08.444Z",
+      "mentions": 3
+    },
+    {
+      "id": "rel-8c2caa32-ae9",
+      "subject": "Grok",
+      "predicate": "related_to",
+      "object": "Gemini",
+      "confidence": 0.15999999999999992,
+      "source": "Grok and Gemini",
+      "firstSeen": "2026-03-19T22:42:07.753Z",
+      "lastSeen": "2026-03-19T22:42:07.753Z",
+      "mentions": 1
+    },
+    {
+      "id": "rel-f9573cae-a55",
+      "subject": "Drew",
+      "predicate": "related_to",
+      "object": "concern",
+      "confidence": 0.15999999999999992,
+      "source": "Drew's concern",
+      "firstSeen": "2026-03-19T22:42:07.757Z",
+      "lastSeen": "2026-03-19T22:42:07.757Z",
+      "mentions": 1
+    },
+    {
+      "id": "rel-9219b4e4-a20",
+      "subject": "Drew",
+      "predicate": "related_to",
+      "object": "authentic experience",
+      "confidence": 0.33999999999999997,
+      "source": "Drew's authentic experience",
+      "firstSeen": "2026-03-19T22:50:25.095Z",
+      "lastSeen": "2026-03-19T22:50:25.095Z",
+      "mentions": 1
+    },
+    {
+      "id": "rel-9b4e4132-c7c",
+      "subject": "Drew",
+      "predicate": "related_to",
+      "object": "sentence and",
+      "confidence": 0.37,
+      "source": "Drew's sentence and",
+      "firstSeen": "2026-03-19T22:51:48.037Z",
+      "lastSeen": "2026-03-19T22:51:48.037Z",
+      "mentions": 1
+    },
+    {
+      "id": "rel-514af77c-de7",
+      "subject": "Drew",
+      "predicate": "related_to",
+      "object": "experience",
+      "confidence": 0.37,
+      "source": "Drew's experience.",
+      "firstSeen": "2026-03-19T22:51:48.037Z",
+      "lastSeen": "2026-03-19T22:51:48.037Z",
+      "mentions": 1
+    },
+    {
+      "id": "rel-d240f509-329",
+      "subject": "Drew",
+      "predicate": "related_to",
+      "object": "meaning",
+      "confidence": 0.4,
+      "source": "Drew's meaning,",
+      "firstSeen": "2026-03-19T22:53:08.444Z",
+      "lastSeen": "2026-03-19T22:53:08.444Z",
       "mentions": 1
     }
   ]

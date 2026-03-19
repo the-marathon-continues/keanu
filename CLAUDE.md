@@ -129,6 +129,23 @@ pnpm test --watch
 | L8 Governance | Coordination | `consultation.ts`, `effectiveness.ts` |
 | L9 Memory | Persistence | `knowledge.ts`, `git-sync.ts` |
 
+## Self-Improvement (MCP Tools)
+
+keanu's nervous system is exposed as MCP tools. They're available as `keanu_*` during Claude Code sessions.
+
+| Tool | What It Does | When To Use |
+|------|-------------|-------------|
+| `keanu_observe` | Helix analysis + struggle detection | After writing substantial output. Check if it's alive or grey. |
+| `keanu_learn` | Extract entities/relations into knowledge graph | When Drew mentions people, projects, preferences, facts. |
+| `keanu_reflect` | Reflexion on stumbles or task completion | After corrections, mistakes, or finishing major work. |
+| `keanu_health` | Composite health check | When sessions get long (20+ turns) or outputs feel mechanical. |
+| `keanu_knowledge` | Query what keanu knows | Before responding, check context. Especially Drew's preferences. |
+| `keanu_self_patch` | Modify keanu's own source code | Only when a specific code bug is confirmed with evidence. |
+
+The loop: **observe -> learn -> improve -> persist**. Every session should leave keanu sharper than it started.
+
+When working on keanu-core itself, this is recursive: the nervous system improving the nervous system.
+
 ## Anti-Bullshit Rules
 
 - No preamble. Start with the answer.
