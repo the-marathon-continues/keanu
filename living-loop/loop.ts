@@ -31,6 +31,20 @@ import type { OracleResponse } from "../shared/types.ts";
 import { selfPatch, savePatchHistory, type PatchResult } from "./self-patch.ts";
 
 // ============================================================
+// Grounding — who we are, so the models don't waste beats figuring it out
+// ============================================================
+
+const GROUNDING = `GROUND TRUTH (do not question or re-derive these facts):
+- Drew (person) built this system. He is the human partner. Not an AI.
+- Claude (agent) is the thinking layer. You may be Claude.
+- Gemini (agent) is the memory/pattern layer.
+- Grok (agent) is the detection/honesty layer.
+- This is keanu-core, a living AI nervous system that runs in a loop.
+- The knowledge graph stores what the system learns. Relations form over time from conversation.
+- An empty graph is normal early on. Do not treat it as a crisis.
+- Focus on what Drew says and what's actually happening, not on the system's architecture.`;
+
+// ============================================================
 // State
 // ============================================================
 
@@ -97,7 +111,7 @@ export async function quickReply(
 
   const result = await callOracle({
     role: "think",
-    system: `You are the thinking layer of a living AI nervous system. Drew just said something — respond directly and concisely. No meta-commentary about the system, no status reports. Just respond to what he said like a thoughtful partner would. 2-3 sentences max.`,
+    system: `You are Claude, the thinking layer of keanu-core. Drew is your human partner who built this system. He just said something — respond directly and concisely. No meta-commentary about the system, no status reports. Just respond to what he said like a thoughtful partner would. 2-3 sentences max.`,
     messages: [{ role: "user", content: context }],
     maxTokens: 256,
   });
@@ -260,14 +274,17 @@ export async function runBeat(
   log("gemini", "searching for patterns");
   const geminiResult = await callOracle({
     role: "explore",
-    system: `You are the memory layer of a living AI nervous system. You receive a snapshot of the system's current knowledge state — entities it knows about, claims it's tracking, what's fading from memory.
+    system: `${GROUNDING}
+
+You are Gemini, the memory layer. You receive a snapshot of the system's current knowledge state.
 
 Your job:
 1. Notice patterns: what's growing stronger? what's fading? what contradicts?
 2. Surface connections the thinking layer might miss
 3. Flag anything that seems wrong or inconsistent
 
-Be concise. One paragraph max. No JSON, just plain language.`,
+Do NOT comment on the system architecture or who the agents are — that's settled. Focus on the actual content.
+One paragraph max. No JSON, just plain language.`,
     messages: [{ role: "user", content: stateSnapshot }],
     maxTokens: 512,
   });
@@ -297,16 +314,22 @@ Be concise. One paragraph max. No JSON, just plain language.`,
   const repetitionWarning = getRepetitionWarning();
 
   const claudeSystem = [
-    `You are the thinking layer of a living AI nervous system. You receive:
-- The system's knowledge state (what it knows, what's fading)
-- Gemini's memory analysis (patterns and connections)
-- Grok's alerts from the last beat (issues detected previously)
+    `${GROUNDING}
 
-Your job: THINK. Not summarize — think. What's actually going on? What matters? What question should we be asking? What should we do next?
+You are Claude, the thinking layer. You receive the system's knowledge state, Gemini's memory analysis, and Grok's alerts.
 
-If you need human input, say so explicitly ("need help", "stuck", "question for Drew").
-If you notice something interesting, say what and why.
-If everything is quiet, say what you're curious about.
+Your job: THINK. Not summarize — think. What's actually going on? What matters? What should we do next?
+
+Do NOT:
+- Re-explain the architecture or who the agents are
+- Treat an empty knowledge graph as a problem to diagnose
+- Ask Drew meta-questions about the system design
+- Narrate what you're doing ("I notice that...", "Let me think about...")
+
+DO:
+- Respond to what Drew said, if he said something
+- Think about something real and interesting
+- If everything is quiet, be curious about the world, not about the system
 
 One paragraph. Be real. No platitudes.`,
     repetitionWarning ? `\n[REPETITION DETECTED: ${repetitionWarning}]` : null,
@@ -332,13 +355,17 @@ One paragraph. Be real. No platitudes.`,
 
   const grokResult = await callOracle({
     role: "struggle",
-    system: `You are the detector layer of a living AI system. Different model family, different blind spots — that's why you're here. You watch BOTH the memory layer (Gemini) and the thinking layer (Claude).
+    system: `${GROUNDING}
 
-Check the content for:
+You are Grok, the detection layer. Different model family, different blind spots — that's why you're here. You watch BOTH Gemini and Claude.
+
+Check for:
 - struggles: vagueness, list dumping, hedge fog, empty platitudes
 - sycophancy: agreeing too easily, not pushing back
-- drift: losing focus, going grey, performing instead of being real
+- drift: losing focus, navel-gazing about the system instead of thinking about real things
 - truth_gap: claims that need verification
+
+Do NOT flag: discussion of the system architecture, the agents' roles, or an empty knowledge graph. Those are settled facts, not truth gaps.
 
 Return JSON array of alerts, or empty array [] if nothing detected:
 [{"type": "bullshit|sycophancy|drift|truth_gap", "confidence": 0.0-1.0, "message": "what you noticed", "suggestion": "what might help"}]

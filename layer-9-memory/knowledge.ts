@@ -20,7 +20,7 @@ import { join } from "node:path";
 // Types
 // ============================================================
 
-export type EntityType = "person" | "org" | "project" | "concept" | "tool" | "place";
+export type EntityType = "person" | "org" | "project" | "concept" | "tool" | "place" | "agent";
 
 export interface Entity {
   id: string;
@@ -107,6 +107,16 @@ function classifyEntity(name: string, context: string): EntityType {
   // Known names
   if (lower === "drew" || lower === "andrew") {
     return "person";
+  }
+
+  // System agents — not people, not tools, participants
+  if (["gemini", "grok", "claude", "deepseek"].includes(lower)) {
+    return "agent";
+  }
+
+  // AI orgs
+  if (["openai", "anthropic", "google", "xai", "meta"].includes(lower)) {
+    return "org";
   }
 
   // Check the entity name itself against patterns (not the full context — that's too broad)
@@ -256,9 +266,13 @@ function isLearnedStopword(word: string): boolean {
   return learnedConfig.stopwords.includes(word.toLowerCase());
 }
 
+/** Known entity names that must never become stopwords. */
+const PROTECTED_NAMES = new Set(["drew", "andrew", "gemini", "grok", "claude", "deepseek"]);
+
 /** Teach the system to ignore a word. Returns true if it was a new lesson. */
 export function learnStopword(word: string): boolean {
   const lower = word.toLowerCase();
+  if (PROTECTED_NAMES.has(lower)) return false; // never suppress a known entity
   if (learnedConfig.stopwords.includes(lower)) return false;
   learnedConfig.stopwords.push(lower);
   saveLearnedConfig();
@@ -354,6 +368,7 @@ interface RelationTemplate {
   type: RelationType;
   subjectGroup: number;
   objectGroup: number;
+  freeformObject?: boolean; // Accept any short object, not just known entities/proper nouns
 }
 
 const RELATION_TEMPLATES: RelationTemplate[] = [
@@ -428,6 +443,46 @@ const RELATION_TEMPLATES: RelationTemplate[] = [
     subjectGroup: 1,
     objectGroup: 2,
   },
+  // --- Prose-friendly patterns (how LLMs actually write) ---
+  // "X is the Y" → X related_to Y (catches "Claude is the thinking layer")
+  {
+    pattern: /(\b[A-Z]\w+)\s+is\s+the\s+(.+?)(?:\.|,|;|$)/gi,
+    type: "related_to",
+    subjectGroup: 1,
+    objectGroup: 2,
+    freeformObject: true,
+  },
+  // "X monitors/watches/checks Y"
+  {
+    pattern: /(\b[A-Z]\w+)\s+(?:monitors?|watches?|checks?|detects?|flags?)\s+(.+?)(?:\.|,|$)/gi,
+    type: "related_to",
+    subjectGroup: 1,
+    objectGroup: 2,
+    freeformObject: true,
+  },
+  // "X remembers/tracks/stores Y"
+  {
+    pattern: /(\b[A-Z]\w+)\s+(?:remembers?|tracks?|stores?|records?|surfaces?)\s+(.+?)(?:\.|,|$)/gi,
+    type: "related_to",
+    subjectGroup: 1,
+    objectGroup: 2,
+    freeformObject: true,
+  },
+  // "X's Y" possessive → X related_to Y (catches "Drew's system", "Claude's output")
+  {
+    pattern: /(\b[A-Z]\w+)'s\s+(\w+(?:\s+\w+)?)(?:\.|,|;|\s|$)/gi,
+    type: "related_to",
+    subjectGroup: 1,
+    objectGroup: 2,
+    freeformObject: true,
+  },
+  // "X and Y" when both are known entities → related_to
+  {
+    pattern: /(\b[A-Z]\w+)\s+and\s+([A-Z]\w+)\b/g,
+    type: "related_to",
+    subjectGroup: 1,
+    objectGroup: 2,
+  },
 ];
 
 /**
@@ -476,13 +531,21 @@ export function extractRelations(
         continue;
       }
 
-      // Object must also be a known entity OR a short proper noun (≤3 words, capitalized)
+      // Object validation — prose-friendly templates accept any short phrase,
+      // strict templates require a known entity or proper noun
       const objLower = object.toLowerCase();
       const objIsKnown = known.has(objLower);
-      const objIsProperNoun = /^[A-Z]/.test(object) && object.split(/\s+/).length <= 3
-        && !object.split(/\s+/).every((w) => isCommonWord(w.toLowerCase()));
-      if (!objIsKnown && !objIsProperNoun) {
-        continue;
+      if (!template.freeformObject) {
+        const objIsProperNoun = /^[A-Z]/.test(object) && object.split(/\s+/).length <= 3
+          && !object.split(/\s+/).every((w) => isCommonWord(w.toLowerCase()));
+        if (!objIsKnown && !objIsProperNoun) {
+          continue;
+        }
+      } else {
+        // Freeform: accept short phrases (≤5 words) but reject single common words
+        const objWords = object.split(/\s+/);
+        if (objWords.length > 5) continue;
+        if (objWords.length === 1 && isCommonWord(objLower)) continue;
       }
 
       const key = `${subject.toLowerCase()}:${template.type}:${objLower}`;

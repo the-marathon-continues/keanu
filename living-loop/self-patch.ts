@@ -129,8 +129,11 @@ export async function selfPatch(
   copyFileSync(absPath, backupPath);
   log(`backed up ${request.targetFile}`);
 
-  // --- Ask Claude to diagnose and fix ---
+  // --- Extract relevant section instead of sending whole file ---
+  // Sending 1000+ lines through the oracle times out. Send just the relevant part.
   log("asking claude for a fix");
+
+  const codeSnippet = extractRelevantSection(originalContent, request.focus);
 
   const prompt = [
     "You are editing source code in a living AI system. The system detected a problem and is asking you to fix it.",
@@ -141,32 +144,32 @@ export async function selfPatch(
     `PROBLEM: ${request.problem}`,
     request.evidence ? `\nEVIDENCE:\n${request.evidence}` : null,
     "",
-    "CURRENT CODE:",
+    `RELEVANT CODE (${codeSnippet.isPartial ? "excerpt" : "full file"}):`,
     "```typescript",
-    originalContent,
+    codeSnippet.text,
     "```",
     "",
-    "Write the COMPLETE fixed file. Do not omit any sections. Do not add comments explaining your changes — just make the fix.",
-    "Return ONLY the file content between ```typescript and ``` markers. Nothing else.",
+    "Return a search-and-replace patch. Format:",
+    "<<<SEARCH",
+    "exact lines to find",
+    "===",
+    "replacement lines",
+    ">>>",
+    "",
+    "You can include multiple <<<SEARCH/===/>>> blocks. The SEARCH text must match the original exactly.",
   ].filter(Boolean).join("\n");
 
   let fixedContent: string;
   try {
     const response = await callOracle({
       role: "think",
-      system: "You are a precise code editor. Return only the fixed file content. No explanation, no commentary. The code must be complete — every line of the original that isn't being changed must still be present.",
+      system: "You are a precise code editor. Return only search-and-replace blocks. No explanation, no commentary.",
       messages: [{ role: "user", content: prompt }],
-      maxTokens: 8192,
+      maxTokens: 2048,
     });
 
-    // Extract code from response
-    const codeMatch = response.text.match(/```typescript\n([\s\S]*?)```/);
-    if (!codeMatch) {
-      // Maybe it returned raw code without markers
-      fixedContent = response.text.trim();
-    } else {
-      fixedContent = codeMatch[1];
-    }
+    // Apply search-and-replace patches
+    fixedContent = applyPatches(originalContent, response.text);
   } catch (err) {
     cleanup(backupPath);
     const result: PatchResult = {
@@ -180,26 +183,13 @@ export async function selfPatch(
     return result;
   }
 
-  // --- Sanity check: don't apply empty or tiny patches ---
-  if (fixedContent.length < originalContent.length * 0.5) {
-    cleanup(backupPath);
-    const result: PatchResult = {
-      success: false,
-      applied: false,
-      reverted: false,
-      description: "Fix was too different from original (>50% smaller) — rejecting for safety",
-    };
-    logPatch(request, result);
-    return result;
-  }
-
   if (fixedContent === originalContent) {
     cleanup(backupPath);
     const result: PatchResult = {
       success: false,
       applied: false,
       reverted: false,
-      description: "Claude returned identical code — no fix needed or fix not understood",
+      description: "No patches matched — fix not understood or already applied",
     };
     logPatch(request, result);
     return result;
@@ -248,6 +238,52 @@ export async function selfPatch(
 // ============================================================
 // Helpers
 // ============================================================
+
+/** Extract just the relevant section of a file to avoid sending 1000+ lines through the oracle. */
+function extractRelevantSection(
+  content: string,
+  focus?: string,
+): { text: string; isPartial: boolean } {
+  const lines = content.split("\n");
+
+  // Small files — send the whole thing
+  if (lines.length <= 150) {
+    return { text: content, isPartial: false };
+  }
+
+  // If a focus is given, find that section
+  if (focus) {
+    const focusLower = focus.toLowerCase();
+    const idx = lines.findIndex((l) => l.toLowerCase().includes(focusLower));
+    if (idx !== -1) {
+      const start = Math.max(0, idx - 20);
+      const end = Math.min(lines.length, idx + 80);
+      return { text: lines.slice(start, end).join("\n"), isPartial: true };
+    }
+  }
+
+  // No focus — send first 150 lines (imports + types + early functions)
+  return { text: lines.slice(0, 150).join("\n"), isPartial: true };
+}
+
+/** Apply search-and-replace patches from the oracle response. */
+function applyPatches(original: string, response: string): string {
+  const patchRe = /<<<SEARCH\n([\s\S]*?)\n===\n([\s\S]*?)\n>>>/g;
+  let result = original;
+  let match;
+  let applied = 0;
+
+  while ((match = patchRe.exec(response)) !== null) {
+    const search = match[1];
+    const replace = match[2];
+    if (result.includes(search)) {
+      result = result.replace(search, replace);
+      applied++;
+    }
+  }
+
+  return result;
+}
 
 function isAllowedFile(relativePath: string): boolean {
   // Must be in an allowed directory

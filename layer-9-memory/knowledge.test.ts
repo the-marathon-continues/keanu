@@ -114,6 +114,41 @@ describe("extractRelations", () => {
     // "nothing concrete" is not a known entity or proper noun
     expect(rels.length).toBe(0);
   });
+
+  it("extracts 'is the' prose pattern between known entities", () => {
+    upsertEntity("Claude", "agent", "s-1");
+    const rels = extractRelations("Claude is the thinking layer.");
+    const rel = rels.find((r) => r.subject === "Claude");
+    expect(rel).toBeTruthy();
+    expect(rel!.predicate).toBe("related_to");
+  });
+
+  it("extracts monitoring verbs between known entities", () => {
+    upsertEntity("Grok", "agent", "s-1");
+    upsertEntity("Claude", "agent", "s-1");
+    const rels = extractRelations("Grok monitors Claude.");
+    const rel = rels.find((r) => r.subject === "Grok");
+    expect(rel).toBeTruthy();
+    expect(rel!.predicate).toBe("related_to");
+  });
+
+  it("extracts possessive relations between known entities", () => {
+    upsertEntity("Drew", "person", "s-1");
+    const rels = extractRelations("Drew's system is running well.");
+    const rel = rels.find((r) => r.subject === "Drew");
+    expect(rel).toBeTruthy();
+    expect(rel!.predicate).toBe("related_to");
+  });
+
+  it("extracts 'and' co-occurrence between known entities", () => {
+    upsertEntity("Claude", "agent", "s-1");
+    upsertEntity("Gemini", "agent", "s-1");
+    const rels = extractRelations("Claude and Gemini work together.");
+    const rel = rels.find(
+      (r) => r.subject === "Claude" && r.object === "Gemini",
+    );
+    expect(rel).toBeTruthy();
+  });
 });
 
 // ============================================================

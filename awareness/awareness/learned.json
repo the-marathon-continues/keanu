@@ -1,12 +1,17 @@
 {
   "stopwords": [
-    "drew",
     "tools",
     "*what*",
     "exists",
     "helix",
-    "extraction"
+    "extraction",
+    "gemi"
   ],
-  "entityOverrides": {},
+  "entityOverrides": {
+    "gemini": "agent",
+    "grok": "agent",
+    "claude": "agent",
+    "deepseek": "agent"
+  },
   "prunedPatterns": []
 }
